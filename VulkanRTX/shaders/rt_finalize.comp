@@ -1,0 +1,35 @@
+#version 460
+#extension GL_GOOGLE_include_directive : require
+
+#include "../src/Bindings.h"
+
+struct FinalizeParams {
+	uint scrwidth;
+	uint scrheight;
+	uint spp;
+	uint _idummy;
+	float pixelValueScale;
+	float brightness;
+	float contrastFactor;
+	float _dummy;
+};
+
+layout (local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout( set = 0, binding = fACCUMULATION_BUFFER ) buffer accumulationBuffer { vec4 acPixels[]; };
+layout( set = 0, binding = fUNIFORM_CONSTANTS ) uniform uniformConstants { FinalizeParams params; };
+layout( set = 0, binding = fOUTPUT ) uniform writeonly image2D outputImage;
+
+void main()
+{
+	const ivec2 imageIndex = ivec2(gl_GlobalInvocationID.xy);
+	if ((imageIndex.x >= params.scrwidth) || (imageIndex.y >= params.scrheight)) return;
+	const uint currentIndex = imageIndex.x + imageIndex.y * params.scrwidth;
+
+	// plot scaled pixel, gamma corrected
+	vec4 value = acPixels[currentIndex] * params.pixelValueScale;
+
+	const vec3 rgb = sqrt(max(vec3(0.0f), (value.xyz - 0.5f) * params.contrastFactor + 0.5f + params.brightness));
+
+	imageStore(outputImage, imageIndex, vec4(rgb, value.w));
+}

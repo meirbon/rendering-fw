@@ -1,0 +1,39 @@
+project(OptiX6.5)
+
+if (WIN32)
+	add_library(OptiX6 SHARED IMPORTED GLOBAL)
+	add_library(OptiX6u SHARED IMPORTED GLOBAL)
+	add_library(OptiX6prime SHARED IMPORTED GLOBAL)
+	set_target_properties(OptiX6 PROPERTIES
+			IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/optix.6.5.0.dll
+			IMPORTED_IMPLIB ${PROJECT_SOURCE_DIR}/optix.6.5.0.lib
+			INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
+			)
+
+	set_target_properties(OptiX6u PROPERTIES
+			IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/optixu.6.5.0.dll
+			IMPORTED_IMPLIB ${PROJECT_SOURCE_DIR}/optixu.6.5.0.lib
+			INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
+			)
+
+	set_target_properties(OptiX6prime PROPERTIES
+			IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/optix_prime.6.5.0.dll
+			IMPORTED_IMPLIB ${PROJECT_SOURCE_DIR}/optix_prime.6.5.0.lib
+			INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
+			)
+	#else (WIN32)
+	#	set_target_properties(OptiX6 PROPERTIES
+	#			IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/liboptix.so.6.5.0
+	#			INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
+	#			)
+	#
+	#	set_target_properties(OptiX6u PROPERTIES
+	#			IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/liboptixu.so.6.5.0
+	#			INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
+	#			)
+	#
+	#	set_target_properties(OptiX6prime PROPERTIES
+	#			IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/liboptix_prime.so.6.5.0
+	#			INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
+	#			)
+endif (WIN32)

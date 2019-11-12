@@ -101,7 +101,7 @@ vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const 
 	const vec3 H = normalize(wi + wo);
 	const float NDotH = dot(N, H);
 	const float LDotH = dot(wi, H);
-	const vec3 Cdlin = shadingData.color;
+	const vec3 Cdlin = shadingData.color.xyz;
 	const float Cdlum = .3f * Cdlin.x + .6f * Cdlin.y + .1f * Cdlin.z; // luminance approx.
 	const vec3 Ctint = Cdlum > 0.0f ? Cdlin / Cdlum : vec3(1.0f);	  // normalize lum. to isolate hue+sat
 	const vec3 Cspec0 = mix(SPECULAR * .08f * mix(vec3(1.0f), Ctint, SPECTINT), Cdlin, METALLIC);
@@ -172,9 +172,9 @@ vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const 
 	}
 
 	const vec3 final = mix(brdf, bsdf, TRANSMISSION);
+
 	if (backfacing)
-		return final * vec3(exp(-shadingData.absorption.r * t), exp(-shadingData.absorption.g * t),
-							exp(-shadingData.absorption.b * t));
+		return final * exp(-vec3(shadingData.absorption) * t);
 	else
 		return final;
 }

@@ -140,7 +140,7 @@ void main()
     vec3 N, iN, T, B;
     GetShadingData(D, HIT_U, HIT_V, camera.right_spreadAngle.w * HIT_T, tri,
 				   shadingData, N, iN, T, B, mat3(invTransforms[instance_id]));
-    if ((shadingData.flags & 1u) == 1u)// Check if object hit was translucent
+    if ((floatBitsToUint(shadingData.color.w) & 1u) == 1u)// Check if object hit was translucent
     {
         if (pathLength < MAXPATHLENGTH)// Create extension ray
         {
@@ -153,14 +153,14 @@ void main()
     }
 
     // Terminate path on light
-    if (any(greaterThan(shadingData.color, vec3(1.0)))) /* r, g or b exceeds 1 */
+    if (any(greaterThan(shadingData.color.xyz, vec3(1.0)))) /* r, g or b exceeds 1 */
     {
         const float DdotNL = -dot(D, N);
         vec3 contribution = vec3(0);
         if (DdotNL > 0)
         {
 			if (pathLength == 1 || (FLAGS & S_VIASPECULAR) != 0)
-				contribution = throughput * shadingData.color;
+				contribution = throughput * shadingData.color.xyz;
             else
             {
                 // Last vertex was not specular: apply MIS
@@ -170,7 +170,7 @@ void main()
                 if ((bsdfPdf + lightPdf * pickProb) <= 0)
 					return;
 
-                contribution = throughput * shadingData.color * (1.0f / (bsdfPdf + lightPdf * pickProb));
+                contribution = throughput * shadingData.color.xyz * (1.0f / (bsdfPdf + lightPdf * pickProb));
             }
         }
 

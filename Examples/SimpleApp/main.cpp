@@ -15,7 +15,7 @@
 #define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
-#define SKINNED_MESH 1
+#define SKINNED_MESH 0
 #define PICA 1
 #define PICA_LIGHTS 0
 #define SPONZA 0

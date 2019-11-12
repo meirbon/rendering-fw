@@ -30,8 +30,8 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 	const vec4 N1 = tri.vN1;
 	const vec4 N2 = tri.vN2;
 
-	retVal.color = vec3(base_rg.x, base_rg.y, base_b_medium_r.x), retVal.flags = 0;			 // int flags;
-	retVal.absorption = vec3(base_b_medium_r.y, medium_gb.x, medium_gb.y), retVal.matID = 0; // int matID;
+	retVal.color = vec4(base_rg.x, base_rg.y, base_b_medium_r.x, uintBitsToFloat(0));			// uint flags;
+	retVal.absorption = vec4(base_b_medium_r.y, medium_gb.x, medium_gb.y, uintBitsToFloat(0)); // uint matID;
 	retVal.parameters = mat.parameters;
 
 	N = vec3(N0.w, N1.w, N2.w);
@@ -66,16 +66,16 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 											   int(data.x & 0xFFFFu), int(data.x >> 16u));
 		if (MAT_HASALPHA && texel.w < 0.5f)
 		{
-			retVal.flags |= 1;
+			retVal.color.w = uintBitsToFloat(1);
 			return;
 		}
-		retVal.color = retVal.color * texel.xyz;
+		retVal.color.xyz = retVal.color.xyz * texel.xyz;
 		if (MAT_HAS2NDDIFFUSEMAP) // must have base texture; second and third layers are additive
 		{
 			data = mat.t1data4;
 			uvscale = unpackHalf2x16(data.y);
 			uvoffs = unpackHalf2x16(data.z);
-			retVal.color += FetchTexel(uvscale * (uvoffs + vec2(tu, tv)), int(data.w), int(data.x & 0xFFFFu),
+			retVal.color.xyz += FetchTexel(uvscale * (uvoffs + vec2(tu, tv)), int(data.w), int(data.x & 0xFFFFu),
 									   int(data.x >> 16u), ARGB32)
 								.xyz;
 		}
@@ -84,7 +84,7 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 			data = mat.t2data4;
 			uvscale = unpackHalf2x16(data.y);
 			uvoffs = unpackHalf2x16(data.z);
-			retVal.color += FetchTexel(uvscale * (uvoffs + vec2(tu, tv)), int(data.w), int(data.x & 0xFFFFu),
+			retVal.color.xyz += FetchTexel(uvscale * (uvoffs + vec2(tu, tv)), int(data.w), int(data.x & 0xFFFFu),
 									   int(data.x >> 16u), ARGB32)
 								.xyz;
 		}

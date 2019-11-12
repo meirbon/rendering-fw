@@ -588,7 +588,7 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 
 vk::DescriptorImageInfo vkrtx::InteropTexture::getDescriptorImageInfo() const
 {
-	return vk::DescriptorImageInfo(nullptr, m_ImageView, vk::ImageLayout::eColorAttachmentOptimal);
+	return vk::DescriptorImageInfo(nullptr, m_ImageView, vk::ImageLayout::eGeneral);
 }
 
 void InteropTexture::transitionImageToInitialState(vk::CommandBuffer &cmdBuffer, vk::Queue &queue)

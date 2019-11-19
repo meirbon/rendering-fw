@@ -110,7 +110,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 	const aiScene *scene = importer.ReadFile(
 		filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
-							 aiProcess_GenUVCoords | aiProcess_FindInstances | aiProcess_RemoveRedundantMaterials);
+							 aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
+							 aiProcess_RemoveRedundantMaterials);
 
 	if (!scene)
 	{
@@ -122,7 +123,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 	m_IsAnimated = scene->HasAnimations();
 
-	// Create our own scene graph from assimp node graph, store every node's transformation along the way
+	// Create our own scene graph from Assimp node graph, store every node's transformation along the way
 	traverseNode(scene->mRootNode, -1, &m_SceneGraph, &m_BaseNodeTransformations, &m_NodeNameMapping);
 	calculateMatrices(m_SceneGraph.at(0), m_SceneGraph, m_BaseNodeTransformations);
 
@@ -266,6 +267,12 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	m_CurrentVertices.resize(vertexCount);
 	m_CurrentNormals.resize(vertexCount);
 
+	m_CurrentTangents.resize(vertexCount);
+	m_CurrentBitangents.resize(vertexCount);
+
+	m_BaseTangents.resize(vertexCount);
+	m_BaseBitangents.resize(vertexCount);
+
 	m_BaseVertices.resize(vertexCount);
 	m_BaseNormals.resize(vertexCount);
 	m_BaseTexCoords.resize(vertexCount);
@@ -303,10 +310,17 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 				m_BaseVertices.at(vIdx) = vertex;
 				m_BaseNormals.at(vIdx) = normal;
-				if (curMesh->mTextureCoords[0])
+				if (curMesh->HasTextureCoords(0))
 					m_BaseTexCoords.at(vIdx) = vec2(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
 				else
 					m_BaseTexCoords.at(vIdx) = vec2(0.0f);
+				if (curMesh->HasTangentsAndBitangents())
+				{
+					m_BaseTangents.at(vIdx) =
+						vec3(curMesh->mTangents[v].x, curMesh->mTangents[v].y, curMesh->mTangents[v].z);
+					m_BaseBitangents.at(vIdx) =
+						vec3(curMesh->mBitangents[v].x, curMesh->mBitangents[v].y, curMesh->mBitangents[v].z);
+				}
 			}
 
 			for (uint f = 0; f < curMesh->mNumFaces; f++)
@@ -336,6 +350,52 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				const auto fIdx = faceOffset + f;
 				m_MaterialIndices.at(fIdx) = matIndex;
 				m_Indices.at(fIdx) = uvec3(f0, f1, f2) + vertexOffset;
+
+				// vec3 T, B;
+				// if (curMesh->HasTangentsAndBitangents())
+				//{
+				//
+				//	const vec3 T0 = glm::make_vec3(&curMesh->mTangents[f0].x);
+				//	const vec3 T1 = glm::make_vec3(&curMesh->mTangents[f1].x);
+				//	const vec3 T2 = glm::make_vec3(&curMesh->mTangents[f2].x);
+				//
+				//	const vec3 B0 = glm::make_vec3(&curMesh->mBitangents[f0].x);
+				//	const vec3 B1 = glm::make_vec3(&curMesh->mBitangents[f1].x);
+				//	const vec3 B2 = glm::make_vec3(&curMesh->mBitangents[f2].x);
+				//}
+				// else
+				//{
+				//	const float u0 = curMesh->mTextureCoords[0][f0].x;
+				//	const float u1 = curMesh->mTextureCoords[0][f1].x;
+				//	const float u2 = curMesh->mTextureCoords[0][f2].x;
+				//
+				//	const float tv0 = curMesh->mTextureCoords[0][f0].y;
+				//	const float tv1 = curMesh->mTextureCoords[0][f1].y;
+				//	const float tv2 = curMesh->mTextureCoords[0][f2].y;
+				//
+				//	const auto uv01 = vec2(u1 - u0, tv1 - tv0);
+				//	const auto uv02 = vec2(u2 - u0, tv2 - tv0);
+				//
+				//	if (dot(uv01, uv01) == 0 || dot(uv02, uv02) == 0)
+				//	{
+				//		T = glm::normalize(v1 - v0);
+				//		B = glm::normalize(cross(N, T));
+				//	}
+				//	else
+				//	{
+				//		T = glm::normalize((v1 - v0) * uv02.y - (v2 - v0) * uv01.y);
+				//		B = glm::normalize((v2 - v0) * uv01.x - (v1 - v0) * uv02.x);
+				//	}
+				//}
+
+				// if (hasTransform)
+				//{
+				//	T = matrix3x3 * T;
+				//	B = matrix3x3 * B;
+				//}
+				//
+				// m_BaseTangents.at(fIdx) = T;
+				// m_BaseBitangents.at(fIdx) = B;
 			}
 
 			if (curMesh->HasBones())
@@ -419,6 +479,8 @@ void AssimpObject::transformTo(const float timeInSeconds)
 	std::vector<aiMatrix4x4> trsNodeTransformations = m_BaseNodeTransformations;
 
 	// Start of with clean base data
+	m_CurrentTangents = m_BaseTangents;
+	m_CurrentBitangents = m_BaseBitangents;
 	m_CurrentVertices.resize(m_BaseVertices.size());
 	m_CurrentNormals.resize(m_BaseNormals.size());
 	memset(m_CurrentVertices.data(), 0, m_CurrentVertices.size() * sizeof(vec4));
@@ -523,6 +585,8 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		m_BaseNodeTransformations.clear();
 		m_BaseTexCoords.clear();
 		m_BaseVertices.clear();
+		m_BaseTangents.clear();
+		m_BaseBitangents.clear();
 	}
 }
 
@@ -541,6 +605,11 @@ void AssimpObject::updateTriangles()
 		const vec3 &n1 = m_CurrentNormals.at(indices.y);
 		const vec3 &n2 = m_CurrentNormals.at(indices.z);
 
+		vec3 N = normalize(cross(v1 - v0, v2 - v0));
+
+		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+			N *= -1.0f; // flip if not consistent with vertex normals
+
 		tri.vertex0 = v0;
 		tri.vertex1 = v1;
 		tri.vertex2 = v2;
@@ -554,10 +623,9 @@ void AssimpObject::updateTriangles()
 		tri.u2 = m_BaseTexCoords.at(indices.z).x;
 		tri.v2 = m_BaseTexCoords.at(indices.z).y;
 
-		vec3 N = normalize(cross(v1 - v0, v2 - v0));
-
-		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
-			N *= -1.0f; // flip if not consistent with vertex normals
+		// Are not actually used
+		tri.T = m_CurrentTangents.at(i);
+		tri.B = m_CurrentBitangents.at(i);
 
 		tri.Nx = N.x;
 		tri.Ny = N.y;

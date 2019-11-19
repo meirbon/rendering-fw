@@ -20,18 +20,6 @@
 
 namespace rfw
 {
-
-class LoadException : public std::exception
-{
-  public:
-	explicit LoadException(std::string message) : m_Message(std::move(message)) {}
-
-	[[nodiscard]] const char *what() const noexcept override { return m_Message.c_str(); }
-
-  private:
-	std::string m_Message;
-};
-
 class AssimpObject : public SceneTriangles
 {
   private:
@@ -227,7 +215,7 @@ class AssimpObject : public SceneTriangles
 	uint getAnimationCount() const override;
 	void setAnimation(uint index) override;
 	uint getMaterialForPrim(uint primitiveIdx) const override;
-	
+
 	std::vector<uint> getLightIndices(const std::vector<bool> &matLightFlags) const override;
 
   private:
@@ -243,15 +231,17 @@ class AssimpObject : public SceneTriangles
 	std::vector<Triangle> m_Triangles;
 	std::vector<glm::vec4> m_CurrentVertices;
 	std::vector<glm::vec3> m_CurrentNormals;
+	std::vector<glm::vec3> m_CurrentTangents;
+	std::vector<glm::vec3> m_CurrentBitangents;
 
 	// Original scene data
-	// Per vertex
 	std::vector<glm::uvec3> m_Indices;
 	std::vector<uint> m_MaterialIndices;
 	std::vector<glm::vec4> m_BaseVertices;
 	std::vector<glm::vec3> m_BaseNormals;
 	std::vector<glm::vec2> m_BaseTexCoords;
-	// Per face
+	std::vector<glm::vec3> m_BaseTangents;
+	std::vector<glm::vec3> m_BaseBitangents;
 
 	std::vector<MeshAnimation> m_Animations;
 

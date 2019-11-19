@@ -135,7 +135,7 @@ void main()
     const vec3 D = D4.xyz;
     const vec3 I = O4.xyz + HIT_T * D;
 
-    const DeviceTriangle tri = tbuffers[instance_id].tdata[prim_id];
+	const DeviceTriangle tri = tbuffers[instance_id].tdata[prim_id];
     ShadingData shadingData;
     vec3 N, iN, T, B;
     GetShadingData(D, HIT_U, HIT_V, camera.right_spreadAngle.w * HIT_T, tri,
@@ -165,8 +165,8 @@ void main()
             {
                 // Last vertex was not specular: apply MIS
                 const vec3 lastN = UnpackNormal(floatBitsToUint(D4.w));
-                const float lightPdf = CalculateLightPDF(D, HIT_T, tri.area_invArea_LOD.x, N);
-                const float pickProb = LightPickProb(int(floatBitsToUint(tri.u4.w)), RAY_O, lastN, I /* the N at the previous vertex */);
+                const float lightPdf = CalculateLightPDF(D, HIT_T, shadingData.absorption.w, N);
+                const float pickProb = LightPickProb(floatBitsToInt(tri.u4.w), RAY_O, lastN, I /* the N at the previous vertex */);
                 if ((bsdfPdf + lightPdf * pickProb) <= 0)
 					return;
 

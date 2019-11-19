@@ -5,6 +5,7 @@
 #include "MaterialList.h"
 #include "SceneTriangles.h"
 #include "AssimpObject.h"
+#include "gLTFObject.h"
 
 #include <ContextExport.h>
 
@@ -35,6 +36,8 @@ extern "C"
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 #endif
+
+#define USE_TINY_GLTF 1
 
 using namespace rfw;
 
@@ -178,7 +181,7 @@ void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 	m_Context->init(&texture->m_ID, texture->getWidth(), texture->getHeight());
 }
 
-void RenderSystem::setSkybox(const std::string_view &filename)
+void RenderSystem::setSkybox(std::string_view filename)
 {
 	if (!utils::file::exists(filename))
 	{
@@ -327,76 +330,18 @@ rfw::InstanceReference RenderSystem::getInstanceReference(size_t index)
 	return m_Instances.at(index);
 }
 
-rfw::GeometryReference RenderSystem::addObject(const std::string_view &fileName, int material)
+rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, int material)
 {
-	if (!utils::file::exists(fileName))
-		throw LoadException(std::string(fileName.data()));
-
-	const size_t idx = m_Models.size();
-	const size_t matFirst = m_Materials->getMaterials().size();
-
-	// Add model to list
-	m_Models.emplace_back(
-		new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), glm::mat4(1.0f), false, material));
-	m_ModelChanged.push_back(true);
-
-	const auto lightIndices = m_Models.at(idx)->getLightIndices(m_Materials->getMaterialLightFlags());
-	if (!lightIndices.empty())
-	{
-		m_Changed[AREA_LIGHTS] = true;
-		m_Changed[LIGHTS] = true;
-	}
-	m_ObjectLightIndices.push_back(lightIndices);
-
-	m_ObjectMaterialRange.push_back(
-		std::make_pair(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size())));
-
-	// Update flags
-	m_Changed[MODELS] = true;
-	m_Changed[MATERIALS] = true;
-
-	m_UninitializedMeshes = true;
-
-	// Return reference
-	return GeometryReference(idx, *this);
+	return addObject(fileName, false, glm::mat4(1.0f), material);
 }
 
-rfw::GeometryReference RenderSystem::addObject(const std::string_view &fileName, bool normalize, int material)
+rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, int material)
 {
-	if (!utils::file::exists(fileName))
-		throw LoadException(std::string(fileName.data()));
-
-	const size_t idx = m_Models.size();
-	const size_t matFirst = m_Materials->getMaterials().size();
-
-	// Add model to list
-	m_Models.emplace_back(
-		new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), glm::mat4(1.0f), normalize, material));
-	m_ModelChanged.push_back(true);
-
-	const auto lightIndices = m_Models.at(idx)->getLightIndices(m_Materials->getMaterialLightFlags());
-	if (!lightIndices.empty())
-	{
-		m_Changed[AREA_LIGHTS] = true;
-		m_Changed[LIGHTS] = true;
-	}
-	m_ObjectLightIndices.push_back(lightIndices);
-
-	m_ObjectMaterialRange.push_back(
-		std::make_pair(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size())));
-
-	// Update flags
-	m_Changed[MODELS] = true;
-	m_Changed[MATERIALS] = true;
-
-	m_UninitializedMeshes = true;
-
-	// Return reference
-	return GeometryReference(idx, *this);
+	return addObject(fileName, normalize, glm::mat4(1.0f), material);
 }
 
-GeometryReference RenderSystem::addObject(const std::string_view &fileName, bool normalize,
-										  const glm::mat4 &preTransform, int material)
+GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform,
+										  int material)
 {
 	if (!utils::file::exists(fileName))
 		throw LoadException(std::string(fileName.data()));
@@ -404,9 +349,20 @@ GeometryReference RenderSystem::addObject(const std::string_view &fileName, bool
 	const size_t idx = m_Models.size();
 	const size_t matFirst = m_Materials->getMaterials().size();
 
-	// Add model to list
-	m_Models.emplace_back(
-		new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
+// Add model to list
+#if USE_TINY_GLTF
+	if (utils::string::ends_with(fileName, {".gltf", ".glb"}))
+	{
+		m_Models.emplace_back(
+			new gTLFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
+	}
+	else
+#endif
+	{
+		m_Models.emplace_back(
+			new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
+	}
+
 	m_ModelChanged.push_back(true);
 
 	const auto lightIndices = m_Models.at(idx)->getLightIndices(m_Materials->getMaterialLightFlags());

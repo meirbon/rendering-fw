@@ -28,7 +28,7 @@ inline static int radicalInverse9bit(const int v)
 	return ((x << 1) | ((v >> 8) & 1)) + (1 - (v >> 9)); // so 512 = 0
 }
 
-rfw::Skybox::Skybox(const std::string_view &file) { load(file); }
+rfw::Skybox::Skybox(std::string_view file) { load(file); }
 
 rfw::Skybox rfw::Skybox::generateTestSky()
 {
@@ -61,7 +61,7 @@ unsigned rfw::Skybox::getWidth() const { return m_Width; }
 
 unsigned rfw::Skybox::getHeight() const { return m_Height; }
 
-void rfw::Skybox::load(const std::string_view &file)
+void rfw::Skybox::load(std::string_view file)
 {
 	if (utils::file::exists(file))
 	{

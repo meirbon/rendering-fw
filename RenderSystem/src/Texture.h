@@ -36,6 +36,19 @@ struct Texture
 	};
 	Texture() = default;
 	explicit Texture(const std::string_view &file, uint flags = 0);
+	explicit Texture(const uint *data, uint width, uint height);
+	explicit Texture(const glm::vec4 *data, uint width, uint height);
+
+	void cleanup()
+	{
+		if (fdata)
+			delete[] fdata;
+		fdata = nullptr;
+
+		if (udata)
+			delete[] udata;
+		udata = nullptr;
+	}
 
 	uint sample(float x, float y);
 

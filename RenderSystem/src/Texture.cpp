@@ -59,7 +59,7 @@ Texture::Texture(const std::string_view &file, uint mods)
 	BYTE *bytes = (BYTE *)FreeImage_GetBits(img);
 	uint bpp = FreeImage_GetBPP(img);
 	FIBITMAP *alpha = FreeImage_GetChannel(img, FICC_ALPHA);
-	
+
 	if (alpha)
 	{
 		// set alpha rendering for this texture to true if it contains a meaningful alpha channel
@@ -136,6 +136,30 @@ Texture::Texture(const std::string_view &file, uint mods)
 	DEBUG(buffer);
 }
 
+rfw::Texture::Texture(const uint *data, uint w, uint h)
+{
+	type = UNSIGNED_INT;
+	width = w;
+	height = h;
+	texelCount = requiredNumberOfPixels(w, h, MIPLEVELCOUNT);
+	mipLevels = 1;
+	this->udata = new uint[texelCount];
+	memcpy(udata, data, width * height * sizeof(uint));
+	constructMipMaps();
+}
+
+rfw::Texture::Texture(const glm::vec4 *data, uint w, uint h)
+{
+	type = FLOAT4;
+	width = w;
+	height = h;
+	texelCount = width * height;
+	mipLevels = 1;
+	this->fdata = new vec4[requiredNumberOfPixels(w, h, MIPLEVELCOUNT)];
+	memcpy(udata, data, width * height * sizeof(vec4));
+	constructMipMaps();
+}
+
 uint rfw::Texture::sample(float x, float y)
 {
 	x = max(0.0f, mod(x, 1.0f));
@@ -191,6 +215,8 @@ void rfw::Texture::constructMipMaps()
 		w >>= 1u;
 		h >>= 1u;
 	}
+
+	mipLevels = MIPLEVELCOUNT;
 }
 
 uint rfw::Texture::requiredNumberOfPixels(const uint width, const uint height, const uint mipLevels)

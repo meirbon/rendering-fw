@@ -4,6 +4,17 @@
 
 namespace rfw
 {
+class LoadException : public std::exception
+{
+  public:
+	explicit LoadException(std::string message) : m_Message(std::move(message)) {}
+
+	[[nodiscard]] const char *what() const noexcept override { return m_Message.c_str(); }
+
+  private:
+	std::string m_Message;
+};
+
 class SceneTriangles
 {
   public:
@@ -17,7 +28,7 @@ class SceneTriangles
 	virtual glm::vec4 *getVertices() = 0;
 	virtual bool isAnimated() const { return false; }
 	virtual uint getAnimationCount() const { return 0; }
-	virtual void setAnimation(uint index) {};
+	virtual void setAnimation(uint index){};
 	virtual uint getMaterialForPrim(uint primitiveIdx) const = 0;
 };
 } // namespace rfw

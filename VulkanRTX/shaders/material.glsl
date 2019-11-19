@@ -30,8 +30,8 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 	const vec4 N1 = tri.vN1;
 	const vec4 N2 = tri.vN2;
 
-	retVal.color = vec4(base_rg.x, base_rg.y, base_b_medium_r.x, uintBitsToFloat(0));			// uint flags;
-	retVal.absorption = vec4(base_b_medium_r.y, medium_gb.x, medium_gb.y, uintBitsToFloat(0)); // uint matID;
+	retVal.color = vec4(base_rg.x, base_rg.y, base_b_medium_r.x, 0);		   // uint flags;
+	retVal.absorption = vec4(base_b_medium_r.y, medium_gb.x, medium_gb.y, tri.T.w); // uint matID;
 	retVal.parameters = mat.parameters;
 
 	N = vec3(N0.w, N1.w, N2.w);
@@ -41,6 +41,7 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 	N = normalize(invTransform * N);
 	iN = normalize(invTransform * iN);
 
+	// Calculating tangent space is faster than loading from memory
 	createTangentSpace(iN, T, B);
 
 	// Texturing
@@ -56,7 +57,7 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 	if (MAT_HASDIFFUSEMAP)
 	{
 		// Determine LOD
-		const float lambda = tri.area_invArea_LOD.z + log2(coneWidth * (1.0 / abs(dot(D, N))));
+		const float lambda = tri.B.w + log2(coneWidth * (1.0 / abs(dot(D, N))));
 		uvec4 data = mat.t0data4;
 		vec2 uvscale = unpackHalf2x16(data.y);
 		vec2 uvoffs = unpackHalf2x16(data.z);
@@ -76,8 +77,8 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 			uvscale = unpackHalf2x16(data.y);
 			uvoffs = unpackHalf2x16(data.z);
 			retVal.color.xyz += FetchTexel(uvscale * (uvoffs + vec2(tu, tv)), int(data.w), int(data.x & 0xFFFFu),
-									   int(data.x >> 16u), ARGB32)
-								.xyz;
+										   int(data.x >> 16u), ARGB32)
+									.xyz;
 		}
 		if (MAT_HAS3RDDIFFUSEMAP)
 		{
@@ -85,8 +86,8 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 			uvscale = unpackHalf2x16(data.y);
 			uvoffs = unpackHalf2x16(data.z);
 			retVal.color.xyz += FetchTexel(uvscale * (uvoffs + vec2(tu, tv)), int(data.w), int(data.x & 0xFFFFu),
-									   int(data.x >> 16u), ARGB32)
-								.xyz;
+										   int(data.x >> 16u), ARGB32)
+									.xyz;
 		}
 	}
 	// Normal mapping

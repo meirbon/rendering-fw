@@ -12,7 +12,7 @@ class Skybox
 {
   public:
 	Skybox() = default;
-	Skybox(const std::string_view &file);
+	Skybox(std::string_view file);
 
 	static Skybox generateTestSky();
 
@@ -21,7 +21,7 @@ class Skybox
 	[[nodiscard]] unsigned int getWidth() const;
 	[[nodiscard]] unsigned int getHeight() const;
 
-	void load(const std::string_view &file);
+	void load(std::string_view file);
 
   private:
 	std::vector<glm::vec3> m_Pixels; // Sky dome pixel data

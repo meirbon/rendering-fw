@@ -23,8 +23,8 @@ else ()
 	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")
 endif ()
 
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half)
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${LIBS})
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${LIBS} tinygltf)
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

@@ -22,33 +22,34 @@ namespace rfw
 struct Triangle
 {
 #ifndef __CUDACC__
-	// on the host, instantiated classes should be initialized
 	Triangle() { memset(this, 0, sizeof(Triangle)); }
 #endif
 	float u0, u1, u2; // 12
 #ifndef __CUDACC__
-	int lightTriIdx = -1;
+	int lightTriIdx = -1; // 16
 #else
-	int ltriIdx; // 4, set only for emissive triangles, used for MIS
+	int ltriIdx; // 4
 #endif
-	float v0, v1, v2; // 12
-	uint material;	// 4
-	glm::vec3 vN0;	// 12
-	float Nx;		  // 4
-	glm::vec3 vN1;	// 12
-	float Ny;		  // 4
-	glm::vec3 vN2;	// 12
-	float Nz;		  // 4
-	float area;
-	float invArea;
-	float LOD;
-	float dummy0;
-	glm::vec3 vertex0;
-	float dummy1;
-	glm::vec3 vertex1;
-	float dummy2;
-	glm::vec3 vertex2;
-	float dummy3; // total 11 * 16 = 176 bytes.
+
+	float v0, v1, v2; // 28
+	uint material;	// 32
+	glm::vec3 vN0;	// 44
+	float Nx;		  // 48
+	glm::vec3 vN1;	// 60
+	float Ny;		  // 64
+	glm::vec3 vN2;	// 76
+	float Nz;		  // 80
+	glm::vec3 T;	  // 92
+	float area;		  // 96
+	glm::vec3 B;	  // 108
+	float LOD;		  // 112
+
+	glm::vec3 vertex0; // 124
+	float dummy1;	  // 128
+	glm::vec3 vertex1; // 140
+	float dummy2;	  // 144
+	glm::vec3 vertex2; // 156
+	float dummy3;	  // 160 bytes.
 
 	void updateArea()
 	{
@@ -57,7 +58,7 @@ struct Triangle
 		const float c = length(vertex0 - vertex2);
 		const float s = (a + b + c) * 0.5f;
 		area = sqrtf(s * (s - a) * (s - b) * (s - c)); // Heron's formula
-		invArea = max(0.0f, 1.0f / area);
+													   // invArea = max(0.0f, 1.0f / area);
 	}
 };
 

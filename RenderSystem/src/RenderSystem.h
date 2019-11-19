@@ -185,16 +185,16 @@ class RenderSystem
 	void setTarget(std::shared_ptr<rfw::utils::Window> m_Window);
 	void setTarget(GLuint *textureID, uint width, uint height);
 	void setTarget(rfw::utils::GLTexture *texture);
-	void setSkybox(const std::string_view &filename);
+	void setSkybox(std::string_view filename);
 	void synchronize();
 	void updateAnimationsTo(float timeInSeconds);
 
 	rfw::GeometryReference getGeometryReference(size_t index);
 	rfw::InstanceReference getInstanceReference(size_t index);
 
-	rfw::GeometryReference addObject(const std::string_view &fileName, int material = -1);
-	rfw::GeometryReference addObject(const std::string_view &fileName, bool normalize, int material = -1);
-	rfw::GeometryReference addObject(const std::string_view &fileName, bool normalize, const glm::mat4 &preTransform,
+	rfw::GeometryReference addObject(std::string_view fileName, int material = -1);
+	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, int material = -1);
+	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform,
 									 int material = -1);
 	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height,
 								   const uint material);

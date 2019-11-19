@@ -82,15 +82,16 @@ struct DeviceMaterial
 
 struct DeviceTriangle
 {
-	vec4 u4;				// w: light tri idx			tdata0
-	vec4 v4;				// w: material				tdata1
-	vec4 vN0;				// w: Nx					tdata2
-	vec4 vN1;				// w: Ny					tdata3
-	vec4 vN2;				// w: Nz					tdata4
-	vec4 area_invArea_LOD;
-	vec4 vertex0;		    // 48						tdata7
-	vec4 vertex1;			//							tdata8
-	vec4 vertex2;			//							tdata9
+	vec4 u4;				// w: light tri idx			
+	vec4 v4;				// w: material				
+	vec4 vN0;				// w: Nx					
+	vec4 vN1;				// w: Ny					
+	vec4 vN2;				// w: Nz					
+	vec4 T;					// w: area
+	vec4 B;					// w: LOD
+	vec4 vertex0;
+	vec4 vertex1;
+	vec4 vertex2;
 };
 
 #define CHAR2FLT(x, s) ((float( ((x >> s) & 255)) ) * (1.0f / 255.0f))
@@ -98,9 +99,11 @@ struct DeviceTriangle
 struct ShadingData
 {
 	// This structure is filled for an intersection point. It will contain the spatially varying material properties.
-	vec4 color; // flags
-	vec4 absorption; // matID
+	vec4 color; // w: flags
+	vec4 absorption; // w: area
 	uvec4 parameters;
+	//float area;
+	//int lightTriIdx;
 	/* 16 uchars:   x: roughness, metallic, specTrans, specularTint;
 					y: diffTrans, anisotropic, sheen, sheenTint;
 					z: clearcoat, clearcoatGloss, scatterDistance, relativeIOR;

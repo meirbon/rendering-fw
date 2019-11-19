@@ -17,6 +17,15 @@ inline static float RoughnessToAlpha(float roughness)
 				 (1.62142f + 0.819955f * x + 0.1734f * x * x + 0.0171201f * x * x * x + 0.000640711f * x * x * x * x));
 }
 
+MaterialList::~MaterialList()
+{
+	for (auto tex : m_Textures)
+		tex.cleanup();
+
+	m_Textures.clear();
+	m_TextureDescriptors.clear();
+}
+
 uint MaterialList::add(const HostMaterial &mat)
 {
 	auto lock = std::lock_guard(m_MatMutex);
@@ -68,11 +77,11 @@ uint MaterialList::add(const aiMaterial *aiMat, const std::string_view &basedir)
 	{
 		mat.roughness = 1.0f;
 	}
-	//if (eta > 1.0f)
+	// if (eta > 1.0f)
 	//{
 	//	mat.eta = eta;
 	//}
-	//if (opacity != 0.0f)
+	// if (opacity != 0.0f)
 	//{
 	//	mat.transmission = 1.0f - max(opacity, 0.0f);
 	//}
@@ -174,6 +183,33 @@ uint MaterialList::add(const aiMaterial *aiMat, const std::string_view &basedir)
 	const uint idx = static_cast<uint>(m_HostMaterials.size());
 	m_IsEmissive.push_back(mat.isEmissive());
 	m_HostMaterials.push_back(mat);
+	return idx;
+}
+
+uint rfw::MaterialList::add(const Texture &tex)
+{
+	uint idx = (uint)m_Textures.size();
+
+	m_Textures.push_back(tex);
+
+	TextureData data{};
+	if (tex.type == Texture::FLOAT4)
+	{
+		data.type = TextureData::FLOAT4;
+		data.data = tex.fdata;
+	}
+	else if (tex.type == Texture::UNSIGNED_INT)
+	{
+		data.type = TextureData::UINT;
+		data.data = tex.udata;
+	}
+
+	data.width = tex.width;
+	data.height = tex.height;
+	data.texAddr = idx;
+	data.texelCount = tex.texelCount;
+	m_TextureDescriptors.emplace_back(data);
+
 	return idx;
 }
 

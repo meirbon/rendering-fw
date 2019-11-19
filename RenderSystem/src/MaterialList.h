@@ -87,8 +87,11 @@ class HostMaterial
 class MaterialList
 {
   public:
+	  ~MaterialList();
+
 	uint add(const HostMaterial &mat);
 	uint add(const aiMaterial *aiMat, const std::string_view &basedir);
+	uint add(const Texture &tex);
 	void set(uint index, const HostMaterial &mat);
 
 	void generateDeviceMaterials();

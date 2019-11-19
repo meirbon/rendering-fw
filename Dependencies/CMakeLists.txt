@@ -6,6 +6,7 @@ add_subdirectory(Assimp)
 add_subdirectory(GLFW)
 add_subdirectory(OptiX6.5)
 add_subdirectory(OptiX7)
+add_subdirectory(tinygltf2.2.0)
 add_subdirectory(VulkanMemoryAllocator-2.2.0)
 
 if (WIN32)

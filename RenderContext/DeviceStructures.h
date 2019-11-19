@@ -25,13 +25,14 @@ namespace rfw
 {
 struct DeviceTriangle
 {
-	glm::vec4 u4;				// w: light tri idx
-	glm::vec4 v4;				// w: material
-	glm::vec4 vN0;				// w: Nx
-	glm::vec4 vN1;				// w: Ny
-	glm::vec4 vN2;				// w: Nz
-	glm::vec4 area_invArea_LOD; // area, inv area, LOD
-	glm::vec4 vertex[3];		// 48
+	glm::vec4 u4;		 // w: light triangle idx
+	glm::vec4 v4;		 // w: material
+	glm::vec4 vN0;		 // w: Nx
+	glm::vec4 vN1;		 // w: Ny
+	glm::vec4 vN2;		 // w: Nz
+	glm::vec4 T;		 // w: area
+	glm::vec4 B;		 // w: LOD
+	glm::vec4 vertex[3]; // 48
 
 #ifdef __CUDACC__
 	DEVICE_FUNC unsigned int getMatID() const { return __float_as_uint(v4.w); }
@@ -46,9 +47,9 @@ struct DeviceTriangle
 	DEVICE_FUNC glm::vec3 getVertexN0() const { return glm::vec3(vN0); }
 	DEVICE_FUNC glm::vec3 getVertexN1() const { return glm::vec3(vN1); }
 	DEVICE_FUNC glm::vec3 getVertexN2() const { return glm::vec3(vN2); }
-	DEVICE_FUNC float getArea() const { return area_invArea_LOD[0]; }
-	DEVICE_FUNC float getInverseArea() const { return area_invArea_LOD.y; }
-	DEVICE_FUNC float getLOD() const { return area_invArea_LOD.z; }
+	DEVICE_FUNC float getArea() const { return T.w; }
+	DEVICE_FUNC float getInverseArea() const { return 1.0f / getArea(); }
+	DEVICE_FUNC float getLOD() const { return B.w; }
 	DEVICE_FUNC glm::vec3 getVertex0() const { return glm::vec3(vertex[0]); }
 	DEVICE_FUNC glm::vec3 getVertex1() const { return glm::vec3(vertex[1]); }
 	DEVICE_FUNC glm::vec3 getVertex2() const { return glm::vec3(vertex[2]); }

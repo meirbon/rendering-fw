@@ -15,7 +15,7 @@ struct SceneMesh
 	{
 		std::vector<glm::vec3> positions;
 		std::vector<glm::vec3> normals;
-		std::vector<glm::vec3> tangents;
+		//std::vector<glm::vec3> tangents;
 	};
 
 	void setPose(const rfw::MeshSkin &skin);

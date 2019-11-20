@@ -1092,7 +1092,7 @@ void vkrtx::Context::createBuffers()
 {
 	const auto pixelCount = static_cast<vk::DeviceSize>(m_ScrWidth * m_ScrHeight);
 	m_InvTransformsBuffer = new VmaBuffer<mat4>(
-		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+		m_Device, 32, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	m_UniformCamera = new UniformObject<VkCamera>(m_Device);

@@ -48,14 +48,19 @@ rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 
 	if (n.meshID != -1)
 	{
-		const auto morphTargets = object.scene.meshes.at(n.meshID).poses.size();
+		const auto morphTargets = glm::max(object.scene.meshes.at(n.meshID).poses.size(), size_t(1)) - 1;
 		if (morphTargets > 0)
+		{
 			n.weights.resize(morphTargets, 0.0f);
+		}
 	}
 
-	for (size_t s = node.children.size(), i = 0; i < s; i++)
+	if (!node.children.empty())
 	{
-		n.childIndices.push_back(node.children.at(i));
+		for (size_t s = node.children.size(), i = 0; i < s; i++)
+		{
+			n.childIndices.push_back(node.children.at(i));
+		}
 	}
 
 	if (node.matrix.size() == 16)
@@ -427,19 +432,24 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 			}
 
 			std::vector<rfw::SceneMesh::Pose> tmpPoses;
+			tmpPoses.reserve(mesh.weights.size() + 1);
+
+			// Store base pose if morph target present
 			if (!mesh.weights.empty())
 			{
 				tmpPoses.emplace_back();
-				for (size_t s = tmpVertices.size(), i = 0; i < s; i++)
+				for (size_t s = tmpVertices.size(), j = 0; j < s; j++)
 				{
-					tmpPoses.at(0).positions.push_back(tmpVertices.at(i));
-					tmpPoses.at(0).normals.push_back(tmpNormals.at(i));
+					tmpPoses.at(0).positions.push_back(tmpVertices.at(j));
+					tmpPoses.at(0).normals.push_back(tmpNormals.at(j));
 				}
 			}
 
 			for (size_t j = 0; j < mesh.weights.size(); j++)
 			{
 				tmpPoses.emplace_back();
+				auto &pose = tmpPoses.at(tmpPoses.size() - 1);
+
 				for (const auto &target : prim.targets.at(j))
 				{
 					const Accessor &accessor = model.accessors.at(target.second);
@@ -450,12 +460,13 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					for (size_t m = 0; m < accessor.count; m++)
 					{
 						const auto v = glm::vec3(a[m * 3], a[m * 3 + 1], a[m * 3 + 2]);
+
 						if (target.first == "POSITION")
-							tmpPoses.at(i + 1).positions.push_back(v);
+							pose.positions.push_back(v);
 						else if (target.first == "NORMAL")
-							tmpPoses.at(i + 1).normals.push_back(v);
-						else if (target.first == "TANGENT")
-							tmpPoses.at(i + 1).tangents.push_back(v);
+							pose.normals.push_back(v);
+						// else if (target.first == "TANGENT")
+						//	tmpPoses.at(i + 1).tangents.push_back(v);
 					}
 				}
 			}
@@ -572,7 +583,22 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 	scene.baseNormals.reserve(scene.baseNormals.size() + indices.size());
 	texCoords.reserve(texCoords.size() + indices.size());
 
-	mesh.poses = poses;
+	mesh.poses.resize(poses.size());
+	for (size_t i = 0; i < mesh.poses.size(); i++)
+	{
+		const auto &origPose = poses.at(i);
+		auto &pose = mesh.poses.at(i);
+
+		pose.positions.reserve(indices.size());
+		pose.normals.reserve(indices.size());
+
+		for (size_t j = 0, s = indices.size(); j < s; j++)
+		{
+			const auto idx = indices.at(j);
+			pose.positions.push_back(origPose.positions.at(idx));
+			pose.normals.push_back(origPose.normals.at(idx));
+		}
+	}
 
 	mesh.joints.reserve(joints.size());
 	mesh.weights.reserve(weights.size());

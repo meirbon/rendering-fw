@@ -82,8 +82,12 @@ int main()
 
 #if PICA
 	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(1, 0, 0));
-	// auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(2), vec3(0, 2, 0), 90.0f,
-	// vec3(1, 0, 0));
+	//auto interpolationTest =
+	//	rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
+	//auto animatedCube =
+	//	rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
+	//auto animatedSphere =
+	//	rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, 0), 90.0f, vec3(1, 0, 0));
 
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);

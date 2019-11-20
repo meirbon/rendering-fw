@@ -35,8 +35,7 @@ void rfw::SceneMesh::setPose(rfw::utils::ArrayProxy<float> weights)
 	assert(weights.size() == poses.size() - 1);
 	const auto weightCount = weights.size();
 
-	// adjust intersection geometry data
-	for (uint i = 0; i < vertexCount; i++)
+	for (uint s = vertexCount, i = 0; i < s; i++)
 	{
 		const auto idx = i + vertexOffset;
 		object->vertices.at(idx) = vec4(poses.at(0).positions.at(i), 1.0f);
@@ -44,8 +43,10 @@ void rfw::SceneMesh::setPose(rfw::utils::ArrayProxy<float> weights)
 
 		for (uint j = 1; j <= weightCount; j++)
 		{
-			object->vertices.at(idx) += weights.at(j - 1) * vec4(poses.at(j).positions.at(i), 0);
-			object->normals.at(idx) += vec3(weights.at(j - 1) * vec4(poses.at(j).normals.at(i), 0));
+			const auto &pose = poses.at(j);
+
+			object->vertices.at(idx) += weights.at(j - 1) * vec4(pose.positions.at(i), 0);
+			object->normals.at(idx) += weights.at(j - 1) * pose.normals.at(i);
 		}
 	}
 

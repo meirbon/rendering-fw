@@ -34,6 +34,7 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 		{
 			object->meshes.at(meshID).setPose(weights);
 			morphed = false;
+			changed = true;
 		}
 		else if (skinID > -1)
 		{
@@ -47,11 +48,13 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 			}
 
 			object->meshes.at(meshID).setPose(skin);
+			changed = true;
 		}
 		else if (!hasUpdatedStatic)
 		{
 			object->meshes.at(meshID).setTransform(combinedTransform);
 			hasUpdatedStatic = true;
+			changed = true;
 		}
 	}
 

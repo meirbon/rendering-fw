@@ -78,9 +78,11 @@ template <typename T> class Buffer
 		const auto flags = m_Members->m_Flags;
 		const auto memFlags = m_Members->m_MemFlags;
 		const auto usageFlags = m_Members->m_UsageFlags;
+		const auto device = m_Members->m_Device;
 
 		m_Members->cleanup();
 
+		m_Members->m_Device = device;
 		m_Members->m_Flags = flags;
 		m_Members->m_MemFlags = memFlags;
 		m_Members->m_UsageFlags = usageFlags;

@@ -52,6 +52,8 @@ template <typename T> class VmaBuffer
 		m_Members->device = device;
 		m_Members->allocator = device.getAllocator();
 		m_Members->pool = pool;
+
+		assert(m_Members->device);
 	}
 
 	VmaBuffer(const VulkanDevice &device, vk::DeviceSize elementCount, vk::MemoryPropertyFlags memFlags,
@@ -63,6 +65,8 @@ template <typename T> class VmaBuffer
 		m_Members->allocator = device.getAllocator();
 		m_Members->pool = pool;
 		allocate(elementCount, memFlags, usageFlags, usage, forceFlags);
+
+		assert(m_Members->device);
 	}
 
 	~VmaBuffer() { cleanup(); }
@@ -74,6 +78,8 @@ template <typename T> class VmaBuffer
 	 */
 	void reallocate(vk::DeviceSize elementCount, bool force = false)
 	{
+		assert(m_Members->device);
+
 		if (elementCount < m_Members->elements && !force)
 			return;
 
@@ -113,8 +119,8 @@ template <typename T> class VmaBuffer
 				  VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY, bool forceFlags = false,
 				  VkMemoryRequirements memReqs = {})
 	{
-
 		assert(m_Members);
+		assert(m_Members->device);
 		assert(m_Members->allocator);
 		cleanup();
 
@@ -152,6 +158,7 @@ template <typename T> class VmaBuffer
 	void copyToDevice(const void *storage, vk::DeviceSize size = 0)
 	{
 		assert(size <= (m_Members->elements * sizeof(T)));
+		assert(m_Members->device);
 
 		if (size == 0)
 			size = m_Members->elements * sizeof(T);
@@ -176,6 +183,7 @@ template <typename T> class VmaBuffer
 
 	void copyToHost(void *storage)
 	{
+		assert(m_Members->device);
 		if (canMap())
 		{
 			void *memory = map();
@@ -196,6 +204,7 @@ template <typename T> class VmaBuffer
 
 	template <typename B> void copyTo(VmaBuffer<B> *buffer)
 	{
+		assert(m_Members->device);
 		assert(m_Members->usageFlags & vk::BufferUsageFlagBits::eTransferSrc);
 		assert(buffer->getBufferUsageFlags() & vk::BufferUsageFlagBits::eTransferDst);
 
@@ -210,6 +219,7 @@ template <typename T> class VmaBuffer
 
 	template <typename B> void copyTo(Buffer<B> *buffer)
 	{
+		assert(m_Members->device);
 		assert(m_Members->usageFlags & vk::BufferUsageFlagBits::eTransferSrc);
 		assert(buffer->getBufferUsageFlags() & vk::BufferUsageFlagBits::eTransferDst);
 
@@ -224,6 +234,7 @@ template <typename T> class VmaBuffer
 
 	T *map()
 	{
+		assert(m_Members->device);
 		if (!canMap())
 			throw std::runtime_error("Memory not mappable.");
 
@@ -235,6 +246,7 @@ template <typename T> class VmaBuffer
 
 	void unmap()
 	{
+		assert(m_Members->device);
 		assert(canMap());
 		vmaUnmapMemory(m_Members->allocator, m_Members->allocation);
 	}
@@ -242,6 +254,7 @@ template <typename T> class VmaBuffer
 	[[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo(vk::DeviceSize offset = 0,
 																   vk::DeviceSize range = 0) const
 	{
+		assert(m_Members->device);
 		vk::DescriptorBufferInfo info{};
 		info.setBuffer(m_Members->buffer);
 		info.setOffset(offset);

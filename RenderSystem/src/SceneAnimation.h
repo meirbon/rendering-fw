@@ -6,10 +6,8 @@
 
 namespace rfw
 {
-
-class gTLFObject;
-
-class gLTFAnimation
+class SceneObject;
+class SceneAnimation
 {
   public:
 	struct Sampler
@@ -39,17 +37,18 @@ class gLTFAnimation
 		int target;
 
 		void reset();
-		void update(rfw::gTLFObject &object, const float t, const Sampler &sampler);
+		void update(rfw::SceneObject *object, const float t, const Sampler &sampler);
 
 		float t = 0.0f;
 		int k = 0;
 	};
 
+	SceneObject *object = nullptr;
 	std::vector<Sampler> samplers;
 	std::vector<Channel> channels;
 
 	void reset();
-	void update(rfw::gTLFObject &object, float deltaTime);
+	void update(float deltaTime);
 };
 
 } // namespace rfw

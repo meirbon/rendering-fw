@@ -8,25 +8,21 @@
 
 #include "utils/File.h"
 
-#include "gLTFAnimation.h"
+rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel,
+								   const int nodeBase);
 
-rfw::gLTFAnimation creategLTFAnim(tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel, const int nodeBase);
-
-rfw::gTLFObject::gLTFSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model, const int nodeBase)
+rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model)
 {
-	rfw::gTLFObject::gLTFSkin s = {};
-
+	rfw::MeshSkin s = {};
 	s.name = skin.name;
 	if (skin.skeleton == -1)
 		s.skeletonRoot = 0;
 	else
-		s.skeletonRoot = s.skeletonRoot;
+		s.skeletonRoot = skin.skeleton;
 
-	s.skeletonRoot = s.skeletonRoot + nodeBase;
-
-	s.joints = skin.joints;
-	for (int &j : s.joints)
-		j = j + nodeBase;
+	s.joints.reserve(skin.joints.size());
+	for (auto joint : skin.joints)
+		s.joints.emplace_back(joint);
 
 	if (skin.inverseBindMatrices > -1)
 	{
@@ -37,49 +33,59 @@ rfw::gTLFObject::gLTFSkin convertSkin(const tinygltf::Skin skin, const tinygltf:
 		s.inverseBindMatrices.resize(accessor.count);
 		memcpy(s.inverseBindMatrices.data(), &buffer.data.at(accessor.byteOffset + bufferView.byteOffset),
 			   accessor.count * sizeof(glm::mat4));
-		s.jointMatrices.resize(accessor.count);
+
+		s.jointMatrices.resize(accessor.count, glm::mat4(1.0f));
 	}
 
 	return s;
 }
 
-rfw::gTLFObject::gLTFNode createNode(const rfw::gTLFObject &object, const tinygltf::Node &node, const int nodebase,
-									 const int meshBase, const int skinBase)
+rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 {
-	rfw::gTLFObject::gLTFNode n = {};
+	auto n = rfw::SceneNode(&object.scene, node.name, glm::mat4(1.0f), {});
+	n.matrix = glm::mat4(1.0f);
 
-	n.name = node.name;
-	n.meshID = node.mesh == -1 ? -1 : node.mesh + meshBase;
-	n.skinID = node.skin == -1 ? -1 : node.skin + skinBase;
+	n.meshID = node.mesh == -1 ? -1 : node.mesh;
+	n.skinID = node.skin == -1 ? -1 : node.skin;
+
 	if (n.meshID != -1)
 	{
-		const auto morphTargets = object.m_Meshes.at(n.meshID).poseCount;
+		const auto morphTargets = object.scene.meshes.at(n.meshID).poses.size();
 		if (morphTargets > 0)
 			n.weights.resize(morphTargets, 0.0f);
 	}
 
 	for (size_t s = node.children.size(), i = 0; i < s; i++)
 	{
-		n.childIndices.push_back(node.children.at(i) + nodebase);
+		n.childIndices.push_back(node.children.at(i));
 	}
 
 	bool buildFromTRS = false;
 	if (node.matrix.size() == 16)
 	{
-		memcpy(value_ptr(n.matrix), node.matrix.data(), 16 * sizeof(float));
+		for (int i = 0; i < 4; i++)
+		{
+			for (int j = 0; j < 4; j++)
+			{
+				n.matrix[j][i] = node.matrix[j * 4 + i];
+			}
+		}
 	}
+
 	if (node.translation.size() == 3)
 	{
 		// the GLTF node contains a translation
 		n.translation = vec3(node.translation[0], node.translation[1], node.translation[2]);
 		buildFromTRS = true;
 	}
+
 	if (node.rotation.size() == 4)
 	{
 		// the GLTF node contains a rotation
 		n.rotation = quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]);
 		buildFromTRS = true;
 	}
+
 	if (node.scale.size() == 3)
 	{
 		// the GLTF node contains a scale
@@ -87,16 +93,13 @@ rfw::gTLFObject::gLTFNode createNode(const rfw::gTLFObject &object, const tinygl
 		buildFromTRS = true;
 	}
 
-	if (buildFromTRS)
-		n.updateTransform();
-
-	n.prepareLights();
+	n.calculateTransform();
 
 	return n;
 }
 
-rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix,
-							bool normalize, int material)
+rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix,
+							int material)
 	: file(filename.data())
 {
 	using namespace tinygltf;
@@ -173,19 +176,24 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 		matList->add(texture);
 	}
 
-	m_Skins.resize(model.skins.size());
+	scene.skins.resize(model.skins.size());
 	for (size_t i = 0; i < model.skins.size(); i++)
-		m_Skins.at(i) = convertSkin(model.skins.at(i), model, 0);
+		scene.skins.at(i) = convertSkin(model.skins.at(i), model);
 
-	m_Animations.resize(model.animations.size());
+	scene.animations.resize(model.animations.size());
 	for (size_t i = 0; i < model.animations.size(); i++)
-		m_Animations.at(i) = creategLTFAnim(model.animations.at(i), model, 0);
+		scene.animations.at(i) = creategLTFAnim(&scene, model.animations.at(i), model, 0);
 
-	m_Meshes.resize(model.meshes.size());
+	scene.meshes.resize(model.meshes.size());
+
 	for (size_t i = 0; i < model.meshes.size(); i++)
 	{
-		const auto &m = m_Meshes.at(i);
 		const auto &mesh = model.meshes.at(i);
+
+		// Add mesh information to object
+		rfw::SceneMesh &m = scene.meshes.at(i);
+		m.object = &scene;
+		m.vertexOffset = static_cast<uint>(scene.baseVertices.size());
 
 		for (size_t s = mesh.primitives.size(), j = 0; j < s; j++)
 		{
@@ -270,11 +278,6 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 
 				if (attribute.first == "POSITION")
 				{
-					// const auto boundsMin = glm::vec3(attribAccessor.minValues[0], attribAccessor.minValues[1],
-					//								 attribAccessor.minValues[2]);
-					// const auto boundsMax = glm::vec3(attribAccessor.maxValues[0], attribAccessor.maxValues[1],
-					//								 attribAccessor.maxValues[2]);
-
 					if (attribAccessor.type == TINYGLTF_TYPE_VEC3)
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
@@ -286,7 +289,7 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
-							WARNING("%s", "Double precision positions are not supported (yet).");
+							// WARNING("%s", "Double precision positions are not supported (yet).");
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
 								tmpVertices.push_back(glm::vec3(*((glm::dvec3 *)a)));
@@ -311,7 +314,7 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
-							WARNING("%s", "Double precision positions are not supported (yet).");
+							// WARNING("%s", "Double precision positions are not supported (yet).");
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
 								tmpNormals.push_back(glm::vec3(*((glm::dvec3 *)a)));
@@ -325,7 +328,7 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 				}
 				else if (attribute.first == "TANGENT")
 				{
-					WARNING("Tangents are not yet supported in gLTF file.");
+					// WARNING("Tangents are not yet supported in gLTF file.");
 					continue;
 				}
 				else if (attribute.first == "TEXCOORD_0")
@@ -341,7 +344,7 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
-							WARNING("%s", "Double precision normals are not supported (yet).");
+							// WARNING("%s", "Double precision normals are not supported (yet).");
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
 								tmpUvs.push_back(glm::vec2(*((glm::dvec2 *)a)));
@@ -413,7 +416,7 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
-							WARNING("%s", "Double precision weights are not supported (yet).");
+							// WARNING("%s", "Double precision weights are not supported (yet).");
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
 								glm::vec4 w4;
@@ -435,7 +438,7 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 				}
 			}
 
-			std::vector<gLTFPose> tmpPoses;
+			std::vector<rfw::SceneMesh::Pose> tmpPoses;
 			if (!mesh.weights.empty())
 			{
 				tmpPoses.emplace_back();
@@ -443,8 +446,6 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 				{
 					tmpPoses.at(0).positions.push_back(tmpVertices.at(i));
 					tmpPoses.at(0).normals.push_back(tmpNormals.at(i));
-					// TODO
-					tmpPoses.at(0).tangents.push_back(glm::vec3(0));
 				}
 			}
 
@@ -471,210 +472,150 @@ rfw::gTLFObject::gTLFObject(std::string_view filename, MaterialList *matList, ui
 				}
 			}
 
-			build(tmpIndices, tmpVertices, tmpNormals, tmpUvs, tmpPoses, tmpJoints, tmpWeights,
-				  prim.material > 0 ? prim.material : 0);
+			addPrimitive(m, tmpIndices, tmpVertices, tmpNormals, tmpUvs, tmpPoses, tmpJoints, tmpWeights,
+						 prim.material >= 0 ? (prim.material + m_BaseMaterialIdx) : 0);
 		}
+
+		m.vertexCount = scene.baseVertices.size() - m.vertexOffset;
 	}
 
 	const bool hasTransform = matrix != glm::mat4(1.0f);
 
 	if (model.scenes.size() > 1)
 		WARNING("gLTF files with more than 1 scene are not supported (yet).");
-	Scene &gltfScene = model.scenes.at(0);
-	if (hasTransform)
-	{
-		gLTFNode node = {};
-		node.localTransform = matrix;
-		node.ID = 0;
-		m_Nodes.emplace_back(node);
-	}
 
-	m_Nodes.resize(m_Nodes.size() + model.nodes.size());
+	scene.nodes.reserve(model.nodes.size() + 1);
+	tinygltf::Scene &gltfScene = model.scenes.at(0);
+
 	for (size_t s = model.nodes.size(), i = 0; i < s; i++)
 	{
-		const Node &gltfNode = model.nodes.at(i);
-		gLTFNode node = {};
-		m_Nodes.at(i) = createNode(*this, gltfNode, 0, 0, 0);
+		const auto &node = model.nodes.at(i);
+		auto newNode = createNode(*this, node);
+		newNode.ID = i;
+		scene.nodes.emplace_back(newNode);
 	}
 
-	m_CurrentVertices = m_BaseVertices;
-	m_CurrentNormals = m_BaseNormals;
-}
+	for (size_t i = 0; i < gltfScene.nodes.size(); i++)
+		scene.rootNodes.push_back(i);
 
-void rfw::gTLFObject::transformTo(float timeInSeconds) {}
-
-rfw::Triangle *rfw::gTLFObject::getTriangles() { return m_Triangles.data(); }
-
-glm::vec4 *rfw::gTLFObject::getVertices() { return m_CurrentVertices.data(); }
-
-rfw::Mesh rfw::gTLFObject::getMesh() const
-{
-	auto mesh = rfw::Mesh();
-	mesh.vertices = m_CurrentVertices.data();
-	mesh.normals = m_CurrentNormals.data();
-	mesh.triangles = m_Triangles.data();
-	mesh.indices = nullptr;
-	mesh.vertexCount = m_CurrentVertices.size();
-	mesh.triangleCount = m_CurrentVertices.size() / 3;
-	return mesh;
-}
-
-bool rfw::gTLFObject::isAnimated() const { return !m_Animations.empty(); }
-
-uint rfw::gTLFObject::getAnimationCount() const { return uint(m_Animations.size()); }
-
-void rfw::gTLFObject::setAnimation(uint index)
-{
-	// TODO
-}
-
-uint rfw::gTLFObject::getMaterialForPrim(uint primitiveIdx) const
-{
-	// TODO
-	return 0;
-}
-
-std::vector<uint> rfw::gTLFObject::getLightIndices(const std::vector<bool> &matLightFlags) const
-{
-	// TODO
-	return std::vector<uint>();
-}
-
-void rfw::gTLFObject::gLTFMesh::setPose(rfw::gTLFObject &object, const gLTFSkin &skin)
-{
-	using namespace glm;
-
-	vec4 *baseVertex = &object.m_CurrentVertices.at(vertexOffset);
-	vec3 *baseNormal = &object.m_CurrentNormals.at(vertexOffset);
-	memcpy(baseVertex, &object.m_BaseVertices.at(vertexOffset), vertexCount * sizeof(glm::vec4));
-	memcpy(baseNormal, &object.m_BaseNormals.at(vertexOffset), vertexCount * sizeof(glm::vec3));
-
-	for (uint i = 0; i < vertexCount; i++)
+	if (hasTransform)
 	{
-		const auto &j4 = object.m_Joints.at(jointOffset + i);
-		const auto &w4 = object.m_Weights.at(weightOffset + i);
-
-		mat4 skinMatrix = w4.x * skin.jointMatrices.at(j4.x);
-		skinMatrix += w4.y * skin.jointMatrices[j4.y];
-		skinMatrix += w4.z * skin.jointMatrices[j4.z];
-		skinMatrix += w4.w * skin.jointMatrices[j4.w];
-
-		baseVertex[i] = skinMatrix * baseVertex[i];
-		baseNormal[i] = normalize(mat3(skinMatrix) * baseVertex[i]);
-	}
-
-	const auto offset = vertexOffset / 3;
-	for (uint s = (vertexCount / 3), i = 0; i < s; i++)
-	{
-		auto &tri = object.m_Triangles.at(i + offset);
-		tri.vertex0 = baseVertex[i * 3 + 0];
-		tri.vertex1 = baseVertex[i * 3 + 1];
-		tri.vertex2 = baseVertex[i * 3 + 2];
-
-		tri.vN0 = normalize(baseNormal[i * 3 + 0]);
-		tri.vN1 = normalize(baseNormal[i * 3 + 1]);
-		tri.vN2 = normalize(baseNormal[i * 3 + 2]);
-	}
-
-	object.m_HasUpdated = true;
-}
-
-void rfw::gTLFObject::gLTFMesh::setPose(rfw::gTLFObject &object, const std::vector<float> &weights)
-{
-	assert(weights.size() == object.m_Poses.size() - 1);
-	const auto weightCount = weights.size();
-
-	vec4 *baseVertex = &object.m_CurrentVertices.at(vertexOffset);
-	vec3 *baseNormal = &object.m_CurrentNormals.at(vertexOffset);
-	memcpy(baseVertex, &object.m_BaseVertices.at(vertexOffset), vertexCount * sizeof(glm::vec4));
-	memcpy(baseNormal, &object.m_BaseNormals.at(vertexOffset), vertexCount * sizeof(glm::vec3));
-
-	for (uint i = 0; i < vertexCount; i++)
-	{
-		baseVertex[i] = vec4(object.m_Poses.at(0).positions.at(i), 1.0f);
-		for (int j = 1; j <= weightCount; j++)
+		for (int i : scene.rootNodes)
 		{
-			baseVertex[i] = baseVertex[i] + (weights[j - 1] * vec4(object.m_Poses.at(j).positions.at(i), 0));
-			baseNormal[i] = baseNormal[i] + (weights[j - 1] * object.m_Poses.at(j).normals.at(i));
+			auto &node = scene.nodes.at(i);
+			node.localTransform = node.localTransform * matrix;
 		}
 	}
 
-	const auto offset = vertexOffset / 3;
-	for (uint s = (vertexCount / 3), i = 0; i < s; i++)
-	{
-		auto &tri = object.m_Triangles.at(i + offset);
-		tri.vertex0 = vec3(baseVertex[i * 3 + 0]);
-		tri.vertex1 = vec3(baseVertex[i * 3 + 1]);
-		tri.vertex2 = vec3(baseVertex[i * 3 + 2]);
+	scene.vertices.resize(scene.baseVertices.size(), vec4(0, 0, 0, 1));
+	scene.normals.resize(scene.baseNormals.size(), vec3(0.0f));
 
-		tri.vN0 = normalize(baseNormal[i * 3 + 0]);
-		tri.vN1 = normalize(baseNormal[i * 3 + 1]);
-		tri.vN2 = normalize(baseNormal[i * 3 + 2]);
-	}
+	scene.transformTo(0.0f);
 
-	object.m_HasUpdated = true;
+	// Update triangle data that only has to be calculated once
+	scene.updateTriangles(matList, texCoords);
+
+	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(),
+					   scene.triangles.size());
 }
 
-void rfw::gTLFObject::build(const std::vector<int> &indices, const std::vector<glm::vec3> &vertices,
-							const std::vector<glm::vec3> &normals, const std::vector<glm::vec2> &uvs,
-							const std::vector<gLTFPose> &poses, const std::vector<glm::uvec4> &joints,
-							const std::vector<glm::vec4> &weights, const int materialIdx)
+void rfw::gLTFObject::transformTo(float timeInSeconds) { scene.transformTo(timeInSeconds); }
+
+rfw::Triangle *rfw::gLTFObject::getTriangles() { return scene.triangles.data(); }
+
+glm::vec4 *rfw::gLTFObject::getVertices() { return scene.vertices.data(); }
+
+rfw::Mesh rfw::gLTFObject::getMesh() const
+{
+	auto mesh = rfw::Mesh();
+	mesh.vertices = scene.vertices.data();
+	mesh.normals = scene.normals.data();
+	mesh.triangles = scene.triangles.data();
+	mesh.indices = nullptr;
+	mesh.vertexCount = scene.vertices.size();
+	mesh.triangleCount = scene.vertices.size() / 3;
+	return mesh;
+}
+
+bool rfw::gLTFObject::isAnimated() const { return !scene.animations.empty(); }
+
+uint rfw::gLTFObject::getAnimationCount() const { return uint(scene.animations.size()); }
+
+void rfw::gLTFObject::setAnimation(uint index)
+{
+	// TODO
+}
+
+uint rfw::gLTFObject::getMaterialForPrim(uint primitiveIdx) const { return scene.materialIndices.at(primitiveIdx); }
+
+std::vector<uint> rfw::gLTFObject::getLightIndices(const std::vector<bool> &matLightFlags) const
+{
+	std::vector<uint> indices;
+	for (const auto &mesh : scene.meshes)
+	{
+		const size_t offset = indices.size();
+		if (matLightFlags.at(mesh.matID))
+		{
+			const auto s = mesh.vertexCount / 3;
+			const auto o = mesh.vertexOffset / 3;
+			indices.resize(offset + s);
+			for (uint i = 0; i < s; i++)
+				indices.at(offset + i) = o + i;
+		}
+	}
+
+	return indices;
+}
+
+void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> &indices,
+								   const std::vector<glm::vec3> &vertices, const std::vector<glm::vec3> &normals,
+								   const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &poses,
+								   const std::vector<glm::uvec4> &joints, const std::vector<glm::vec4> &weights,
+								   const int materialIdx)
 {
 	using namespace glm;
 
-	// Add mesh information to object
-	gLTFMesh mesh;
-	mesh.vertexOffset = static_cast<uint>(m_BaseVertices.size());
-	mesh.vertexCount = static_cast<uint>(vertices.size());
-
-	mesh.poseOffset = static_cast<uint>(m_Poses.size());
-	mesh.poseCount = static_cast<uint>(poses.size());
-
-	mesh.jointCount = static_cast<uint>(joints.size());
-	mesh.jointOffset = static_cast<uint>(m_Joints.size());
-
-	mesh.weightCount = static_cast<uint>(weights.size());
-	mesh.weightOffset = static_cast<uint>(m_Weights.size());
-
-	m_Meshes.emplace_back(mesh);
-
 	// Allocate data
-	const auto triangleOffset = m_Triangles.size();
-	const auto vertexOffset = m_BaseVertices.size();
-	const auto poseOffset = m_Poses.size();
-	const auto jointOffset = m_Joints.size();
-	const auto weightOffset = m_Weights.size();
+	const auto triangleOffset = scene.triangles.size();
 
-	m_Poses.resize(m_Poses.size() + poses.size());
-	m_Triangles.resize(m_Triangles.size() + indices.size() / 3);
-	m_BaseVertices.resize(m_BaseVertices.size() + vertices.size());
-	m_BaseNormals.resize(m_BaseNormals.size() + vertices.size());
-	m_BaseTexCoords.resize(m_BaseTexCoords.size() + vertices.size());
+	scene.materialIndices.resize(scene.materialIndices.size() + (indices.size() / 3));
+	scene.triangles.resize(scene.triangles.size() + (indices.size() / 3));
 
-	for (size_t s = indices.size() / 3, i = 0; i < s; i++)
+	scene.baseVertices.reserve(scene.baseVertices.size() + indices.size());
+	scene.baseNormals.reserve(scene.baseNormals.size() + indices.size());
+	texCoords.reserve(texCoords.size() + indices.size());
+
+	mesh.poses = poses;
+	mesh.joints = joints;
+	mesh.weights = weights;
+
+	// Add per-vertex data
+	for (size_t s = indices.size(), i = 0; i < s; i++)
 	{
-		auto &tri = m_Triangles.at(i + triangleOffset);
+		const auto idx = indices.at(i);
 
-		const auto idx = glm::uvec3(indices.at(i * 3 + 0), indices.at(i * 3 + 1), indices.at(i * 3 + 2));
-		const auto &v0 = vertices.at(idx.x);
-		const auto &v1 = vertices.at(idx.y);
-		const auto &v2 = vertices.at(idx.z);
+		scene.baseVertices.push_back(vec4(vertices.at(idx), 1.0f));
+		scene.baseNormals.push_back(normals.at(idx));
+		if (!uvs.empty())
+			texCoords.push_back(uvs.at(idx));
+		else
+			texCoords.push_back(vec2(0.0f));
+	}
+
+	// Add per-face data
+	for (size_t s = indices.size() / 3, triIdx = triangleOffset, i = 0; i < s; i++, triIdx++)
+	{
+		const auto idx = uvec3(indices.at(i * 3 + 0), indices.at(i * 3 + 1), indices.at(i * 3 + 2));
+		auto &tri = scene.triangles.at(triIdx);
+		scene.materialIndices.at(triIdx) = materialIdx;
+
+		const auto v0 = vertices.at(idx.x);
+		const auto v1 = vertices.at(idx.y);
+		const auto v2 = vertices.at(idx.z);
 
 		const auto &n0 = normals.at(idx.x);
 		const auto &n1 = normals.at(idx.y);
 		const auto &n2 = normals.at(idx.z);
-
-		m_BaseVertices.at(idx.x + vertexOffset) = vec4(v0, 1.0f);
-		m_BaseVertices.at(idx.y + vertexOffset) = vec4(v1, 1.0f);
-		m_BaseVertices.at(idx.z + vertexOffset) = vec4(v2, 1.0f);
-
-		m_BaseNormals.at(idx.x + vertexOffset) = n0;
-		m_BaseNormals.at(idx.y + vertexOffset) = n1;
-		m_BaseNormals.at(idx.z + vertexOffset) = n2;
-
-		m_BaseTexCoords.at(idx.x + vertexOffset) = uvs.at(idx.x);
-		m_BaseTexCoords.at(idx.y + vertexOffset) = uvs.at(idx.y);
-		m_BaseTexCoords.at(idx.z + vertexOffset) = uvs.at(idx.z);
 
 		const vec3 N = normalize(cross(v1 - v0, v2 - v0));
 		tri.Nx = N.x;
@@ -689,9 +630,7 @@ void rfw::gTLFObject::build(const std::vector<int> &indices, const std::vector<g
 		tri.vN1 = n1;
 		tri.vN2 = n2;
 
-// Tangents are not actually used
-#if 1
-		if (!uvs.empty())
+		if (uvs.size() > 0)
 		{
 			tri.u0 = uvs.at(idx.x).x;
 			tri.u1 = uvs.at(idx.y).x;
@@ -700,106 +639,18 @@ void rfw::gTLFObject::build(const std::vector<int> &indices, const std::vector<g
 			tri.v0 = uvs.at(idx.x).y;
 			tri.v1 = uvs.at(idx.y).y;
 			tri.v2 = uvs.at(idx.z).y;
-
-			const auto uv01 = vec2(tri.u1 - tri.u0, tri.v1 - tri.v0);
-			const auto uv02 = vec2(tri.u2 - tri.u0, tri.v2 - tri.v0);
-			if (dot(uv01, uv01) == 0 || dot(uv02, uv02) == 0)
-			{
-				tri.T = normalize(tri.vertex1 - tri.vertex0);
-				tri.B = normalize(cross(N, tri.T));
-			}
-			else
-			{
-				tri.T = normalize((tri.vertex1 - tri.vertex0) * uv02.y - (tri.vertex2 - tri.vertex0) * uv01.y);
-				tri.B = normalize((tri.vertex2 - tri.vertex0) * uv01.x - (tri.vertex1 - tri.vertex0) * uv02.x);
-			}
 		}
 		else
 		{
-			tri.T = normalize(tri.vertex1 - tri.vertex0);
-			tri.B = normalize(cross(N, tri.T));
+			tri.u0 = 0.0f;
+			tri.u1 = 0.0f;
+			tri.u2 = 0.0f;
+
+			tri.v0 = 0.0f;
+			tri.v1 = 0.0f;
+			tri.v2 = 0.0f;
 		}
-#endif
 
 		tri.material = materialIdx;
-
-		if (!joints.empty())
-		{
-			m_Joints.at(jointOffset + idx.x) = joints.at(idx.x);
-			m_Joints.at(jointOffset + idx.y) = joints.at(idx.y);
-			m_Joints.at(jointOffset + idx.z) = joints.at(idx.z);
-
-			m_Weights.at(weightOffset + idx.x) = weights.at(idx.x);
-			m_Weights.at(weightOffset + idx.y) = weights.at(idx.y);
-			m_Weights.at(weightOffset + idx.z) = weights.at(idx.z);
-		}
-
-		for (size_t s = poses.size(), i = 0; i < s; i++)
-		{
-			m_Poses.at(i + poseOffset).positions.push_back(poses[i].positions.at(idx.x));
-			m_Poses.at(i + poseOffset).positions.push_back(poses[i].positions.at(idx.y));
-			m_Poses.at(i + poseOffset).positions.push_back(poses[i].positions.at(idx.z));
-			m_Poses.at(i + poseOffset).normals.push_back(poses[i].normals.at(idx.x));
-			m_Poses.at(i + poseOffset).normals.push_back(poses[i].normals.at(idx.y));
-			m_Poses.at(i + poseOffset).normals.push_back(poses[i].normals.at(idx.z));
-			m_Poses.at(i + poseOffset).tangents.push_back(poses[i].tangents.at(idx.x));
-			m_Poses.at(i + poseOffset).tangents.push_back(poses[i].tangents.at(idx.y));
-			m_Poses.at(i + poseOffset).tangents.push_back(poses[i].tangents.at(idx.z));
-		}
 	}
 }
-
-bool rfw::gTLFObject::gLTFNode::update(gTLFObject &object, glm::mat4 &T)
-{
-	combinedTransform = T * localTransform;
-	bool instancesChanged = wasModified;
-
-	for (size_t s = childIndices.size(), i = 0; i < s; i++)
-	{
-		rfw::gTLFObject::gLTFNode &child = object.m_Nodes.at(childIndices.at(i));
-		bool childChanged = child.update(object, combinedTransform);
-		instancesChanged |= childChanged;
-		treeChanged |= childChanged;
-	}
-
-	if (meshID > -1)
-	{
-		if (morphed)
-		{
-			object.m_Meshes.at(meshID).setPose(object, weights);
-			morphed = false;
-		}
-
-		if (wasModified && hasLTris)
-			updateLights();
-
-		if (skinID > -1)
-		{
-			auto &skin = object.m_Skins.at(skinID);
-			mat4 meshTransform = combinedTransform;
-			mat4 meshTransformInverted = inverse(meshTransform);
-			for (size_t s = skin.joints.size(), j = 0; j < s; j++)
-			{
-				auto &jointNode = object.m_Nodes.at(skin.joints.at(j));
-				skin.jointMatrices.at(j) =
-					meshTransformInverted * jointNode.combinedTransform * skin.inverseBindMatrices.at(j);
-			}
-			object.m_Meshes.at(meshID).setPose(object, skin);
-		}
-	}
-
-	return instancesChanged;
-}
-
-void rfw::gTLFObject::gLTFNode::updateTransform()
-{
-	const auto T = glm::translate(glm::mat4(1.0f), translation);
-	const auto R = glm::mat4_cast(rotation);
-	const auto S = glm::scale(glm::mat4(1.0f), scale);
-
-	localTransform = T * R * S * matrix;
-}
-
-void rfw::gTLFObject::gLTFNode::prepareLights() {}
-
-void rfw::gTLFObject::gLTFNode::updateLights() {}

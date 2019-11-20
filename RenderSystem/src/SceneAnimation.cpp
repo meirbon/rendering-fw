@@ -1,20 +1,20 @@
-#include "gLTFAnimation.h"
+#include "SceneAnimation.h"
 
 #include <tiny_gltf.h>
 
-#include "gLTFObject.h"
+#include "SceneObject.h"
 
-rfw::gLTFAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler &gltfSampler,
-											  const tinygltf::Model &gltfModel)
+rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler &gltfSampler,
+											   const tinygltf::Model &gltfModel)
 {
-	rfw::gLTFAnimation::Sampler sampler = {};
+	rfw::SceneAnimation::Sampler sampler = {};
 
 	if (gltfSampler.interpolation == "STEP")
-		sampler.method = rfw::gLTFAnimation::Sampler::STEP;
+		sampler.method = rfw::SceneAnimation::Sampler::STEP;
 	else if (gltfSampler.interpolation == "CUBICSPLINE")
-		sampler.method = rfw::gLTFAnimation::Sampler::SPLINE;
+		sampler.method = rfw::SceneAnimation::Sampler::SPLINE;
 	else if (gltfSampler.interpolation == "LINEAR")
-		sampler.method = rfw::gLTFAnimation::Sampler::LINEAR;
+		sampler.method = rfw::SceneAnimation::Sampler::LINEAR;
 
 	// Extract animation times
 	const auto &inputAccessor = gltfModel.accessors[gltfSampler.input];
@@ -32,6 +32,7 @@ rfw::gLTFAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler &
 	auto outputAccessor = gltfModel.accessors[gltfSampler.output];
 	bufferView = gltfModel.bufferViews[outputAccessor.bufferView];
 	buffer = gltfModel.buffers[bufferView.buffer];
+
 	const unsigned char *b =
 		(const unsigned char *)(buffer.data.data() + bufferView.byteOffset + outputAccessor.byteOffset);
 	if (outputAccessor.type == TINYGLTF_TYPE_VEC3)
@@ -113,10 +114,10 @@ rfw::gLTFAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler &
 	return sampler;
 }
 
-rfw::gLTFAnimation::Channel creategLTFChannel(const tinygltf::AnimationChannel &gltfChannel,
-											  const tinygltf::Model &gltfModel, const int nodeBase)
+rfw::SceneAnimation::Channel creategLTFChannel(const tinygltf::AnimationChannel &gltfChannel,
+											   const tinygltf::Model &gltfModel, const int nodeBase)
 {
-	rfw::gLTFAnimation::Channel channel = {};
+	rfw::SceneAnimation::Channel channel = {};
 
 	channel.samplerIdx = gltfChannel.sampler;
 	channel.nodeIdx = gltfChannel.target_node + nodeBase;
@@ -132,31 +133,34 @@ rfw::gLTFAnimation::Channel creategLTFChannel(const tinygltf::AnimationChannel &
 	return channel;
 }
 
-rfw::gLTFAnimation creategLTFAnim(tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel, const int nodeBase)
+rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel,
+								   const int nodeBase)
 {
-	rfw::gLTFAnimation anim = {};
+	assert(object);
+	rfw::SceneAnimation anim = {};
 
 	for (size_t i = 0; i < gltfAnim.samplers.size(); i++)
 		anim.samplers.push_back(creategLTFSampler(gltfAnim.samplers[i], gltfModel));
 	for (size_t i = 0; i < gltfAnim.channels.size(); i++)
 		anim.channels.push_back(creategLTFChannel(gltfAnim.channels[i], gltfModel, nodeBase));
+	anim.object = object;
 
 	return anim;
 }
 
-void rfw::gLTFAnimation::reset()
+void rfw::SceneAnimation::reset()
 {
 	for (auto &channel : channels)
 		channel.reset();
 }
 
-void rfw::gLTFAnimation::update(rfw::gTLFObject &object, float deltaTime)
+void rfw::SceneAnimation::update(float deltaTime)
 {
 	for (int i = 0; i < channels.size(); i++)
 		channels[i].update(object, deltaTime, samplers[channels[i].samplerIdx]);
 }
 
-float rfw::gLTFAnimation::Sampler::sampleFloat(float currentTime, int k, int i, int count) const
+float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i, int count) const
 {
 	const int keyCount = (int)t.size();
 	const float animDuration = t[keyCount - 1];
@@ -185,9 +189,9 @@ float rfw::gLTFAnimation::Sampler::sampleFloat(float currentTime, int k, int i, 
 	};
 }
 
-glm::vec3 rfw::gLTFAnimation::Sampler::sampleVec3(float currentTime, int k) const
+glm::vec3 rfw::SceneAnimation::Sampler::sampleVec3(float currentTime, int k) const
 {
-	const int keyCount = (int)t.size();
+	const auto keyCount = t.size();
 	const float animDuration = t[keyCount - 1];
 	const float t0 = t[k % keyCount], t1 = t[(k + 1) % keyCount];
 	const float f = (currentTime - t0) / (t1 - t0);
@@ -213,7 +217,7 @@ glm::vec3 rfw::gLTFAnimation::Sampler::sampleVec3(float currentTime, int k) cons
 	};
 }
 
-glm::quat rfw::gLTFAnimation::Sampler::sampleQuat(float currentTime, int k) const
+glm::quat rfw::SceneAnimation::Sampler::sampleQuat(float currentTime, int k) const
 {
 	// determine interpolation parameters
 	const int keyCount = (int)t.size();
@@ -251,18 +255,19 @@ glm::quat rfw::gLTFAnimation::Sampler::sampleQuat(float currentTime, int k) cons
 	return normalize(key);
 }
 
-void rfw::gLTFAnimation::Channel::reset()
+void rfw::SceneAnimation::Channel::reset()
 {
 	t = 0.0f;
 	k = 0;
 }
 
-void rfw::gLTFAnimation::Channel::update(rfw::gTLFObject &object, const float dt, const Sampler &sampler)
+void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float dt, const Sampler &sampler)
 {
 	// Advance animation timer
 	t += dt;
 	auto keyCount = sampler.t.size();
 	float animDuration = sampler.t.at(keyCount - 1);
+
 	while (t > animDuration)
 		t -= animDuration, k = 0;
 	while (t > sampler.t[(k + 1) % keyCount])
@@ -273,7 +278,7 @@ void rfw::gLTFAnimation::Channel::update(rfw::gTLFObject &object, const float dt
 	float t1 = sampler.t[(k + 1) % keyCount];
 	float f = (t - t0) / (t1 - t0);
 
-	auto &node = object.m_Nodes.at(nodeIdx);
+	auto &node = object->nodes.at(nodeIdx);
 
 	// Apply animation key
 	if (target == 0) // translation

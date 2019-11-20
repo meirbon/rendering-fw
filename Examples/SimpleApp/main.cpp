@@ -80,12 +80,17 @@ int main()
 	rs.setTarget(textureTarget);
 
 #if SKINNED_MESH
-	auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
+	//auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
 #if PICA
+	//auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb"), vec3(2), vec3(0, 2, 0), 90.0f, vec3(1, 0, 0));
+	//auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(2), vec3(0, 2, 0), 90.0f, vec3(1, 0, 0));
+
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
-	auto staticInstanceRef = rs.addInstance(staticRef, vec3(1), vec3(0.0f), 180.0f, vec3(0, 1, 0));
+	auto staticInstanceRef = rs.addInstance(staticRef);
+	staticInstanceRef.rotate(180.0f, vec3(0, 1, 0));
+	staticInstanceRef.update();
 
 	auto lightMaterial = rs.addMaterial(vec3(30), 1);
 	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(-10, 25, 4), 10.0f, 10.0f, lightMaterial);

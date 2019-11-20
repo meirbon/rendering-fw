@@ -353,8 +353,7 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 #if USE_TINY_GLTF
 	if (utils::string::ends_with(fileName, {".gltf", ".glb"}))
 	{
-		m_Models.emplace_back(
-			new gTLFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
+		m_Models.emplace_back(new gLTFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material));
 	}
 	else
 #endif

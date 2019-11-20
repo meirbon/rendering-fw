@@ -46,8 +46,8 @@ class TopLevelAS
 	void cleanup();
 
 	void updateInstances(const std::vector<GeometryInstance> &instances);
-	void build();
-	void rebuild();
+	void build(const VmaBuffer<uint8_t>& scratchBuffer);
+	void rebuild(const VmaBuffer<uint8_t>& scratchBuffer);
 
 	uint64_t getHandle();
 	[[nodiscard]] uint32_t getInstanceCount() const;
@@ -61,7 +61,7 @@ class TopLevelAS
 	Buffer<GeometryInstance> &getInstanceBuffer() { return m_InstanceBuffer; }
 
   private:
-	void Build(bool update);
+	void Build(bool update, VmaBuffer<uint8_t> scratchBuffer);
 
 	// Converts desired type to vulkan build flags
 	static vk::BuildAccelerationStructureFlagsNV typeToFlags(AccelerationStructureType type)
@@ -104,8 +104,8 @@ class BottomLevelAS
 	void cleanup();
 	void updateVertices(const glm::vec4 *vertices, uint32_t vertexCount);
 
-	void build();
-	void rebuild();
+	void build(const VmaBuffer<uint8_t>& scratchBuffer);
+	void rebuild(const VmaBuffer<uint8_t>& scratchBuffer);
 
 	uint64_t getHandle();
 	[[nodiscard]] uint32_t getVertexCount() const;
@@ -117,7 +117,7 @@ class BottomLevelAS
 	[[nodiscard]] vk::AccelerationStructureNV getAccelerationStructure() const { return m_Structure; }
 
   private:
-	void build(bool update);
+	void build(bool update, VmaBuffer<uint8_t> scratchBuffer);
 
 	// Converts desired type to Vulkan build flags
 	static vk::BuildAccelerationStructureFlagsNV typeToFlags(AccelerationStructureType type)

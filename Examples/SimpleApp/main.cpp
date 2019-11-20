@@ -29,9 +29,9 @@ int main()
 	// try
 	//{
 #if USE_GL_CONTEXT
-	auto window = std::make_shared<Window>(1600, 900, "Window", true, std::make_pair(4, 5));
+	auto window = std::make_shared<Window>(1280, 720, "Window", true, std::make_pair(4, 5));
 #else
-	auto window = std::make_shared<Window>(1600, 900, "Window", true);
+	auto window = std::make_shared<Window>(1280, 720, "Window", true);
 #endif
 
 	auto rs = RenderSystem();
@@ -71,7 +71,7 @@ int main()
 		mouseY = static_cast<uint>(y * double(window->getHeight()));
 	});
 
-	// rs.loadRenderAPI("OptiX6Context");
+	//rs.loadRenderAPI("OptiX6Context");
 	rs.loadRenderAPI("VulkanRTX");
 	rs.setSkybox("Envmaps/sky_15.hdr");
 	rs.setTarget(textureTarget);
@@ -82,12 +82,10 @@ int main()
 
 #if PICA
 	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(1, 0, 0));
-	//auto interpolationTest =
-	//	rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
-	//auto animatedCube =
-	//	rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
-	//auto animatedSphere =
-	//	rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, 0), 90.0f, vec3(1, 0, 0));
+	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
+	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
+	// auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
+	// auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, 0), 90.0f, vec3(1, 0, 0));
 
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);
@@ -99,8 +97,7 @@ int main()
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
 	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), 1.0f, vec3(1000));
-	auto spotLight =
-		rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(1000), cos(radians(45.0f)), 1.0f, vec3(0, -1, 0));
+	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(1000), cos(radians(45.0f)), 1.0f, vec3(0, -1, 0));
 	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), 1.0f, vec3(1));
 #endif
 #endif
@@ -144,8 +141,7 @@ int main()
 
 	const auto bounds = rs.calculateSceneBounds();
 
-	DEBUG("Scene bounds: min(%f, %f, %f), max(%f, %f, %f)", bounds.mMin.x, bounds.mMin.y, bounds.mMin.z, bounds.mMax.x,
-		  bounds.mMax.y, bounds.mMax.z);
+	DEBUG("Scene bounds: min(%f, %f, %f), max(%f, %f, %f)", bounds.mMin.x, bounds.mMin.y, bounds.mMin.z, bounds.mMax.x, bounds.mMax.y, bounds.mMax.z);
 
 	Timer timer;
 	bool updateFocus = false;
@@ -284,14 +280,10 @@ int main()
 
 		ImGui::Separator();
 
-		ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000,
-					stats.primaryCount / (max(1.0f, primaryStat.getAverage() * 1000000)));
-		ImGui::Text("# Secondary: %6ik (%2.1fM/s)", stats.secondaryCount / 1000,
-					stats.secondaryCount / (max(1.0f, secondaryStat.getAverage() * 1000000)));
-		ImGui::Text("# Deep: %6ik (%2.1fM/s)", stats.deepCount / 1000,
-					stats.deepCount / (max(1.0f, deepStat.getAverage() * 1000000)));
-		ImGui::Text("# Shadow: %6ik (%2.1fM/s)", stats.shadowCount / 1000,
-					stats.shadowCount / (max(1.0f, shadowStat.getAverage() * 1000000)));
+		ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000, stats.primaryCount / (max(1.0f, primaryStat.getAverage() * 1000000)));
+		ImGui::Text("# Secondary: %6ik (%2.1fM/s)", stats.secondaryCount / 1000, stats.secondaryCount / (max(1.0f, secondaryStat.getAverage() * 1000000)));
+		ImGui::Text("# Deep: %6ik (%2.1fM/s)", stats.deepCount / 1000, stats.deepCount / (max(1.0f, deepStat.getAverage() * 1000000)));
+		ImGui::Text("# Shadow: %6ik (%2.1fM/s)", stats.shadowCount / 1000, stats.shadowCount / (max(1.0f, shadowStat.getAverage() * 1000000)));
 
 		ImGui::Separator();
 

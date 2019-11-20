@@ -184,6 +184,8 @@ void vkrtx::Context::cleanup()
 	m_CombinedStateBuffer[0] = nullptr;
 	delete m_CombinedStateBuffer[1];
 	m_CombinedStateBuffer[1] = nullptr;
+	delete m_ScratchBuffer;
+	m_ScratchBuffer = nullptr;
 	delete m_Counters;
 	m_Counters = nullptr;
 	delete m_SkyboxImage;
@@ -531,7 +533,7 @@ void vkrtx::Context::setMesh(size_t index, const rfw::Mesh &mesh)
 		m_MeshChanged.push_back(false);
 	}
 
-	m_Meshes[index]->setGeometry(mesh);
+	m_Meshes[index]->setGeometry(mesh, *m_ScratchBuffer);
 	m_MeshChanged[index] = true;
 }
 
@@ -730,7 +732,7 @@ void vkrtx::Context::update()
 		delete m_TopLevelAS;
 		m_TopLevelAS = new TopLevelAS(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
 		m_TopLevelAS->updateInstances(m_Instances);
-		m_TopLevelAS->build();
+		m_TopLevelAS->build(*m_ScratchBuffer);
 
 		rtDescriptorSet->bind(rtACCELERATION_STRUCTURE, {m_TopLevelAS->getDescriptorBufferInfo()});
 	}
@@ -739,7 +741,7 @@ void vkrtx::Context::update()
 		delete m_TopLevelAS;
 		m_TopLevelAS = new TopLevelAS(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
 		m_TopLevelAS->updateInstances(m_Instances);
-		m_TopLevelAS->build();
+		m_TopLevelAS->build(*m_ScratchBuffer);
 
 		// Update descriptor set
 		rtDescriptorSet->bind(rtACCELERATION_STRUCTURE, {m_TopLevelAS->getDescriptorBufferInfo()});
@@ -748,7 +750,7 @@ void vkrtx::Context::update()
 	{
 		m_TopLevelAS->updateInstances(m_Instances);
 		assert(m_TopLevelAS->canUpdate());
-		m_TopLevelAS->rebuild();
+		m_TopLevelAS->rebuild(*m_ScratchBuffer);
 
 		// No descriptor write needed, same acceleration structure object
 	}
@@ -770,7 +772,7 @@ void vkrtx::Context::initRenderer()
 	createRayTracingPipeline();							   // Create ray intersection pipeline
 	createShadePipeline();								   // Create compute pipeline; wavefront shading
 	createFinalizePipeline();							   // Create compute pipeline; plot accumulation buffer to image
-	m_TopLevelAS->build();								   // build top level AS
+	m_TopLevelAS->build(*m_ScratchBuffer);				   // build top level AS
 
 	// Set initial sky box, Vulkan does not like having unbound buffers
 	auto dummy = glm::vec3(0.0f);
@@ -1090,6 +1092,9 @@ void vkrtx::Context::recordCommandBuffers()
 
 void vkrtx::Context::createBuffers()
 {
+	m_ScratchBuffer = new VmaBuffer<uint8_t>(m_Device, 65336, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											 vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+
 	const auto pixelCount = static_cast<vk::DeviceSize>(m_ScrWidth * m_ScrHeight);
 	m_InvTransformsBuffer = new VmaBuffer<mat4>(
 		m_Device, 32, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,

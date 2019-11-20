@@ -124,9 +124,9 @@ void BottomLevelAS::updateVertices(const glm::vec4 *vertices, uint32_t vertexCou
 	m_Vertices.copyToDevice(vertices, vertexCount * sizeof(glm::vec4));
 }
 
-void BottomLevelAS::build() { build(false); }
+void BottomLevelAS::build(const VmaBuffer<uint8_t> &scratchBuffer) { build(false, scratchBuffer); }
 
-void BottomLevelAS::rebuild() { build(true); }
+void BottomLevelAS::rebuild(const VmaBuffer<uint8_t> &scratchBuffer) { build(true, scratchBuffer); }
 
 uint64_t BottomLevelAS::getHandle()
 {
@@ -138,13 +138,16 @@ uint64_t BottomLevelAS::getHandle()
 
 uint32_t BottomLevelAS::getVertexCount() const { return static_cast<uint32_t>(m_Vertices.getElementCount()); }
 
-void BottomLevelAS::build(bool update)
+void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 {
 	assert(m_Vertices.getElementCount() > 0);
 
 	// Create temporary scratch buffer
-	auto scratchBuffer = VmaBuffer<uint8_t>(m_Device, m_ScratchSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-											vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+	//	auto scratchBuffer = VmaBuffer<uint8_t>(m_Device, m_ScratchSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+	//											vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+
+	// Won't reallocate if buffer is big enough
+	scratchBuffer.reallocate(m_ScratchSize);
 
 	// build the actual bottom-level AS
 	vk::AccelerationStructureInfoNV buildInfo = {vk::AccelerationStructureTypeNV::eBottomLevel, m_Flags, 0, 1,
@@ -155,11 +158,10 @@ void BottomLevelAS::build(bool update)
 	auto computeQueue = m_Device.getComputeQueue();
 
 	// Never compact BVHs that are supposed to be updated
-	if (!update && m_Flags & vk::BuildAccelerationStructureFlagBitsNV::eAllowCompaction)
+	if (!update && (m_Flags & vk::BuildAccelerationStructureFlagBitsNV::eAllowCompaction))
 	{
-		commandBuffer->buildAccelerationStructureNV(&buildInfo, nullptr, 0, update, m_Structure,
-													update ? m_Structure : nullptr, scratchBuffer, 0,
-													m_Device.getLoader());
+		commandBuffer->buildAccelerationStructureNV(&buildInfo, nullptr, 0, update, m_Structure, nullptr, scratchBuffer,
+													0, m_Device.getLoader());
 		// Create memory barrier for building AS to make sure it can only be used when ready
 		vk::MemoryBarrier memoryBarrier = {vk::AccessFlagBits::eAccelerationStructureWriteNV |
 											   vk::AccessFlagBits::eAccelerationStructureReadNV,

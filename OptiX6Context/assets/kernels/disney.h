@@ -116,8 +116,7 @@ INLINE_FUNC float BSDFPdf(const ShadingData shadingData, const glm::vec3 N, cons
 }
 
 // evaluate the BSDF for a given pair of directions
-INLINE_FUNC glm::vec3 BSDFEval(const ShadingData shadingData, const glm::vec3 N, const glm::vec3 wo, const glm::vec3 wi,
-							   const float t, const bool backfacing)
+INLINE_FUNC glm::vec3 BSDFEval(const ShadingData shadingData, const glm::vec3 N, const glm::vec3 wo, const glm::vec3 wi, const float t, const bool backfacing)
 {
 	const float NDotL = dot(N, wi);
 	const float NDotV = dot(N, wo);
@@ -127,8 +126,7 @@ INLINE_FUNC glm::vec3 BSDFEval(const ShadingData shadingData, const glm::vec3 N,
 	const glm::vec3 Cdlin = shadingData.color;
 	const float Cdlum = .3f * Cdlin.x + .6f * Cdlin.y + .1f * Cdlin.z;		// luminance approx.
 	const glm::vec3 Ctint = Cdlum > 0.0f ? Cdlin / Cdlum : glm::vec3(1.0f); // normalize lum. to isolate hue+sat
-	const glm::vec3 Cspec0 =
-		disney_lerp(SPECULAR * .08f * disney_lerp(glm::vec3(1.0f), Ctint, SPECTINT), Cdlin, METALLIC);
+	const glm::vec3 Cspec0 = disney_lerp(SPECULAR * .08f * disney_lerp(glm::vec3(1.0f), Ctint, SPECTINT), Cdlin, METALLIC);
 	glm::vec3 bsdf = glm::vec3(0);
 	glm::vec3 brdf = glm::vec3(0);
 	if (TRANSMISSION > 0.0f)
@@ -162,8 +160,7 @@ INLINE_FUNC glm::vec3 BSDFEval(const ShadingData shadingData, const glm::vec3 N,
 			{
 				// take sqrt to account for entry/exit of the ray through the medium
 				// this ensures transmitted light corresponds to the diffuse model
-				const glm::vec3 s =
-					glm::vec3(sqrt(shadingData.color.x), sqrt(shadingData.color.y), sqrt(shadingData.color.z));
+				const glm::vec3 s = glm::vec3(sqrt(shadingData.color.x), sqrt(shadingData.color.y), sqrt(shadingData.color.z));
 				const float FL = SchlickFresnel(abs(NDotL)), FV = SchlickFresnel(NDotV);
 				const float Fd = (1.0f - 0.5f * FL) * (1.0f - 0.5f * FV);
 				brdf = INVPI * s * SUBSURFACE * Fd * (1.0f - METALLIC);
@@ -191,23 +188,20 @@ INLINE_FUNC glm::vec3 BSDFEval(const ShadingData shadingData, const glm::vec3 N,
 			const float Fc = disney_lerp(.04f, 1.0f, FH);
 			const float Gr = SmithGGX(NDotL, .25) * SmithGGX(NDotV, .25);
 
-			brdf =
-				INVPI * Fd * Cdlin * (1.0f - METALLIC) * (1.0f - SUBSURFACE) + Gs * Fs * Ds + CLEARCOAT * Gr * Fc * Dr;
+			brdf = INVPI * Fd * Cdlin * (1.0f - METALLIC) * (1.0f - SUBSURFACE) + Gs * Fs * Ds + CLEARCOAT * Gr * Fc * Dr;
 		}
 	}
 
 	const vec3 final = disney_lerp(brdf, bsdf, TRANSMISSION);
 	if (backfacing)
-		return final * vec3(exp(-shadingData.absorption.r * t), exp(-shadingData.absorption.g * t),
-							exp(-shadingData.absorption.b * t));
+		return final * vec3(exp(-shadingData.absorption.r * t), exp(-shadingData.absorption.g * t), exp(-shadingData.absorption.b * t));
 	else
 		return final;
 }
 
 // generate an importance sampled BSDF direction
-INLINE_FUNC void BSDFSample(const ShadingData shadingData, const glm::vec3 T, const glm::vec3 B, const glm::vec3 N,
-							const glm::vec3 wo, REFERENCE_OF(glm::vec3) wi, REFERENCE_OF(float) pdf,
-							REFERENCE_OF(int) type, const float t, const bool backfacing, const float r3,
+INLINE_FUNC void BSDFSample(const ShadingData shadingData, const glm::vec3 T, const glm::vec3 B, const glm::vec3 N, const glm::vec3 wo,
+							REFERENCE_OF(glm::vec3) wi, REFERENCE_OF(float) pdf, REFERENCE_OF(int) type, const float t, const bool backfacing, const float r3,
 							const float r4)
 {
 	const float transmission = TRANSMISSION;
@@ -285,18 +279,16 @@ INLINE_FUNC void BSDFSample(const ShadingData shadingData, const glm::vec3 T, co
 
 // ----------------------------------------------------------------
 
-INLINE_FUNC glm::vec3 EvaluateBSDF(const ShadingData shadingData, const glm::vec3 iN, const glm::vec3 T,
-								   const glm::vec3 B, const glm::vec3 wo, const glm::vec3 wi, REFERENCE_OF(float) pdf)
+INLINE_FUNC glm::vec3 EvaluateBSDF(const ShadingData shadingData, const glm::vec3 iN, const glm::vec3 T, const glm::vec3 B, const glm::vec3 wo,
+								   const glm::vec3 wi, REFERENCE_OF(float) pdf)
 {
 	const glm::vec3 bsdf = BSDFEval(shadingData, iN, wo, wi, 0.0f, false);
 	pdf = BSDFPdf(shadingData, iN, wo, wi);
 	return bsdf;
 }
 
-INLINE_FUNC glm::vec3 SampleBSDF(const ShadingData shadingData, const glm::vec3 iN, const glm::vec3 N,
-								 const glm::vec3 T, const glm::vec3 B, const glm::vec3 wo, const float t,
-								 const bool backfacing, const float r3, const float r4, REFERENCE_OF(glm::vec3) wi,
-								 REFERENCE_OF(float) pdf)
+INLINE_FUNC glm::vec3 SampleBSDF(const ShadingData shadingData, const glm::vec3 iN, const glm::vec3 N, const glm::vec3 T, const glm::vec3 B, const glm::vec3 wo,
+								 const float t, const bool backfacing, const float r3, const float r4, REFERENCE_OF(glm::vec3) wi, REFERENCE_OF(float) pdf)
 {
 	int type;
 	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, r3, r4);

@@ -8,7 +8,7 @@ vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, co
 				  inout float pdf)
 {
 	pdf = abs(dot(wi, iN)) * INVPI;
-	return shadingData.color * INVPI;
+	return shadingData.color.xyz * INVPI;
 }
 
 vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B, const vec3 wo,
@@ -20,14 +20,14 @@ vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, cons
 		pdf = 1.0f;
 		if (dot(N, wi) <= 0.0f)
 			pdf = 0.0f;
-		return shadingData.color * (1.0f / (abs(dot(iN, wi))));
+		return shadingData.color.xyz * (1.0f / (abs(dot(iN, wi))));
 	}
 
 	wi = normalize(tangentToWorld(DiffuseReflectionUniform(r0, r1), iN, T, B));
 	pdf = max(0.0f, dot(wi, iN)) * INVPI;
 	if (dot(N, wi) <= 0)
 		pdf = 0;
-	return shadingData.color * INVPI;
+	return shadingData.color.xyz * INVPI;
 }
 
 #endif

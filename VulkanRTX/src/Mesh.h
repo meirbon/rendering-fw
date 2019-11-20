@@ -22,7 +22,7 @@ class Mesh
 	~Mesh();
 
 	void cleanup();
-	void setGeometry(const rfw::Mesh &mesh);
+	void setGeometry(const rfw::Mesh &mesh, const VmaBuffer<uint8_t>& scratchBuffer);
 
 	VmaBuffer<rfw::DeviceTriangle> triangles;
 	BottomLevelAS *accelerationStructure = nullptr;

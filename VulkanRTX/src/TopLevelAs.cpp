@@ -85,7 +85,7 @@ vk::WriteDescriptorSetAccelerationStructureNV TopLevelAS::getDescriptorBufferInf
 	return vk::WriteDescriptorSetAccelerationStructureNV(1, &m_Structure);
 }
 
-void TopLevelAS::Build(bool update)
+void TopLevelAS::Build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 {
 	if (m_InstanceCnt == 0)
 		return;
@@ -93,8 +93,10 @@ void TopLevelAS::Build(bool update)
 	// build the acceleration structure and store it in the result memory
 	vk::AccelerationStructureInfoNV buildInfo = {vk::AccelerationStructureTypeNV::eTopLevel, m_Flags, m_InstanceCnt, 0,
 												 nullptr};
-	auto scratchBuffer = VmaBuffer<uint8_t>(m_Device, m_ScratchSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-											vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+	//	auto scratchBuffer = VmaBuffer<uint8_t>(m_Device, m_ScratchSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+	//											vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+	// Won't reallocate if buffer is big enough
+	scratchBuffer.reallocate(m_ScratchSize);
 
 	auto commandBuffer = m_Device.createOneTimeCmdBuffer();
 	commandBuffer->buildAccelerationStructureNV(&buildInfo, m_InstanceBuffer, 0, update, m_Structure,
@@ -118,9 +120,9 @@ void TopLevelAS::updateInstances(const std::vector<GeometryInstance> &instances)
 	m_InstanceBuffer.copyToDevice(instances.data(), instances.size() * sizeof(GeometryInstance));
 }
 
-void TopLevelAS::build() { Build(false); }
+void TopLevelAS::build(const VmaBuffer<uint8_t>& scratchBuffer) { Build(false, scratchBuffer); }
 
-void TopLevelAS::rebuild() { Build(true); }
+void TopLevelAS::rebuild(const VmaBuffer<uint8_t>& scratchBuffer) { Build(true, scratchBuffer); }
 
 uint64_t TopLevelAS::getHandle()
 {

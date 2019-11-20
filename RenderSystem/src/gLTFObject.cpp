@@ -8,8 +8,7 @@
 
 #include "utils/File.h"
 
-rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel,
-								   const int nodeBase);
+rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel, const int nodeBase);
 
 rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model)
 {
@@ -31,8 +30,7 @@ rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model
 		const auto &buffer = model.buffers.at(bufferView.buffer);
 
 		s.inverseBindMatrices.resize(accessor.count);
-		memcpy(s.inverseBindMatrices.data(), &buffer.data.at(accessor.byteOffset + bufferView.byteOffset),
-			   accessor.count * sizeof(glm::mat4));
+		memcpy(s.inverseBindMatrices.data(), &buffer.data.at(accessor.byteOffset + bufferView.byteOffset), accessor.count * sizeof(glm::mat4));
 
 		s.jointMatrices.resize(accessor.count, glm::mat4(1.0f));
 	}
@@ -57,16 +55,15 @@ rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 
 	if (!node.children.empty())
 	{
+		n.childIndices.reserve(node.children.size());
 		for (size_t s = node.children.size(), i = 0; i < s; i++)
-		{
 			n.childIndices.push_back(node.children.at(i));
-		}
 	}
 
 	if (node.matrix.size() == 16)
 	{
-		for (int i = 0; i < 4; i++)
-			n.matrix[i] = glm::make_vec4(&node.matrix.at(i * 4));
+		for (size_t i = 0; i < 4; i++)
+			n.matrix[i] = vec4(glm::make_vec4(&node.matrix.at(i * 4u)));
 	}
 
 	if (node.translation.size() == 3)
@@ -91,9 +88,7 @@ rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 	return n;
 }
 
-rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix,
-							int material)
-	: file(filename.data())
+rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix, int material) : file(filename.data())
 {
 	using namespace tinygltf;
 
@@ -133,28 +128,35 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 		mat.name = tinyMat.name;
 		for (const auto &value : tinyMat.values)
 		{
-			if (value.first == "baseColorFactor")
 			{
-				tinygltf::Parameter p = value.second;
-				mat.color = vec3(p.number_array[0], p.number_array[1], p.number_array[2]);
+				if (value.first == "baseColorFactor")
+				{
+					tinygltf::Parameter p = value.second;
+					mat.color = vec3(p.number_array[0], p.number_array[1], p.number_array[2]);
+				}
 			}
 			if (value.first == "metallicFactor")
+			{
 				if (value.second.has_number_value)
 				{
 					mat.metallic = (float)value.second.number_value;
 				}
+			}
 			if (value.first == "roughnessFactor")
+			{
 				if (value.second.has_number_value)
 				{
 					mat.roughness = (float)value.second.number_value;
 				}
+			}
 			if (value.first == "baseColorTexture")
+			{
 				for (auto &item : value.second.json_double_value)
 				{
 					if (item.first == "index")
 						mat.map[TEXTURE0].textureID = (int)item.second + baseTextureIdx;
 				}
-			// TODO: do a better automatic conversion.
+			}
 		}
 
 		matList->add(mat);
@@ -320,10 +322,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					}
 				}
 				else if (attribute.first == "TANGENT")
-				{
-					// WARNING("Tangents are not yet supported in gLTF file.");
 					continue;
-				}
 				else if (attribute.first == "TEXCOORD_0")
 				{
 					if (attribAccessor.type == TINYGLTF_TYPE_VEC2)
@@ -350,15 +349,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					}
 				}
 				else if (attribute.first == "TEXCOORD_1")
-				{
-					// TODO
 					continue;
-				}
 				else if (attribute.first == "COLOR_0")
-				{
-					// TODO
 					continue;
-				}
 				else if (attribute.first == "JOINTS_0")
 				{
 					if (attribAccessor.type == TINYGLTF_TYPE_VEC4)
@@ -369,8 +362,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
-								tmpJoints.push_back(glm::uvec4(*((ushort *)a), *((ushort *)(a + 2)),
-															   *((ushort *)(a + 4)), *((ushort *)(a + 6))));
+								tmpJoints.push_back(glm::uvec4(*((ushort *)a), *((ushort *)(a + 2)), *((ushort *)(a + 4)), *((ushort *)(a + 6))));
 							}
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
@@ -378,8 +370,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							using uchar = unsigned char;
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
-								tmpJoints.push_back(glm::uvec4(*((uchar *)a), *((uchar *)(a + 1)), *((uchar *)(a + 2)),
-															   *((uchar *)(a + 3))));
+								tmpJoints.push_back(glm::uvec4(*((uchar *)a), *((uchar *)(a + 1)), *((uchar *)(a + 2)), *((uchar *)(a + 3))));
 							}
 						}
 						else
@@ -412,11 +403,11 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							// WARNING("%s", "Double precision weights are not supported (yet).");
 							for (size_t i = 0; i < count; i++, a += byteStride)
 							{
-								glm::vec4 w4;
-								memcpy(&w4, a, sizeof(glm::vec4));
+								glm::dvec4 w4;
+								memcpy(&w4, a, sizeof(glm::dvec4));
 								float norm = 1.0f / (w4.x + w4.y + w4.z + w4.w);
 								w4 *= norm;
-								tmpWeights.push_back(w4);
+								tmpWeights.push_back(vec4(w4));
 							}
 						}
 					}
@@ -454,8 +445,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				{
 					const Accessor &accessor = model.accessors.at(target.second);
 					const BufferView &view = model.bufferViews.at(accessor.bufferView);
-					const float *a = (const float *)(model.buffers.at(view.buffer).data.data() + view.byteOffset +
-													 accessor.byteOffset);
+					const float *a = (const float *)(model.buffers.at(view.buffer).data.data() + view.byteOffset + accessor.byteOffset);
 
 					for (size_t m = 0; m < accessor.count; m++)
 					{
@@ -465,8 +455,6 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							pose.positions.push_back(v);
 						else if (target.first == "NORMAL")
 							pose.normals.push_back(v);
-						// else if (target.first == "TANGENT")
-						//	tmpPoses.at(i + 1).tangents.push_back(v);
 					}
 				}
 			}
@@ -500,7 +488,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 		for (int i : scene.rootNodes)
 		{
 			auto &node = scene.nodes.at(i);
-			node.matrix = glm::translate(glm::mat4(1.0f), vec3(0, -5, 0)) * node.matrix;
+			node.matrix = matrix * node.matrix;
 			node.transformed = true;
 		}
 	}
@@ -513,8 +501,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 	// Update triangle data that only has to be calculated once
 	scene.updateTriangles(matList, texCoords);
 
-	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(),
-					   scene.triangles.size());
+	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(), scene.triangles.size());
 }
 
 void rfw::gLTFObject::transformTo(float timeInSeconds) { scene.transformTo(timeInSeconds); }
@@ -565,11 +552,9 @@ std::vector<uint> rfw::gLTFObject::getLightIndices(const std::vector<bool> &matL
 	return indices;
 }
 
-void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> &indices,
-								   const std::vector<glm::vec3> &vertices, const std::vector<glm::vec3> &normals,
-								   const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &poses,
-								   const std::vector<glm::uvec4> &joints, const std::vector<glm::vec4> &weights,
-								   const int materialIdx)
+void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> &indices, const std::vector<glm::vec3> &vertices,
+								   const std::vector<glm::vec3> &normals, const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &poses,
+								   const std::vector<glm::uvec4> &joints, const std::vector<glm::vec4> &weights, const int materialIdx)
 {
 	using namespace glm;
 
@@ -600,11 +585,11 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 		}
 	}
 
-	mesh.joints.reserve(joints.size());
-	mesh.weights.reserve(weights.size());
-
 	if (!joints.empty())
 	{
+		mesh.joints.reserve(indices.size());
+		mesh.weights.reserve(indices.size());
+
 		for (size_t s = indices.size(), i = 0; i < s; i++)
 		{
 			const auto idx = indices.at(i);

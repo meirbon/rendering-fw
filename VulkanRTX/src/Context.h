@@ -209,6 +209,7 @@ class Context : public rfw::RenderContext
 	VmaBuffer<uint> *m_RGBA32Buffer = nullptr;
 	VmaBuffer<glm::vec4> *m_RGBA128Buffer = nullptr;
 	Counters m_HostCounters;
+	VmaBuffer<uint8_t> *m_ScratchBuffer;
 	VmaBuffer<Counters> *m_Counters = nullptr;
 	VmaBuffer<rfw::DeviceMaterial> *m_Materials = nullptr;
 	VmaBuffer<rfw::DeviceAreaLight> *m_AreaLightBuffer = nullptr;

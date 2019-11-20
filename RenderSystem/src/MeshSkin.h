@@ -5,6 +5,8 @@
 
 #include <MathIncludes.h>
 
+#include <glm/gtx/matrix_major_storage.hpp>
+
 namespace rfw
 {
 class MeshSkin

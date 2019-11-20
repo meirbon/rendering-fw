@@ -19,6 +19,7 @@
 #endif
 #include <windows.h>
 #include <libloaderapi.h>
+#include <utils/Timer.h>
 #elif defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
 #else
@@ -74,7 +75,7 @@ void *LoadModule(const std::string_view &file)
 void printLoadError()
 {
 #ifdef WIN32
-	fprintf(stderr, "%u\n", GetLastError());
+	fprintf(stderr, "%lu\n", GetLastError());
 #else
 	fprintf(stderr, "%s\n", dlerror());
 #endif
@@ -195,6 +196,8 @@ void RenderSystem::setSkybox(std::string_view filename)
 
 void rfw::RenderSystem::synchronize()
 {
+	utils::Timer t;
+
 	if (m_Changed[SKYBOX])
 		m_Context->setSkyDome(m_Skybox->getBuffer(), m_Skybox->getWidth(), m_Skybox->getHeight());
 
@@ -262,7 +265,7 @@ void rfw::RenderSystem::synchronize()
 
 	if (m_Changed[LIGHTS])
 	{
-		LightCount count;
+		LightCount count = {};
 		count.areaLightCount = static_cast<uint>(m_AreaLights.size());
 		count.pointLightCount = static_cast<uint>(m_PointLights.size());
 		count.spotLightCount = static_cast<uint>(m_SpotLights.size());
@@ -279,9 +282,11 @@ void rfw::RenderSystem::synchronize()
 		m_ShouldReset = true;
 		m_Changed.reset();
 
-		for (uint i = 0; i < m_InstanceChanged.size(); i++)
-			m_InstanceChanged.at(i) = false;
+		for (auto &&i : m_InstanceChanged)
+			i = false;
 	}
+
+//	utils::logger::log("Updated context in %3.3f", t.elapsed());
 }
 
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
@@ -297,9 +302,9 @@ void RenderSystem::updateAnimationsTo(float timeInSeconds)
 			m_ShouldReset = true;
 			updates.push_back(std::async([this, i, object, timeInSeconds]() {
 				object->transformTo(timeInSeconds);
-
-				std::lock_guard<std::mutex> lock(m_SetMeshMutex);
+				m_SetMeshMutex.lock();
 				m_Context->setMesh(i, object->getMesh());
+				m_SetMeshMutex.unlock();
 			}));
 
 			needsUpdate.push_back(i);
@@ -309,9 +314,6 @@ void RenderSystem::updateAnimationsTo(float timeInSeconds)
 	for (auto &update : updates)
 		if (update.valid())
 			update.get();
-
-	// for (const auto i : needsUpdate)
-	//	m_Context->setMesh(i, m_Models.at(i)->getMesh());
 }
 
 rfw::GeometryReference RenderSystem::getGeometryReference(size_t index)

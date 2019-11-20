@@ -21,16 +21,6 @@ struct CameraView
 	int scrheight;
 };
 
-//struct Camera
-//{
-//	vec4 posLensSize;
-//	vec4 right_aperture;
-//	vec4 up_spreadAngle;
-//	vec4 p1;
-//	int samplesTaken, phase;
-//	int scrwidth, scrheight;
-//};
-
 struct DeviceMaterial
 {
 	uvec4 baseData4;

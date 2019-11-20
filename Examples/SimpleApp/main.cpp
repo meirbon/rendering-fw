@@ -49,9 +49,6 @@ int main()
 	auto camera = rfw::Camera();
 	camera.position = vec3(0, 5, -10);
 
-	if (rfw::utils::file::exists("camera.bin"))
-		camera = rfw::Camera::deserialize("camera.bin");
-
 	camera.resize(window->getWidth(), window->getHeight());
 
 	unsigned int mouseX, mouseY;
@@ -80,12 +77,13 @@ int main()
 	rs.setTarget(textureTarget);
 
 #if SKINNED_MESH
-	//auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
+	// auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
 #if PICA
-	//auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb"), vec3(2), vec3(0, 2, 0), 90.0f, vec3(1, 0, 0));
-	//auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(2), vec3(0, 2, 0), 90.0f, vec3(1, 0, 0));
+	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(1, 0, 0));
+	// auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(2), vec3(0, 2, 0), 90.0f,
+	// vec3(1, 0, 0));
 
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);
@@ -141,10 +139,9 @@ int main()
 	Averager<float, 50> finalizeStat;
 
 	const auto bounds = rs.calculateSceneBounds();
-	char buffer[512];
-	sprintf(buffer, "Scene bounds: min(%f, %f, %f), max(%f, %f, %f)", bounds.mMin.x, bounds.mMin.y, bounds.mMin.z,
-			bounds.mMax.x, bounds.mMax.y, bounds.mMax.z);
-	std::cout << buffer << std::endl;
+
+	DEBUG("Scene bounds: min(%f, %f, %f), max(%f, %f, %f)", bounds.mMin.x, bounds.mMin.y, bounds.mMin.z, bounds.mMax.x,
+		  bounds.mMax.y, bounds.mMax.z);
 
 	Timer timer;
 	bool updateFocus = false;
@@ -283,13 +280,13 @@ int main()
 
 		ImGui::Separator();
 
-		ImGui::Text("# Primary: %6ik (%6.1fM/s)", stats.primaryCount / 1000,
+		ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000,
 					stats.primaryCount / (max(1.0f, primaryStat.getAverage() * 1000000)));
-		ImGui::Text("# Secondary: %6ik (%6.1fM/s)", stats.secondaryCount / 1000,
+		ImGui::Text("# Secondary: %6ik (%2.1fM/s)", stats.secondaryCount / 1000,
 					stats.secondaryCount / (max(1.0f, secondaryStat.getAverage() * 1000000)));
-		ImGui::Text("# Deep: %6ik (%6.1fM/s)", stats.deepCount / 1000,
+		ImGui::Text("# Deep: %6ik (%2.1fM/s)", stats.deepCount / 1000,
 					stats.deepCount / (max(1.0f, deepStat.getAverage() * 1000000)));
-		ImGui::Text("# Shadow: %6ik (%6.1fM/s)", stats.shadowCount / 1000,
+		ImGui::Text("# Shadow: %6ik (%2.1fM/s)", stats.shadowCount / 1000,
 					stats.shadowCount / (max(1.0f, shadowStat.getAverage() * 1000000)));
 
 		ImGui::Separator();

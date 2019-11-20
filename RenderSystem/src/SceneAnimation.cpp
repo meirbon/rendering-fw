@@ -28,6 +28,7 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 	size_t count = inputAccessor.count;
 	for (int i = 0; i < count; i++)
 		sampler.t.push_back(a[i]);
+
 	// extract animation keys
 	auto outputAccessor = gltfModel.accessors[gltfSampler.output];
 	bufferView = gltfModel.bufferViews[outputAccessor.bufferView];
@@ -64,11 +65,11 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 			break;
 		case TINYGLTF_COMPONENT_TYPE_SHORT:
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(max(*((char *)b) / 32767.0f, -1.0f));
+				fdata.push_back(max(*((short *)b) / 32767.0f, -1.0f));
 			break;
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(*((char *)b) / 65535.0f);
+				fdata.push_back(*((unsigned short *)b) / 65535.0f);
 			break;
 		}
 
@@ -96,11 +97,11 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 			break;
 		case TINYGLTF_COMPONENT_TYPE_SHORT:
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(max(*((char *)b) / 32767.0f, -1.0f));
+				fdata.push_back(max(*((short *)b) / 32767.0f, -1.0f));
 			break;
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(*((char *)b) / 65535.0f);
+				fdata.push_back(*((unsigned short *)b) / 65535.0f);
 			break;
 		}
 		for (int i = 0; i < outputAccessor.count; i++)
@@ -121,14 +122,14 @@ rfw::SceneAnimation::Channel creategLTFChannel(const tinygltf::AnimationChannel 
 
 	channel.samplerIdx = gltfChannel.sampler;
 	channel.nodeIdx = gltfChannel.target_node + nodeBase;
-	if (gltfChannel.target_path.compare("translation") == 0)
-		channel.target = 0;
-	if (gltfChannel.target_path.compare("rotation") == 0)
-		channel.target = 1;
-	if (gltfChannel.target_path.compare("scale") == 0)
-		channel.target = 2;
-	if (gltfChannel.target_path.compare("weights") == 0)
-		channel.target = 3;
+	if (gltfChannel.target_path == "translation")
+		channel.target = rfw::SceneAnimation::Channel::TRANSLATION;
+	else if (gltfChannel.target_path == "rotation")
+		channel.target = rfw::SceneAnimation::Channel::ROTATION;
+	else if (gltfChannel.target_path == "scale")
+		channel.target = rfw::SceneAnimation::Channel::SCALE;
+	else if (gltfChannel.target_path == "weights")
+		channel.target = rfw::SceneAnimation::Channel::WEIGHTS;
 
 	return channel;
 }
@@ -137,12 +138,15 @@ rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation
 								   const int nodeBase)
 {
 	assert(object);
+
 	rfw::SceneAnimation anim = {};
 
 	for (size_t i = 0; i < gltfAnim.samplers.size(); i++)
-		anim.samplers.push_back(creategLTFSampler(gltfAnim.samplers[i], gltfModel));
+		anim.samplers.push_back(creategLTFSampler(gltfAnim.samplers.at(i), gltfModel));
+
 	for (size_t i = 0; i < gltfAnim.channels.size(); i++)
-		anim.channels.push_back(creategLTFChannel(gltfAnim.channels[i], gltfModel, nodeBase));
+		anim.channels.push_back(creategLTFChannel(gltfAnim.channels.at(i), gltfModel, nodeBase));
+
 	anim.object = object;
 
 	return anim;
@@ -163,10 +167,11 @@ void rfw::SceneAnimation::update(float deltaTime)
 float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i, int count) const
 {
 	const int keyCount = (int)t.size();
-	const float animDuration = t[keyCount - 1];
-	const float t0 = t[k % keyCount], t1 = t[(k + 1) % keyCount];
+	const float animDuration = t.at(keyCount - 1);
+	const float t0 = t.at(k % keyCount);
+	const float t1 = t.at((k + 1) % keyCount);
 	const float f = (currentTime - t0) / (t1 - t0);
-	// sample
+
 	if (f <= 0)
 		return float_key.at(0);
 
@@ -174,85 +179,44 @@ float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i,
 	{
 	case Sampler::SPLINE:
 	{
-		const float t = f, t2 = t * t, t3 = t2 * t;
-		const float p0 = float_key[(k * count + i) * 3 + 1];
-		const float m0 = (t1 - t0) * float_key[(k * count + i) * 3 + 2];
-		const float p1 = float_key[((k + 1) * count + i) * 3 + 1];
+		const float t = f;
+		const float t2 = t * t;
+		const float t3 = t2 * t;
+		const float p0 = float_key.at((k * count + i) * 3 + 1);
+		const float m0 = (t1 - t0) * float_key.at((k * count + i) * 3 + 2);
+		const float p1 = float_key.at(((k + 1) * count + i) * 3 + 1);
 		const float m1 = (t1 - t0) * float_key[((k + 1) * count + i) * 3];
 		return m0 * (t3 - 2 * t2 + t) + p0 * (2 * t3 - 3 * t2 + 1) + p1 * (-2 * t3 + 3 * t2) + m1 * (t3 - t2);
 	}
 	case Sampler::STEP:
-		return float_key[k];
+		return float_key.at(k);
 	case Sampler::LINEAR:
 	default:
-		return (1.0f - f) * float_key[k * count + i] + f * float_key[(k + 1.0f) * count + i];
+		return (1.0f - f) * float_key.at(k * count + i) + f * float_key.at((k + 1.0f) * count + i);
 	};
 }
 
 glm::vec3 rfw::SceneAnimation::Sampler::sampleVec3(float currentTime, int k) const
 {
 	const auto keyCount = t.size();
-	const float animDuration = t[keyCount - 1];
-	const float t0 = t[k % keyCount], t1 = t[(k + 1) % keyCount];
+	const float t0 = t.at(k % keyCount);
+	const float t1 = t.at((k + 1) % keyCount);
 	const float f = (currentTime - t0) / (t1 - t0);
-	// sample
-	if (f <= 0)
-		return vec3_key[0];
-	switch (method)
-	{
-	case Sampler::SPLINE:
-	{
-		const float t = f, t2 = t * t, t3 = t2 * t;
-		const auto p0 = vec3_key[k * 3 + 1];
-		const auto m0 = (t1 - t0) * vec3_key[k * 3 + 2];
-		const auto p1 = vec3_key[(k + 1) * 3 + 1];
-		const auto m1 = (t1 - t0) * vec3_key[(k + 1) * 3];
-		return m0 * (t3 - 2 * t2 + t) + p0 * (2 * t3 - 3 * t2 + 1) + p1 * (-2 * t3 + 3 * t2) + m1 * (t3 - t2);
-	}
-	case Sampler::STEP:
-		return vec3_key[k];
-	case Sampler::LINEAR:
-	default:
-		return (1.0f - f) * vec3_key[k] + f * vec3_key[k + 1.0f];
-	};
+
+	return sampleFromVector(vec3_key, method, k, t0, t1, f);
 }
 
 glm::quat rfw::SceneAnimation::Sampler::sampleQuat(float currentTime, int k) const
 {
 	// determine interpolation parameters
-	const int keyCount = (int)t.size();
+	const auto keyCount = t.size();
 	const float animDuration = t[keyCount - 1];
-	const float t0 = t[k % keyCount], t1 = t[(k + 1) % keyCount];
+	const float t0 = t.at(k % keyCount);
+	const float t1 = t.at((k + 1) % keyCount);
 	const float f = (currentTime - t0) / (t1 - t0);
-	// sample
-	quat key;
-	if (f <= 0)
-		key = quat_key[0];
-	else
-		switch (method)
-		{
-		case Sampler::SPLINE:
-		{
-			const float t = f, t2 = t * t, t3 = t2 * t;
-			const auto p0 = quat_key[k * 3 + 1];
-			const auto m0 = quat_key[k * 3 + 2] * (t1 - t0);
-			const auto p1 = quat_key[(k + 1) * 3 + 1];
-			const auto m1 = quat_key[(k + 1) * 3] * (t1 - t0);
-			key = m0 * (t3 - 2 * t2 + t) + p0 * (2 * t3 - 3 * t2 + 1) + p1 * (-2 * t3 + 3 * t2) + m1 * (t3 - t2);
-			break;
-		}
-		case Sampler::STEP:
-		{
-			key = quat_key[k];
-			break;
-		default:
-			// key = quat::slerp( vec4Key[k], vec4Key[k + 1], f );
-			key = (quat_key[k] * (1 - f)) + (quat_key[k + 1] * f);
-			break;
-		}
-		};
 
-	return normalize(key);
+	const glm::quat key = sampleFromVector<glm::quat>(quat_key, method, k, t0, t1, f);
+	return glm::normalize(key);
 }
 
 void rfw::SceneAnimation::Channel::reset()
@@ -269,40 +233,44 @@ void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float 
 	float animDuration = sampler.t.at(keyCount - 1);
 
 	while (t > animDuration)
-		t -= animDuration, k = 0;
-	while (t > sampler.t[(k + 1) % keyCount])
+	{
+		t -= animDuration;
+		k = 0;
+	}
+
+	while (t > sampler.t.at((k + 1) % keyCount))
+	{
 		k++;
+	}
 
 	// Determine interpolation parameters
-	float t0 = sampler.t[k % keyCount];
-	float t1 = sampler.t[(k + 1) % keyCount];
-	float f = (t - t0) / (t1 - t0);
+	const float t0 = sampler.t.at(k % keyCount);
+	const float t1 = sampler.t.at((k + 1) % keyCount);
+	const float f = (t - t0) / (t1 - t0);
 
 	auto &node = object->nodes.at(nodeIdx);
 
 	// Apply animation key
-	if (target == 0) // translation
+	if (target == rfw::SceneAnimation::Channel::TRANSLATION) // translation
 	{
 		node.translation = sampler.sampleVec3(t, k);
 		node.transformed = true;
 	}
-	else if (target == 1) // rotation
+	else if (target == rfw::SceneAnimation::Channel::ROTATION) // rotation
 	{
 		node.rotation = sampler.sampleQuat(t, k);
 		node.transformed = true;
 	}
-	else if (target == 2) // scale
+	else if (target == rfw::SceneAnimation::Channel::SCALE) // scale
 	{
 		node.scale = sampler.sampleVec3(t, k);
 		node.transformed = true;
 	}
-	else // target == 3, weight
+	else if (rfw::SceneAnimation::Channel::WEIGHTS) // weight
 	{
 		auto weightCount = node.weights.size();
 		for (int i = 0; i < weightCount; i++)
-		{
 			node.weights[i] = sampler.sampleFloat(t, k, i, weightCount);
-		}
 
 		node.morphed = true;
 	}

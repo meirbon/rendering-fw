@@ -3,29 +3,29 @@
 #include "SceneObject.h"
 #include "MeshSkin.h"
 
-rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, glm::mat4 transform, rfw::utils::ArrayProxy<int> c)
-	: object(obj), name(n), localTransform(transform), matrix(transform)
+rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c) : object(obj), name(n)
 {
 	childIndices.resize(c.size());
 	memcpy(childIndices.data(), c.data(), c.size() * sizeof(int));
+
+	translation = vec3(0);
+	rotation = glm::identity<glm::quat>();
+	scale = vec3(1);
+	matrix = glm::identity<glm::mat4>();
 }
 
-bool rfw::SceneNode::update(const glm::mat4 &accumulatedTransform)
+bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 {
 	bool changed = false;
-
 	if (transformed)
-	{
 		calculateTransform();
-		transformed = false;
-	}
 
-	this->combinedTransform = accumulatedTransform * localTransform;
+	combinedTransform = accumulatedTransform * localTransform;
 
 	for (size_t s = childIndices.size(), i = 0; i < s; i++)
 	{
 		rfw::SceneNode &child = object->nodes.at(childIndices.at(i));
-		changed = child.update(accumulatedTransform);
+		changed = child.update(combinedTransform);
 	}
 
 	if (meshID > -1)
@@ -58,4 +58,12 @@ bool rfw::SceneNode::update(const glm::mat4 &accumulatedTransform)
 	return changed;
 }
 
-void rfw::SceneNode::calculateTransform() {}
+void rfw::SceneNode::calculateTransform()
+{
+	const mat4 T = translate(mat4(1.0f), translation);
+	const mat4 R = mat4_cast(rotation);
+	const mat4 S = glm::scale(mat4(1.0f), scale);
+
+	localTransform = T * R * S * matrix;
+	transformed = false;
+}

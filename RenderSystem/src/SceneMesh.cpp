@@ -23,7 +23,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 		skinMatrix += w4.w * skin.jointMatrices.at(j4.w);
 
 		object->vertices.at(idx) = skinMatrix * vec4(vec3(object->baseVertices.at(idx)), 1.0f);
-		object->normals.at(idx) = normalize(object->baseNormals.at(idx) * mat3(skinMatrix));
+		object->normals.at(idx) = mat3(skinMatrix) * object->baseNormals.at(idx);
 	}
 
 	object->updateTriangles(vertexOffset / 3, vertexCount / 3);
@@ -40,7 +40,7 @@ void rfw::SceneMesh::setPose(rfw::utils::ArrayProxy<float> weights)
 	{
 		const auto idx = i + vertexOffset;
 		object->vertices.at(idx) = vec4(poses.at(0).positions.at(i), 1.0f);
-		object->normals.at(idx);
+		object->normals.at(idx) = poses.at(0).normals.at(i);
 
 		for (uint j = 1; j <= weightCount; j++)
 		{
@@ -62,7 +62,7 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 
 	for (uint i = 0, idx = vertexOffset; i < vertexCount; i++, idx++)
 	{
-		baseVertex[i] = transform * vec4(vec3(object->baseVertices.at(idx)), 1.0f);
+		baseVertex[i] = transform * object->baseVertices.at(idx);
 		baseNormal[i] = matrix3x3 * object->baseNormals.at(idx);
 	}
 

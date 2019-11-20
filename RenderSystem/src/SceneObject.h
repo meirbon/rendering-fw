@@ -17,7 +17,7 @@
 namespace rfw
 {
 
-struct SceneObject
+class SceneObject
 {
   public:
 	// Render data, stored contiguously in a single vector to allow for

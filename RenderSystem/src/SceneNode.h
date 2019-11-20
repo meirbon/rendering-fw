@@ -11,9 +11,9 @@ namespace rfw
 class SceneObject;
 struct SceneNode
 {
-	SceneNode(SceneObject *obj, std::string name, glm::mat4 transform, rfw::utils::ArrayProxy<int> children);
+	SceneNode(SceneObject *obj, std::string name, rfw::utils::ArrayProxy<int> children);
 
-	bool update(const glm::mat4 &accumulatedTransform);
+	bool update(glm::mat4 accumulatedTransform);
 	void calculateTransform();
 
 	glm::mat4 combinedTransform = glm::mat4(1.0f); // Combined transform of parent nodes
@@ -28,7 +28,7 @@ struct SceneNode
 
 	bool transformed = true;
 	bool morphed = false;
-	int meshID = -1, ID = -1, skinID = -1;
+	int meshID = -1, skinID = -1;
 
 	std::vector<float> weights;
 	std::vector<int> childIndices;

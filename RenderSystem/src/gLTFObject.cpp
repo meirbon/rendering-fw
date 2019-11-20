@@ -42,9 +42,7 @@ rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model
 
 rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 {
-	auto n = rfw::SceneNode(&object.scene, node.name, glm::mat4(1.0f), {});
-	n.matrix = glm::mat4(1.0f);
-
+	auto n = rfw::SceneNode(&object.scene, node.name, {});
 	n.meshID = node.mesh == -1 ? -1 : node.mesh;
 	n.skinID = node.skin == -1 ? -1 : node.skin;
 
@@ -60,41 +58,31 @@ rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 		n.childIndices.push_back(node.children.at(i));
 	}
 
-	bool buildFromTRS = false;
 	if (node.matrix.size() == 16)
 	{
 		for (int i = 0; i < 4; i++)
-		{
-			for (int j = 0; j < 4; j++)
-			{
-				n.matrix[j][i] = node.matrix[j * 4 + i];
-			}
-		}
+			n.matrix[i] = glm::make_vec4(&node.matrix.at(i * 4));
 	}
 
 	if (node.translation.size() == 3)
 	{
 		// the GLTF node contains a translation
 		n.translation = vec3(node.translation[0], node.translation[1], node.translation[2]);
-		buildFromTRS = true;
 	}
 
 	if (node.rotation.size() == 4)
 	{
 		// the GLTF node contains a rotation
 		n.rotation = quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]);
-		buildFromTRS = true;
 	}
 
 	if (node.scale.size() == 3)
 	{
 		// the GLTF node contains a scale
 		n.scale = vec3(node.scale[0], node.scale[1], node.scale[2]);
-		buildFromTRS = true;
 	}
 
 	n.calculateTransform();
-
 	return n;
 }
 
@@ -490,9 +478,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 	for (size_t s = model.nodes.size(), i = 0; i < s; i++)
 	{
 		const auto &node = model.nodes.at(i);
-		auto newNode = createNode(*this, node);
-		newNode.ID = i;
-		scene.nodes.emplace_back(newNode);
+		scene.nodes.emplace_back(createNode(*this, node));
 	}
 
 	for (size_t i = 0; i < gltfScene.nodes.size(); i++)
@@ -503,7 +489,8 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 		for (int i : scene.rootNodes)
 		{
 			auto &node = scene.nodes.at(i);
-			node.localTransform = node.localTransform * matrix;
+			node.matrix = glm::translate(glm::mat4(1.0f), vec3(0, -5, 0)) * node.matrix;
+			node.transformed = true;
 		}
 	}
 
@@ -586,8 +573,20 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 	texCoords.reserve(texCoords.size() + indices.size());
 
 	mesh.poses = poses;
-	mesh.joints = joints;
-	mesh.weights = weights;
+
+	mesh.joints.reserve(joints.size());
+	mesh.weights.reserve(weights.size());
+
+	if (!joints.empty())
+	{
+		for (size_t s = indices.size(), i = 0; i < s; i++)
+		{
+			const auto idx = indices.at(i);
+
+			mesh.joints.push_back(joints.at(idx));
+			mesh.weights.push_back(weights.at(idx));
+		}
+	}
 
 	// Add per-vertex data
 	for (size_t s = indices.size(), i = 0; i < s; i++)

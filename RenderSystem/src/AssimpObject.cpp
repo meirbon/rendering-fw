@@ -91,6 +91,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			matMapping.at(i) = material;
 	}
 
+	bool hasSkin = false;
 	rfw::MeshSkin skin = {};
 	skin.jointMatrices.push_back(glm::mat4(1.0f));
 
@@ -100,30 +101,55 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	traverseNode(assimpScene->mRootNode, &m_NodeNameMapping);
 	scene.rootNodes.push_back(0);
 
-	for (int n = 0; n < m_NodesWithMeshes.size(); n++)
+	for (const auto n : m_NodesWithMeshes)
 	{
-		const auto& node = scene.nodes.at(n);
-		for (const auto i : scene.nodes.at(n).meshIDs)
-		{
-			const aiMesh *curMesh = assimpScene->mMeshes[m_AssimpMeshMapping.at(i)];
+		const auto &node = scene.nodes.at(n);
 
-			rfw::SceneMesh &m = scene.meshes.at(i);
+		for (const auto meshID : scene.nodes.at(n).meshIDs)
+		{
+			const aiMesh *curMesh = assimpScene->mMeshes[m_AssimpMeshMapping.at(meshID)];
+
+			const auto vertexOffset = scene.baseVertices.size();
+			const auto faceOffset = scene.indices.size();
+
+			rfw::SceneMesh &m = scene.meshes.at(meshID);
 			m.object = &scene;
 
-			const uint matIndex = matMapping[curMesh->mMaterialIndex];
-			m.vertexOffset = scene.baseVertices.size();
-			m.vertexCount = curMesh->mNumFaces * 3;
+			// Store location & range info
+			m.vertexOffset = vertexOffset;
+			m.vertexCount = curMesh->mNumVertices;
+			m.faceOffset = faceOffset;
+			m.faceCount = curMesh->mNumFaces;
+			m.matID = matMapping[curMesh->mMaterialIndex];
 
-			scene.baseVertices.reserve(scene.baseVertices.size() + curMesh->mNumFaces * 3);
-			scene.baseNormals.reserve(scene.baseNormals.size() + curMesh->mNumFaces * 3);
-
+			// Allocate storage
+			scene.baseVertices.reserve(scene.baseVertices.size() + curMesh->mNumVertices);
+			scene.baseNormals.reserve(scene.baseNormals.size() + curMesh->mNumVertices);
+			textureCoords.reserve(textureCoords.size() + curMesh->mNumVertices);
 			scene.materialIndices.reserve(scene.triangles.size() + curMesh->mNumFaces);
-			scene.triangles.reserve(scene.triangles.size() + curMesh->mNumFaces);
+			scene.triangles.resize(scene.triangles.size() + curMesh->mNumFaces);
 
+			// Store vertices
+			for (uint v = 0; v < curMesh->mNumVertices; v++)
+			{
+				const vec3 vertex = glm::make_vec3(&curMesh->mVertices[v].x);
+				const vec3 normal = glm::make_vec3(&curMesh->mNormals[v].x);
+
+				scene.baseVertices.push_back(vec4(vertex, 1.0f));
+				scene.baseNormals.push_back(normal);
+
+				if (curMesh->HasTextureCoords(0))
+					textureCoords.emplace_back(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
+				else
+					textureCoords.emplace_back(0.0f, 0.0f);
+			}
+
+			// Store indices
 			for (uint f = 0; f < curMesh->mNumFaces; f++)
 			{
 				const aiFace &face = curMesh->mFaces[f];
 				assert(face.mNumIndices == 3);
+
 				const auto f0 = face.mIndices[0];
 				const auto f1 = face.mIndices[1];
 				const auto f2 = face.mIndices[2];
@@ -132,40 +158,13 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				assert(f1 < curMesh->mNumVertices);
 				assert(f2 < curMesh->mNumVertices);
 
-				const vec3 v0 = glm::make_vec3(&curMesh->mVertices[f0].x);
-				const vec3 v1 = glm::make_vec3(&curMesh->mVertices[f1].x);
-				const vec3 v2 = glm::make_vec3(&curMesh->mVertices[f2].x);
-
-				const vec3 vn0 = glm::make_vec3(&curMesh->mNormals[f0].x);
-				const vec3 vn1 = glm::make_vec3(&curMesh->mNormals[f1].x);
-				const vec3 vn2 = glm::make_vec3(&curMesh->mNormals[f2].x);
-
-				scene.baseVertices.emplace_back(v0, 1.0f);
-				scene.baseVertices.emplace_back(v1, 1.0f);
-				scene.baseVertices.emplace_back(v2, 1.0f);
-
-				scene.baseNormals.emplace_back(vn0);
-				scene.baseNormals.emplace_back(vn1);
-				scene.baseNormals.emplace_back(vn2);
-
-				if (curMesh->HasTextureCoords(0))
-				{
-					textureCoords.emplace_back(curMesh->mTextureCoords[0][f0].x, curMesh->mTextureCoords[0][f0].y);
-					textureCoords.emplace_back(curMesh->mTextureCoords[0][f1].x, curMesh->mTextureCoords[0][f1].y);
-					textureCoords.emplace_back(curMesh->mTextureCoords[0][f2].x, curMesh->mTextureCoords[0][f2].y);
-				}
-				else
-				{
-					textureCoords.emplace_back(0.0f, 0.0f);
-					textureCoords.emplace_back(0.0f, 0.0f);
-					textureCoords.emplace_back(0.0f, 0.0f);
-				}
-
+				scene.indices.push_back(uvec3(f0, f1, f2) + uint(vertexOffset));
 				scene.materialIndices.push_back(matMapping[curMesh->mMaterialIndex]);
 			}
 
 			if (curMesh->HasBones())
 			{
+				hasSkin = true;
 				m.weights.resize(m.vertexCount, vec4(0.0f));
 				m.joints.resize(m.vertexCount, uvec4(0));
 
@@ -178,18 +177,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 					memcpy(value_ptr(matrix), &bone->mOffsetMatrix[0][0], sizeof(float) * 16);
 					skin.jointMatrices.push_back(matrix);
 
-					for (int i = 0; i < curMesh->mNumFaces; i++)
-					{
-						const aiFace &face = curMesh->mFaces[i];
-
-						const auto f0 = face.mIndices[0];
-						const auto f1 = face.mIndices[1];
-						const auto f2 = face.mIndices[2];
-
-						m.joints.at(f0)[boneIdx] = jointIdx;
-						m.joints.at(f1)[boneIdx] = jointIdx;
-						m.joints.at(f2)[boneIdx] = jointIdx;
-					}
+					for (int i = 0; i < curMesh->mNumVertices; i++)
+						m.joints.at(i)[boneIdx] = jointIdx;
 
 					for (int i = 0; i < bone->mNumWeights; i++)
 					{
@@ -198,20 +187,19 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 					}
 				}
 			}
-
-			m.matID = matMapping.at(curMesh->mMaterialIndex);
 		}
 	}
 
-	scene.skins.push_back(skin);
+	if (hasSkin)
+		scene.skins.push_back(skin);
 
 	for (int i = 0; i < scene.nodes.size(); i++)
 	{
 		auto &node = scene.nodes.at(i);
+		node.skinIDs.resize(node.meshIDs.size(), -1);
+
 		if (node.meshIDs.empty())
 			continue;
-
-		node.skinIDs.resize(node.meshIDs.size(), -1);
 
 		for (int j = 0; j < node.meshIDs.size(); j++)
 		{
@@ -310,7 +298,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	}
 
 	// Transform meshes according to node transformations in scene graph
-	transformTo(0.0f);
+	scene.transformTo(0.0f);
 
 	// Update triangle data that only has to be calculated once
 	scene.updateTriangles(matList, textureCoords);
@@ -323,47 +311,46 @@ void AssimpObject::transformTo(const float timeInSeconds) { scene.transformTo(ti
 
 size_t rfw::AssimpObject::traverseNode(const aiNode *node, std::map<std::string, uint> *nodeNameMapping)
 {
-	// Get current index
+	// Allocate node
 	const size_t currentNodeIndex = scene.nodes.size();
+	scene.nodes.push_back(rfw::SceneNode(&scene, node->mName.C_Str(), {}));
+
 	// Add index to current node to name mapping
 	(*nodeNameMapping)[std::string(node->mName.C_Str())] = static_cast<uint>(currentNodeIndex);
-
-	// Initialize node data
-	rfw::SceneNode n = rfw::SceneNode(&scene, node->mName.C_Str(), {});
-	n.childIndices.reserve(node->mNumChildren);
 
 	if (node->mNumMeshes > 0)
 	{
 		m_NodesWithMeshes.push_back(currentNodeIndex);
-		n.meshIDs.resize(node->mNumMeshes);
+		scene.nodes.at(currentNodeIndex).meshIDs.resize(node->mNumMeshes);
+		scene.nodes.at(currentNodeIndex).skinIDs.resize(node->mNumMeshes, -1);
 
 		for (uint i = 0; i < node->mNumMeshes; i++)
 		{
 			const auto meshIdx = scene.meshes.size();
 			scene.meshes.emplace_back();
 			scene.meshes.at(meshIdx).object = &scene;
+
 			m_AssimpMeshMapping.push_back(node->mMeshes[i]);
-			n.meshIDs.at(i) = meshIdx;
+			scene.nodes.at(currentNodeIndex).meshIDs.at(i) = meshIdx;
 		}
 	}
 
+	// Assimp provides matrices in row-major form, convert to glm-compatible column major
 	glm::mat4 matrix;
 	memcpy(value_ptr(matrix), &node->mTransformation[0][0], 16 * sizeof(float));
-	// Assimp provides matrices in row major form, convert to column major
-	matrix = glm::rowMajor4(matrix);
-	n.matrix = matrix;
-	n.calculateTransform();
-
-	scene.nodes.push_back(n);
+	scene.nodes.at(currentNodeIndex).matrix = glm::rowMajor4(matrix);
+	scene.nodes.at(currentNodeIndex).calculateTransform();
+	scene.nodes.at(currentNodeIndex).childIndices.reserve(node->mNumChildren);
 
 	// Iterate and initialize children
-	const int currentIdx = static_cast<int>(currentNodeIndex);
+	std::vector<int> children;
 	for (uint i = 0; i < node->mNumChildren; i++)
 	{
 		const aiNode *child = node->mChildren[i];
-		scene.nodes.at(currentNodeIndex).childIndices.push_back(static_cast<int>(traverseNode(child, nodeNameMapping)));
+		children.push_back(static_cast<int>(traverseNode(child, nodeNameMapping)));
 	}
 
+	scene.nodes.at(currentNodeIndex).childIndices = children;
 	return currentNodeIndex;
 }
 

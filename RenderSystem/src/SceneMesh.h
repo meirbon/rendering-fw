@@ -27,6 +27,9 @@ struct SceneMesh
 	unsigned int vertexOffset = 0;
 	unsigned int vertexCount = 0;
 
+	unsigned int faceOffset = 0;
+	unsigned int faceCount = 0;
+
 	SceneObject *object = nullptr;
 
 	std::vector<Pose> poses;

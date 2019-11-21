@@ -24,6 +24,7 @@ class SceneObject
 	//  fast data transfer to render device.
 	std::vector<glm::vec4> vertices;
 	std::vector<glm::vec3> normals;
+	std::vector<glm::uvec3> indices;
 
 	std::vector<rfw::Triangle> triangles;
 	std::vector<uint> materialIndices;

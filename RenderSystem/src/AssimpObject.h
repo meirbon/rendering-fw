@@ -50,7 +50,7 @@ class AssimpObject : public SceneTriangles
 		mesh.triangles = scene.triangles.data();
 		mesh.vertexCount = scene.vertices.size();
 		mesh.triangleCount = scene.triangles.size();
-		mesh.indices = nullptr;
+		mesh.indices = scene.indices.empty() ? nullptr : scene.indices.data();
 		return mesh;
 	}
 

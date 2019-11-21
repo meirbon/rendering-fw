@@ -1,7 +1,5 @@
 #include "SceneObject.h"
 
-#include "utils/ArrayProxy.h"
-
 using namespace rfw;
 
 bool rfw::SceneObject::transformTo(float timeInSeconds)
@@ -13,10 +11,8 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 	else
 		triangles.resize(indices.size());
 
-	const float time = timeInSeconds / 1000.0f;
-
 	for (auto &anim : animations)
-		anim.update(time);
+		anim.setTime(timeInSeconds);
 
 	bool changed = false;
 

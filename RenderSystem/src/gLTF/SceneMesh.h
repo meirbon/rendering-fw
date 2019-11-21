@@ -2,7 +2,7 @@
 
 #include <MathIncludes.h>
 
-#include "utils/ArrayProxy.h"
+#include "../utils/ArrayProxy.h"
 
 namespace rfw
 {

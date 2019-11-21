@@ -31,7 +31,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	object->updateTriangles(vertexOffset / 3, vertexCount / 3);
 #else
 	// https://github.com/jbikker/lighthouse2/blob/master/lib/RenderSystem/host_mesh.cpp
-	for (uint s = (vertexCount / 3), t = 0; t < s; t++)
+	for (uint s = faceCount, t = 0; t < s; t++)
 	{
 		__m128 tri_vtx[3], tri_nrm[3];
 		// adjust vertices of triangle
@@ -116,8 +116,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 		// |a.z| X |b.z| = | a.x * b.y - a.y * b.x |
 		// |a.x|   |b.x|   | a.y * b.z - a.z * b.y |
 		// shuffle(..., 0b010010) = [x, y, z] -> [z, x, y] or [y, z, x] -> [x, y, z]
-		__m128 N =
-			_mm_fmsub_ps(N_b, _mm_shuffle_ps(N_a, N_a, 0b010010), _mm_mul_ps(N_a, _mm_shuffle_ps(N_b, N_b, 0b010010)));
+		__m128 N = _mm_fmsub_ps(N_b, _mm_shuffle_ps(N_a, N_a, 0b010010), _mm_mul_ps(N_a, _mm_shuffle_ps(N_b, N_b, 0b010010)));
 		// reshuffle to get final result
 		N = _mm_shuffle_ps(N, N, 0b010010);
 		// normalize cross product

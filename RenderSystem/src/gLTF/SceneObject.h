@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "utils/ArrayProxy.h"
+#include "../utils/ArrayProxy.h"
 
 #include <MathIncludes.h>
 #include <Structures.h>
@@ -12,7 +12,7 @@
 #include "MeshSkin.h"
 #include "SceneAnimation.h"
 
-#include "MaterialList.h"
+#include "../MaterialList.h"
 
 namespace rfw
 {

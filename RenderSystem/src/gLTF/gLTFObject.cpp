@@ -6,7 +6,7 @@
 
 #include "gLTFObject.h"
 
-#include "utils/File.h"
+#include "../utils/File.h"
 
 rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel, const int nodeBase);
 
@@ -465,6 +465,8 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 		}
 
 		m.vertexCount = scene.baseVertices.size() - m.vertexOffset;
+		m.faceCount = m.vertexCount / 3;
+		m.faceOffset = m.vertexOffset / 3;
 	}
 
 	const bool hasTransform = matrix != glm::mat4(1.0f);

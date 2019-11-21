@@ -233,7 +233,7 @@ void main()
 					// Add fire-and-forget shadow ray to the connections buffer
 					const uint shadowRayIdx = atomicAdd(shadowRays, 1); // compaction
 
-					potentialContributions[shadowRayIdx].Origin = vec4(SafeOrigin(I, L, iN, camera.geometryEpsilon), 0);
+					potentialContributions[shadowRayIdx].Origin = vec4(I, 0);
 					potentialContributions[shadowRayIdx].Direction = vec4(L, dist - 2.0 * camera.geometryEpsilon);
 					potentialContributions[shadowRayIdx].Emission_pixelIdx = vec4(contribution, uintBitsToFloat(pixelIdx));
 				}
@@ -286,7 +286,7 @@ void main()
 
     const uint extensionRayIdx = atomicAdd(extensionRays, 1);// Get compacted index for extension ray
 
-    origins[nextBufferIndex].data[extensionRayIdx] = vec4(SafeOrigin(I, R, iN, camera.geometryEpsilon), uintBitsToFloat(FLAGS));
+    origins[nextBufferIndex].data[extensionRayIdx] = vec4(I, uintBitsToFloat(FLAGS));
     directions[nextBufferIndex].data[extensionRayIdx] = vec4(R, uintBitsToFloat(PackNormal(iN)));
     throughputs[nextBufferIndex].data[extensionRayIdx] = vec4(throughput, newBsdfPdf);
 }

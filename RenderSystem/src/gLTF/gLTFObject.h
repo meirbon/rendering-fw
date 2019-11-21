@@ -6,8 +6,8 @@
 #include <string_view>
 
 #include <Structures.h>
-#include "MaterialList.h"
-#include "SceneTriangles.h"
+#include "../MaterialList.h"
+#include "../SceneTriangles.h"
 
 #include "SceneObject.h"
 #include "SceneAnimation.h"

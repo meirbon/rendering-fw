@@ -554,9 +554,10 @@ namespace glm
 		__m128 a1 = _mm_add_ps(m2, m3);
 
 		__m128 a2 = _mm_add_ps(a0, a1);
-
+	
 		return typename mat<4, 4, T, Q>::col_type(a2);
 */
+
 
 		typename mat<4, 4, T, Q>::col_type const Mov0(v[0]);
 		typename mat<4, 4, T, Q>::col_type const Mov1(v[1]);

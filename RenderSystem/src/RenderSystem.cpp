@@ -5,7 +5,7 @@
 #include "MaterialList.h"
 #include "SceneTriangles.h"
 #include "AssimpObject.h"
-#include "gLTFObject.h"
+#include "gLTF/gLTFObject.h"
 
 #include <ContextExport.h>
 
@@ -95,8 +95,7 @@ static_assert(sizeof(Triangle) == sizeof(DeviceTriangle), "Triangle structs are 
 static_assert(sizeof(AreaLight) == sizeof(DeviceAreaLight), "Area light structs are not same size.");
 static_assert(sizeof(PointLight) == sizeof(DevicePointLight), "Point light structs are not same size.");
 static_assert(sizeof(SpotLight) == sizeof(DeviceSpotLight), "Spot light structs are not same size.");
-static_assert(sizeof(DirectionalLight) == sizeof(DeviceDirectionalLight),
-			  "Directional light structs are not same size.");
+static_assert(sizeof(DirectionalLight) == sizeof(DeviceDirectionalLight), "Directional light structs are not same size.");
 
 void rfw::RenderSystem::loadRenderAPI(const std::string_view &name)
 {
@@ -116,8 +115,7 @@ void rfw::RenderSystem::loadRenderAPI(const std::string_view &name)
 
 	if (m_Context)
 	{
-		throw std::runtime_error(
-			"A RenderContext was already loaded, unload current context before loading a new context.");
+		throw std::runtime_error("A RenderContext was already loaded, unload current context before loading a new context.");
 	}
 
 	if (!utils::file::exists(libPath))
@@ -271,8 +269,7 @@ void rfw::RenderSystem::synchronize()
 		count.spotLightCount = static_cast<uint>(m_SpotLights.size());
 		count.directionalLightCount = static_cast<uint>(m_DirectionalLights.size());
 		m_Context->setLights(count, reinterpret_cast<const DeviceAreaLight *>(m_AreaLights.data()),
-							 reinterpret_cast<const DevicePointLight *>(m_PointLights.data()),
-							 reinterpret_cast<const DeviceSpotLight *>(m_SpotLights.data()),
+							 reinterpret_cast<const DevicePointLight *>(m_PointLights.data()), reinterpret_cast<const DeviceSpotLight *>(m_SpotLights.data()),
 							 reinterpret_cast<const DeviceDirectionalLight *>(m_DirectionalLights.data()));
 	}
 
@@ -286,13 +283,14 @@ void rfw::RenderSystem::synchronize()
 			i = false;
 	}
 
-//	utils::logger::log("Updated context in %3.3f", t.elapsed());
+	//	utils::logger::log("Updated context in %3.3f", t.elapsed());
 }
 
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
 {
+#if THREADING
+
 	std::vector<std::future<void>> updates;
-	std::vector<size_t> needsUpdate;
 
 	for (size_t i = 0; i < m_Models.size(); i++)
 	{
@@ -306,14 +304,24 @@ void RenderSystem::updateAnimationsTo(float timeInSeconds)
 				m_Context->setMesh(i, object->getMesh());
 				m_SetMeshMutex.unlock();
 			}));
-
-			needsUpdate.push_back(i);
 		}
 	}
 
 	for (auto &update : updates)
 		if (update.valid())
 			update.get();
+#else
+	for (size_t i = 0; i < m_Models.size(); i++)
+	{
+		auto object = m_Models.at(i);
+		if (object->isAnimated())
+		{
+			m_ShouldReset = true;
+			object->transformTo(timeInSeconds);
+			m_Context->setMesh(i, object->getMesh());
+		}
+	}
+#endif
 }
 
 rfw::GeometryReference RenderSystem::getGeometryReference(size_t index)
@@ -332,18 +340,14 @@ rfw::InstanceReference RenderSystem::getInstanceReference(size_t index)
 	return m_Instances.at(index);
 }
 
-rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, int material)
-{
-	return addObject(fileName, false, glm::mat4(1.0f), material);
-}
+rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, int material) { return addObject(fileName, false, glm::mat4(1.0f), material); }
 
 rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, int material)
 {
 	return addObject(fileName, normalize, glm::mat4(1.0f), material);
 }
 
-GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform,
-										  int material)
+GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform, int material)
 {
 	if (!utils::file::exists(fileName))
 		throw LoadException(std::string(fileName.data()));
@@ -360,8 +364,7 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 	else
 #endif
 	{
-		m_Models.emplace_back(
-			new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
+		m_Models.emplace_back(new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
 	}
 
 	m_ModelChanged.push_back(true);
@@ -374,8 +377,7 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 	}
 	m_ObjectLightIndices.push_back(lightIndices);
 
-	m_ObjectMaterialRange.push_back(
-		std::make_pair(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size())));
+	m_ObjectMaterialRange.push_back(std::make_pair(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size())));
 
 	// Update flags
 	m_Changed[MODELS] = true;
@@ -387,8 +389,7 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 	return GeometryReference(idx, *this);
 }
 
-rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height,
-											 const uint material)
+rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, const uint material)
 {
 	const size_t idx = m_Models.size();
 	if (m_Materials->getMaterials().size() <= material)
@@ -409,8 +410,7 @@ rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3
 	return GeometryReference(idx, *this);
 }
 
-InstanceReference RenderSystem::addInstance(const GeometryReference &geometry, glm::vec3 scaling, glm::vec3 translation,
-											float degrees, glm::vec3 axes)
+InstanceReference RenderSystem::addInstance(const GeometryReference &geometry, glm::vec3 scaling, glm::vec3 translation, float degrees, glm::vec3 axes)
 {
 	m_Changed[INSTANCES] = true;
 	const auto idx = m_Instances.size();
@@ -515,8 +515,8 @@ LightReference RenderSystem::addPointLight(const glm::vec3 &position, float ener
 	return LightReference(index, LightReference::POINT, *this);
 }
 
-LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance,
-										  float cosOuter, float energy, const glm::vec3 &direction)
+LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, float energy,
+										  const glm::vec3 &direction)
 {
 	size_t index = m_SpotLights.size();
 	SpotLight sl{};

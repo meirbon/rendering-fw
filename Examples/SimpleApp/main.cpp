@@ -16,9 +16,9 @@
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 1
-#define PICA 0
+#define PICA 1
 #define PICA_LIGHTS 0
-#define SPONZA 1
+#define SPONZA 0
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
 
@@ -77,11 +77,11 @@ int main()
 	rs.setTarget(textureTarget);
 
 #if SKINNED_MESH
-	//auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
+	auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
 #if PICA
-	// auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(1, 0, 0));
+	// auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(2))), vec3(1), vec3(0, 5, 0), 90.0f, vec3(1, 0, 0));
 	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
 	// auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
@@ -373,8 +373,10 @@ int main()
 
 		if (playAnimation)
 		{
+			const auto time = float(getElapsedMicroSeconds() * (1.0 / 10e5));
+
 			Timer anim;
-			rs.updateAnimationsTo(float(glfwGetTime()));
+			rs.updateAnimationsTo(time);
 			playAnimationStat.addSample(anim.elapsed());
 		}
 

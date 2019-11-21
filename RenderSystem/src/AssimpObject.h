@@ -147,11 +147,10 @@ class AssimpObject : public SceneTriangles
 
 	struct AssimpNode
 	{
-		void update(std::vector<AssimpNode>& nodes, std::vector<glm::mat4> *matrixStorage, const glm::mat4 &T);
+		void update(std::vector<AssimpNode> &nodes, const glm::mat4 &T);
 
-		int ID, parent;
-		glm::mat4 localTransform;
-		glm::mat4 combinedTransform;
+		glm::mat4 localTransform = glm::mat4(1.0f);
+		glm::mat4 combinedTransform = glm::mat4(1.0f);
 
 		std::vector<uint> children;
 		std::vector<uint> meshes;
@@ -193,10 +192,7 @@ class AssimpObject : public SceneTriangles
 	void updateTriangles();
 	void updateTriangles(const std::vector<glm::vec2> &uvs);
 
-	size_t traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::vector<glm::mat4> *matrixStorage,
-						std::map<std::string, uint> *nodeNameMapping);
-
-	void calculateMatrices(const AssimpNode &node, const std::vector<AssimpNode> &nodes, const std::vector<glm::mat4> &perNodeMatrices);
+	size_t traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::map<std::string, uint> *nodeNameMapping);
 
 	Triangle *getTriangles() override { return m_Triangles.data(); }
 	glm::vec4 *getVertices() override { return m_CurrentVertices.data(); }
@@ -225,9 +221,6 @@ class AssimpObject : public SceneTriangles
   private:
 	std::vector<size_t> m_NodesWithMeshes;
 	std::vector<AssimpNode> m_SceneGraph;
-
-	std::vector<glm::mat4> m_BaseNodeTransformations;
-	std::vector<glm::mat4> m_PrecalcNodeTransformations;
 	std::map<std::string, uint> m_NodeNameMapping;
 
 	std::vector<std::vector<uint>> m_MeshMapping;

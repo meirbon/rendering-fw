@@ -82,8 +82,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	m_IsAnimated = scene->HasAnimations();
 
 	// Create our own scene graph from Assimp node graph, store every node's transformation along the way
-	traverseNode(scene->mRootNode, -1, &m_SceneGraph, &m_BaseNodeTransformations, &m_NodeNameMapping);
-	calculateMatrices(m_SceneGraph.at(0), m_SceneGraph, m_BaseNodeTransformations);
+	traverseNode(scene->mRootNode, -1, &m_SceneGraph, &m_NodeNameMapping);
+	m_SceneGraph.at(0).update(m_SceneGraph, glm::mat4(1.0f));
 
 	if (m_IsAnimated)
 	{
@@ -373,9 +373,6 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		return;
 	m_HasUpdated = true;
 
-	// Start of with regular node transformations
-	std::vector<glm::mat4> trsNodeTransformations = m_BaseNodeTransformations;
-
 	// Start of with clean base data
 	m_CurrentVertices.resize(m_BaseVertices.size());
 	m_CurrentNormals.resize(m_BaseNormals.size());
@@ -394,7 +391,7 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		{
 			for (const auto &channel : animation.channels)
 			{
-				trsNodeTransformations.at(channel.nodeIndex) = channel.getInterpolatedTRS(animationTime);
+				m_SceneGraph.at(channel.nodeIndex).localTransform = channel.getInterpolatedTRS(animationTime);
 			}
 
 			for (const auto &channel : animation.meshChannels)
@@ -407,8 +404,8 @@ void AssimpObject::transformTo(const float timeInSeconds)
 				// TODO
 			}
 		}
-		// Pre calculate top-down matrices for every node
-		calculateMatrices(m_SceneGraph.at(0), m_SceneGraph, trsNodeTransformations);
+
+		m_SceneGraph.at(0).update(m_SceneGraph, glm::mat4(1.0f));
 
 #endif
 	}
@@ -423,7 +420,7 @@ void AssimpObject::transformTo(const float timeInSeconds)
 			 * Meshes with animations can have sub-meshes that are placed in a node with supposedly no animations.
 			 * Nodes can have children though and thus a node can be influenced by an upper node with animations.
 			 */
-			const glm::mat4 transform = m_PrecalcNodeTransformations.at(mesh.nodeIndex);
+			const glm::mat4 &transform = m_SceneGraph.at(mesh.nodeIndex).combinedTransform;
 			const glm::mat3 transform3x3 = mat3(transform);
 			for (uint i = 0; i < mesh.vertexCount; i++)
 			{
@@ -441,9 +438,8 @@ void AssimpObject::transformTo(const float timeInSeconds)
 
 		for (const auto &bone : mesh.bones)
 		{
-			const auto skin4x4 = m_PrecalcNodeTransformations.at(bone.nodeIndex) * bone.offsetMatrix;
-			const auto skin3x3 = mat3(skin4x4);
-
+			const glm::mat4 &skin4x4 = m_SceneGraph.at(bone.nodeIndex).combinedTransform * bone.offsetMatrix;
+			const glm::mat3 skin3x3 = mat3(skin4x4);
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
 			{
 				const uint vIdx = mesh.vertexOffset + bone.vertexIDs.at(i);
@@ -473,7 +469,7 @@ void AssimpObject::updateTriangles()
 
 		vec3 N = normalize(cross(v1 - v0, v2 - v0));
 
-		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n2) < 0.0f)
 			N *= -1.0f; // flip if not consistent with vertex normals
 
 		tri.vertex0 = v0;
@@ -505,14 +501,11 @@ void rfw::AssimpObject::updateTriangles(const std::vector<glm::vec2> &uvs)
 		const vec3 &n1 = m_CurrentNormals.at(indices.y);
 		const vec3 &n2 = m_CurrentNormals.at(indices.z);
 
-		vec3 N = normalize(cross(v1 - v0, v2 - v0));
-
-		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
-			N *= -1.0f; // flip if not consistent with vertex normals
-
 		tri.vertex0 = v0;
 		tri.vertex1 = v1;
 		tri.vertex2 = v2;
+
+		const vec3 N = normalize(cross(v1 - v0, v2 - v0));
 
 		tri.u0 = uvs.at(indices.x).x;
 		tri.v0 = uvs.at(indices.x).y;
@@ -535,8 +528,7 @@ void rfw::AssimpObject::updateTriangles(const std::vector<glm::vec2> &uvs)
 	}
 }
 
-size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::vector<glm::mat4> *matrixStorage,
-									   std::map<std::string, uint> *nodeNameMapping)
+size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::map<std::string, uint> *nodeNameMapping)
 {
 	// Get current index
 	const size_t currentNodeIndex = storage->size();
@@ -545,8 +537,6 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 
 	// Initialize node data
 	AssimpNode n;
-	n.ID = int(currentNodeIndex);
-	n.parent = parentIdx;
 	n.children.resize(node->mNumChildren);
 
 	if (node->mNumMeshes > 0)
@@ -561,10 +551,8 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 		m_NodesWithMeshes.push_back(currentNodeIndex);
 	}
 
-	glm::mat4 matrix;
-	memcpy(value_ptr(matrix), &node->mTransformation[0][0], sizeof(mat4));
-	matrix = rowMajor4(matrix);
-	matrixStorage->push_back(matrix);
+	memcpy(value_ptr(n.localTransform), &node->mTransformation[0][0], sizeof(mat4));
+	n.localTransform = rowMajor4(n.localTransform);
 	storage->push_back(n);
 
 	// Iterate and initialize children
@@ -572,29 +560,11 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 	for (uint i = 0; i < node->mNumChildren; i++)
 	{
 		const aiNode *child = node->mChildren[i];
-		const size_t childIdx = traverseNode(child, currentIdx, storage, matrixStorage, nodeNameMapping);
+		const size_t childIdx = traverseNode(child, currentIdx, storage, nodeNameMapping);
 		storage->at(currentNodeIndex).children.at(i) = static_cast<uint>(childIdx);
 	}
 
 	return currentNodeIndex;
-}
-
-// Iterate over every node and its children, calculating every node's matrix
-void rfw::AssimpObject::calculateMatrices(const AssimpNode &node, const std::vector<AssimpNode> &nodes, const std::vector<glm::mat4> &perNodeMatrices)
-{
-	m_PrecalcNodeTransformations.resize(nodes.size());
-	for (size_t i = 0, s = nodes.size(); i < s; i++)
-	{
-		int currentIndex = i;
-		glm::mat4 matrix = glm::mat4(1.0f);
-		while (currentIndex != -1)
-		{
-			matrix = perNodeMatrices.at(currentIndex) * matrix;
-			currentIndex = nodes.at(currentIndex).parent;
-		}
-
-		m_PrecalcNodeTransformations.at(i) = matrix;
-	}
 }
 
 uint AssimpObject::getAnimationCount() const { return static_cast<uint>(m_Animations.size()); }
@@ -637,81 +607,65 @@ std::vector<uint> AssimpObject::getLightIndices(const std::vector<bool> &matLigh
 
 glm::mat4 rfw::AssimpObject::AnimationChannel::getInterpolatedTRS(float time) const
 {
-	vec3 position = vec3(0.0f);
-	if (!positionKeys.empty())
+	glm::mat4 result = glm::identity<glm::mat4>();
+	int keyIndex;
+	float deltaTime, factor;
+
+	for (int i = 0, s = int(positionKeys.size()) - 1; i < s; i++)
 	{
-
-		size_t posKeyIndex = 0, posKeyIndexNext = 0;
-		for (size_t i = 0, s = positionKeys.size() - 1; i < s; i++)
+		if (time < positionKeys.at(i).time)
 		{
-			if (time < positionKeys.at(i).time)
-			{
-				posKeyIndex = i, posKeyIndexNext = i + 1;
-				break;
-			}
+			keyIndex = i;
+			break;
 		}
-
-		assert(posKeyIndexNext < positionKeys.size());
-		const float posDeltaTime = positionKeys.at(posKeyIndexNext).time - positionKeys.at(posKeyIndex).time;
-		const float posFactor = (time - positionKeys.at(posKeyIndex).time) / posDeltaTime;
-		const vec3 &startPos = positionKeys.at(posKeyIndex).value;
-		const vec3 &endPos = positionKeys.at(posKeyIndexNext).value;
-		position = startPos + posFactor * (endPos - startPos);
 	}
 
-	glm::quat q = glm::identity<glm::quat>();
-	if (!rotationKeys.empty())
-	{
+	assert(keyIndex < positionKeys.size());
+	deltaTime = positionKeys.at(keyIndex + 1).time - positionKeys.at(keyIndex).time;
+	factor = (time - positionKeys.at(keyIndex).time) / deltaTime;
+	const vec3 &startPos = positionKeys.at(keyIndex).value;
+	const vec3 &endPos = positionKeys.at(keyIndex + 1).value;
+	result = glm::translate(result, startPos + factor * (endPos - startPos));
 
-		size_t rotKeyIndex = 0, rotKeyIndexNext = 0;
-		for (size_t i = 0, s = rotationKeys.size() - 1; i < s; i++)
+	for (int i = 0, s = int(rotationKeys.size()) - 1; i < s; i++)
+	{
+		if (time < rotationKeys.at(i).time)
 		{
-			if (time < rotationKeys.at(i).time)
-			{
-				rotKeyIndex = i, rotKeyIndexNext = i + 1;
-				break;
-			}
+			keyIndex = i;
+			break;
 		}
-		assert(rotKeyIndexNext < rotationKeys.size());
-		const float rotDeltaTime = rotationKeys.at(rotKeyIndexNext).time - rotationKeys.at(rotKeyIndex).time;
-		const float rotFactor = (time - rotationKeys.at(rotKeyIndex).time) / rotDeltaTime;
-		const auto &startQuat = rotationKeys.at(rotKeyIndex).value;
-		const auto &endQuat = rotationKeys.at(rotKeyIndexNext).value;
-		q = glm::mix(startQuat, endQuat, rotFactor);
+	}
+	assert(keyIndex < rotationKeys.size());
+	deltaTime = rotationKeys.at(keyIndex + 1).time - rotationKeys.at(keyIndex).time;
+	factor = (time - rotationKeys.at(keyIndex).time) / deltaTime;
+	const auto &startQuat = rotationKeys.at(keyIndex).value;
+	const auto &endQuat = rotationKeys.at(keyIndex + 1).value;
+	const glm::quat q = glm::mix(startQuat, endQuat, factor);
+	result = result * glm::mat4_cast(glm::quat(q.w, q.x, q.y, q.z));
+
+	for (int i = 0, s = int(scalingKeys.size()) - 1; i < s; i++)
+	{
+		if (time < scalingKeys.at(i).time)
+		{
+			keyIndex = i;
+			break;
+		}
 	}
 
-	vec3 scaling = vec3(1.0f);
-	if (!scalingKeys.empty())
-	{
-		size_t scaleKeyIndex = 0, scaleKeyIndexNext = 0;
-		for (size_t i = 0, s = scalingKeys.size() - 1; i < s; i++)
-		{
-			if (time < scalingKeys.at(i).time)
-			{
-				scaleKeyIndex = i, scaleKeyIndexNext = i + 1;
-				break;
-			}
-		}
-		assert(scaleKeyIndexNext < scalingKeys.size());
-		const float scaleDeltaTime = scalingKeys.at(scaleKeyIndexNext).time - scalingKeys.at(scaleKeyIndex).time;
-		const float scaleFactor = (time - scalingKeys.at(scaleKeyIndex).time) / scaleDeltaTime;
-		const vec3 &startScale = scalingKeys.at(scaleKeyIndex).value;
-		const vec3 &endScale = scalingKeys.at(scaleKeyIndexNext).value;
-		scaling = startScale + scaleFactor * (endScale - startScale);
-	}
+	assert(keyIndex < scalingKeys.size());
+	deltaTime = scalingKeys.at(keyIndex + 1).time - scalingKeys.at(keyIndex).time;
+	factor = (time - scalingKeys.at(keyIndex).time) / deltaTime;
+	const vec3 &startScale = scalingKeys.at(keyIndex).value;
+	const vec3 &endScale = scalingKeys.at(keyIndex + 1).value;
+	result = result * glm::scale(glm::mat4(1.0f), startScale + factor * (endScale - startScale));
 
-	const glm::mat4 T = glm::translate(glm::mat4(1.0f), position);
-	const glm::mat4 R = glm::mat4_cast(glm::quat(q.w, q.x, q.y, q.z));
-	const glm::mat4 S = glm::scale(glm::mat4(1.0f), scaling);
-
-	return T * R * S;
+	return result;
 }
 
-void AssimpObject::AssimpNode::update(std::vector<AssimpNode> &nodes, std::vector<glm::mat4> *matrixStorage, const glm::mat4 &T)
+void AssimpObject::AssimpNode::update(std::vector<AssimpNode> &nodes, const glm::mat4 &T)
 {
-	localTransform = matrixStorage->at(ID);
 	combinedTransform = T * localTransform;
 
 	for (const auto child : children)
-		nodes.at(child).update(nodes, matrixStorage, combinedTransform);
+		nodes.at(child).update(nodes, combinedTransform);
 }

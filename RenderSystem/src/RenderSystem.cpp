@@ -288,7 +288,7 @@ void rfw::RenderSystem::synchronize()
 
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
 {
-#if THREADING
+#if 1
 
 	std::vector<std::future<void>> updates;
 

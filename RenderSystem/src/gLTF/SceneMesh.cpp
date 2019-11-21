@@ -151,13 +151,13 @@ void rfw::SceneMesh::setPose(rfw::utils::ArrayProxy<float> weights)
 	assert(weights.size() == poses.size() - 1);
 	const auto weightCount = weights.size();
 
-	for (uint s = vertexCount, i = 0; i < s; i++)
+	for (int s = vertexCount, i = 0; i < s; i++)
 	{
 		const auto idx = i + vertexOffset;
 		object->vertices.at(idx) = vec4(poses.at(0).positions.at(i), 1.0f);
 		object->normals.at(idx) = poses.at(0).normals.at(i);
 
-		for (uint j = 1; j <= weightCount; j++)
+		for (int j = 1; j <= weightCount; j++)
 		{
 			const auto &pose = poses.at(j);
 
@@ -177,7 +177,7 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 
 	const auto matrix3x3 = mat3(transform);
 
-	for (uint i = 0, idx = vertexOffset; i < vertexCount; i++, idx++)
+	for (int i = 0, idx = vertexOffset; i < vertexCount; i++, idx++)
 	{
 		baseVertex[i] = transform * object->baseVertices.at(idx);
 		baseNormal[i] = matrix3x3 * object->baseNormals.at(idx);
@@ -192,9 +192,15 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 		tri.vertex1 = vec3(baseVertex[idx + 1]);
 		tri.vertex2 = vec3(baseVertex[idx + 2]);
 
+		const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+
 		tri.vN0 = baseNormal[idx + 0];
 		tri.vN1 = baseNormal[idx + 1];
 		tri.vN2 = baseNormal[idx + 2];
+
+		tri.Nx = N.x;
+		tri.Ny = N.y;
+		tri.Nz = N.z;
 	}
 
 	object->dirty = true;

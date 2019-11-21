@@ -13,35 +13,6 @@
 #include "utils/Logger.h"
 #include "utils/Timer.h"
 
-struct MatrixArray
-{
-	float data[16];
-};
-
-inline MatrixArray columnToRow(const float *columnMatrix)
-{
-	MatrixArray rowMatrix;
-	for (int i = 0; i < 4; i++)
-	{
-		for (int j = 0; j < 4; j++)
-			rowMatrix.data[j * 4 + i] = rowMatrix.data[i * 4 + j];
-	}
-
-	return rowMatrix;
-}
-
-inline MatrixArray rowToColumn(const float *rowMatrix)
-{
-	MatrixArray columnMatrix{};
-	for (int i = 0; i < 4; i++)
-	{
-		for (int j = 0; j < 4; j++)
-			columnMatrix.data[i * 4 + j] = rowMatrix[j * 4 + i];
-	}
-
-	return columnMatrix;
-}
-
 namespace rfw
 {
 
@@ -68,20 +39,7 @@ glm::vec3 operator/(const aiVector3D &b, const glm::vec3 &a) { return glm::vec3(
 glm::vec3 operator+(const aiVector3D &b, const glm::vec3 &a) { return glm::vec3(a.x + b.x, a.y + b.y, a.y + b.z); }
 glm::vec3 operator-(const aiVector3D &b, const glm::vec3 &a) { return glm::vec3(a.x - b.x, a.y - b.y, a.y - b.z); }
 
-void glm_to_ai(const glm::mat4 &from, aiMatrix4x4 &to)
-{
-	glm::mat4 newMat = glm::transpose(from);
-	for (int i = 0; i < 4; ++i)
-	{
-		for (int j = 0; j < 4; ++j)
-		{
-			to[i][j] = newMat[i][j];
-		}
-	}
-}
-
-AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const mat4 &matrix,
-						   bool normalize, int material)
+AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const mat4 &matrix, bool normalize, int material)
 	: m_File(filename.data()), m_ID(ID)
 {
 	std::string directory;
@@ -108,220 +66,59 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 	const mat3 matrix3x3 = mat3(matrix);
 
-	const aiScene *scene = importer.ReadFile(
-		filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
-							 aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
-							 aiProcess_RemoveRedundantMaterials);
+	const aiScene *assimpScene = importer.ReadFile(filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
+																		aiProcess_GenUVCoords | aiProcess_FindInstances | aiProcess_RemoveRedundantMaterials);
 
-	if (!scene)
+	if (!assimpScene)
 	{
-		const std::string error =
-			"Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
+		const std::string error = "Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
 		WARNING(error.c_str());
 		throw LoadException(error);
 	}
 
-	m_IsAnimated = scene->HasAnimations();
+	m_IsAnimated = assimpScene->HasAnimations();
+	std::vector<vec2> textureCoords;
 
-	// Create our own scene graph from Assimp node graph, store every node's transformation along the way
-	traverseNode(scene->mRootNode, -1, &m_SceneGraph, &m_BaseNodeTransformations, &m_NodeNameMapping);
-	calculateMatrices(m_SceneGraph.at(0), m_SceneGraph, m_BaseNodeTransformations);
-
-	if (m_IsAnimated)
-	{
-		m_Animations.resize(scene->mNumAnimations);
-		for (uint i = 0; i < scene->mNumAnimations; i++)
-		{
-			const aiAnimation *anim = scene->mAnimations[i];
-			MeshAnimation &animation = m_Animations.at(i);
-			animation.name = std::string(anim->mName.C_Str());
-			animation.duration = anim->mDuration;
-			animation.ticksPerSecond = anim->mTicksPerSecond;
-
-			animation.channels.resize(anim->mNumChannels);
-			for (uint c = 0; c < anim->mNumChannels; c++)
-			{
-				const aiNodeAnim *nodeAnim = anim->mChannels[c];
-				AnimationChannel &channel = animation.channels.at(c);
-				channel.nodeName = std::string(nodeAnim->mNodeName.C_Str());
-				channel.nodeIndex = m_NodeNameMapping[channel.nodeName];
-				channel.preState = nodeAnim->mPreState;
-				channel.postState = nodeAnim->mPostState;
-
-				channel.positionKeys.resize(nodeAnim->mNumPositionKeys);
-				channel.rotationKeys.resize(nodeAnim->mNumRotationKeys);
-				channel.scalingKeys.resize(nodeAnim->mNumScalingKeys);
-
-				for (uint j = 0; j < nodeAnim->mNumPositionKeys; j++)
-					channel.positionKeys.at(j) = {nodeAnim->mPositionKeys[j].mTime,
-												  vec3(nodeAnim->mPositionKeys[j].mValue.x,
-													   nodeAnim->mPositionKeys[j].mValue.y,
-													   nodeAnim->mPositionKeys[j].mValue.z)};
-
-				for (uint j = 0; j < nodeAnim->mNumRotationKeys; j++)
-				{
-					const aiQuatKey &key = nodeAnim->mRotationKeys[j];
-					// const glm::quat q = glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z);
-					channel.rotationKeys.at(j) = {key.mTime, key.mValue};
-				}
-
-				for (uint j = 0; j < nodeAnim->mNumScalingKeys; j++)
-					channel.scalingKeys.at(j) = {nodeAnim->mScalingKeys[j].mTime,
-												 vec3(nodeAnim->mScalingKeys[j].mValue.x,
-													  nodeAnim->mScalingKeys[j].mValue.y,
-													  nodeAnim->mScalingKeys[j].mValue.z)};
-			}
-
-			animation.meshChannels.resize(anim->mNumMeshChannels);
-			for (uint c = 0; c < anim->mNumMeshChannels; c++)
-			{
-				const aiMeshAnim *nodeAnim = anim->mMeshChannels[c];
-				MeshAnimationChannel &channel = animation.meshChannels.at(c);
-				channel.name = std::string(nodeAnim->mName.C_Str());
-
-				// Look up mesh index to prevent having to search for it
-				for (uint m = 0; m < scene->mNumMeshes; m++)
-				{
-					const std::string name = std::string(scene->mMeshes[m]->mName.C_Str());
-					if (channel.name == name)
-					{
-						channel.meshIndex = m;
-						break;
-					}
-				}
-
-				channel.keys.resize(nodeAnim->mNumKeys);
-				for (uint k = 0; k < nodeAnim->mNumKeys; k++)
-				{
-					const aiMeshKey &key = nodeAnim->mKeys[k];
-					channel.keys.at(k).time = float(key.mTime);
-					channel.keys.at(k).value = key.mValue;
-				}
-			}
-
-			animation.meshChannels.resize(anim->mNumMorphMeshChannels);
-			for (uint c = 0; c < anim->mNumMorphMeshChannels; c++)
-			{
-				const aiMeshMorphAnim *nodeAnim = anim->mMorphMeshChannels[c];
-				MeshMorphAnimation &channel = animation.morphChannels.at(c);
-				channel.name = std::string(nodeAnim->mName.C_Str());
-
-				// Look up mesh index to prevent having to search for it
-				for (uint m = 0; m < scene->mNumMeshes; m++)
-				{
-					const std::string name = std::string(scene->mMeshes[m]->mName.C_Str());
-					if (channel.name == name)
-					{
-						channel.meshIndex = m;
-						break;
-					}
-				}
-
-				channel.keys.resize(nodeAnim->mNumKeys);
-				for (uint k = 0; k < nodeAnim->mNumKeys; k++)
-				{
-					const aiMeshMorphKey aiKey = nodeAnim->mKeys[k];
-					channel.keys.at(k).time = float(aiKey.mTime);
-					channel.keys.at(k).values.resize(aiKey.mNumValuesAndWeights);
-					channel.keys.at(k).weights.resize(aiKey.mNumValuesAndWeights);
-					for (uint v = 0; v < aiKey.mNumValuesAndWeights; v++)
-					{
-						channel.keys.at(k).values.at(v) = aiKey.mValues[v];
-						channel.keys.at(k).weights.at(v) = float(aiKey.mWeights[v]);
-					}
-				}
-			}
-		}
-	}
-
-	std::vector<uint> matMapping(scene->mNumMaterials);
-
+	std::vector<uint> matMapping(assimpScene->mNumMaterials);
 	if (material < 0)
 	{
-		for (uint i = 0; i < scene->mNumMaterials; i++)
-			matMapping.at(i) = matList->add(scene->mMaterials[i], directory);
+		for (uint i = 0; i < assimpScene->mNumMaterials; i++)
+			matMapping.at(i) = matList->add(assimpScene->mMaterials[i], directory);
 	}
 	else
 	{
-		for (uint i = 0; i < scene->mNumMaterials; i++)
+		for (uint i = 0; i < assimpScene->mNumMaterials; i++)
 			matMapping.at(i) = material;
 	}
 
-	size_t meshCount = 0;
-	size_t vertexCount = 0;
-	size_t faceCount = 0;
-	for (const auto &nodeIdx : m_NodesWithMeshes)
+	rfw::MeshSkin skin = {};
+	skin.jointMatrices.push_back(glm::mat4(1.0f));
+
+	// Create our own scene graph from Assimp node graph, store every node's transformation along the way
+	// Assimp supports trivial instancing support, thus we need to traverse the scene graph to determine
+	// how many times each mesh occurs
+	traverseNode(assimpScene->mRootNode, &m_NodeNameMapping);
+	scene.rootNodes.push_back(0);
+
+	for (int n = 0; n < m_NodesWithMeshes.size(); n++)
 	{
-		const auto &node = m_SceneGraph.at(nodeIdx);
-		meshCount += node.meshes.size();
-		for (const auto m : node.meshes)
+		const auto& node = scene.nodes.at(n);
+		for (const auto i : scene.nodes.at(n).meshIDs)
 		{
-			vertexCount += scene->mMeshes[m]->mNumVertices;
-			faceCount += scene->mMeshes[m]->mNumFaces;
-		}
-	}
+			const aiMesh *curMesh = assimpScene->mMeshes[m_AssimpMeshMapping.at(i)];
 
-	m_Meshes.resize(meshCount);
-	m_MeshMapping.resize(meshCount);
+			rfw::SceneMesh &m = scene.meshes.at(i);
+			m.object = &scene;
 
-	m_CurrentVertices.resize(vertexCount);
-	m_CurrentNormals.resize(vertexCount);
-
-	m_CurrentTangents.resize(vertexCount);
-	m_CurrentBitangents.resize(vertexCount);
-
-	m_BaseTangents.resize(vertexCount);
-	m_BaseBitangents.resize(vertexCount);
-
-	m_BaseVertices.resize(vertexCount);
-	m_BaseNormals.resize(vertexCount);
-	m_BaseTexCoords.resize(vertexCount);
-
-	m_Indices.resize(faceCount);
-	m_MaterialIndices.resize(faceCount);
-
-	uint vertexOffset = 0;
-	uint faceOffset = 0;
-	uint meshIndex = 0;
-	for (const auto &nodeIdx : m_NodesWithMeshes)
-	{
-		const auto &node = m_SceneGraph.at(nodeIdx);
-		for (uint i = 0; i < node.meshes.size(); i++)
-		{
-			const auto meshIdx = node.meshes.at(i);
-			m_MeshMapping.at(meshIdx).push_back(meshIndex);
-
-			MeshInfo &m = m_Meshes.at(meshIndex);
-			const aiMesh *curMesh = scene->mMeshes[meshIdx];
 			const uint matIndex = matMapping[curMesh->mMaterialIndex];
+			m.vertexOffset = scene.baseVertices.size();
+			m.vertexCount = curMesh->mNumFaces * 3;
 
-			for (uint v = 0; v < curMesh->mNumVertices; v++)
-			{
-				const auto vIdx = vertexOffset + v;
+			scene.baseVertices.reserve(scene.baseVertices.size() + curMesh->mNumFaces * 3);
+			scene.baseNormals.reserve(scene.baseNormals.size() + curMesh->mNumFaces * 3);
 
-				vec4 vertex = vec4(glm::make_vec3(&curMesh->mVertices[v].x), 1.0f);
-				vec3 normal = glm::make_vec3(&curMesh->mNormals[v].x);
-
-				if (hasTransform)
-				{
-					vertex = matrix * vertex;
-					normal = matrix3x3 * normal;
-				}
-
-				m_BaseVertices.at(vIdx) = vertex;
-				m_BaseNormals.at(vIdx) = normal;
-				if (curMesh->HasTextureCoords(0))
-					m_BaseTexCoords.at(vIdx) = vec2(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
-				else
-					m_BaseTexCoords.at(vIdx) = vec2(0.0f);
-				if (curMesh->HasTangentsAndBitangents())
-				{
-					m_BaseTangents.at(vIdx) =
-						vec3(curMesh->mTangents[v].x, curMesh->mTangents[v].y, curMesh->mTangents[v].z);
-					m_BaseBitangents.at(vIdx) =
-						vec3(curMesh->mBitangents[v].x, curMesh->mBitangents[v].y, curMesh->mBitangents[v].z);
-				}
-			}
+			scene.materialIndices.reserve(scene.triangles.size() + curMesh->mNumFaces);
+			scene.triangles.reserve(scene.triangles.size() + curMesh->mNumFaces);
 
 			for (uint f = 0; f < curMesh->mNumFaces; f++)
 			{
@@ -343,385 +140,238 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				const vec3 vn1 = glm::make_vec3(&curMesh->mNormals[f1].x);
 				const vec3 vn2 = glm::make_vec3(&curMesh->mNormals[f2].x);
 
-				vec3 N = glm::normalize(glm::cross(v1 - v0, v2 - v0));
-				if (dot(N, vn0) < 0 && dot(N, vn1) < 0 && dot(N, vn2) < 0)
-					N *= -1.0f; // flip if not consistent with vertex normals
+				scene.baseVertices.emplace_back(v0, 1.0f);
+				scene.baseVertices.emplace_back(v1, 1.0f);
+				scene.baseVertices.emplace_back(v2, 1.0f);
 
-				const auto fIdx = faceOffset + f;
-				m_MaterialIndices.at(fIdx) = matIndex;
-				m_Indices.at(fIdx) = uvec3(f0, f1, f2) + vertexOffset;
+				scene.baseNormals.emplace_back(vn0);
+				scene.baseNormals.emplace_back(vn1);
+				scene.baseNormals.emplace_back(vn2);
 
-				// vec3 T, B;
-				// if (curMesh->HasTangentsAndBitangents())
-				//{
-				//
-				//	const vec3 T0 = glm::make_vec3(&curMesh->mTangents[f0].x);
-				//	const vec3 T1 = glm::make_vec3(&curMesh->mTangents[f1].x);
-				//	const vec3 T2 = glm::make_vec3(&curMesh->mTangents[f2].x);
-				//
-				//	const vec3 B0 = glm::make_vec3(&curMesh->mBitangents[f0].x);
-				//	const vec3 B1 = glm::make_vec3(&curMesh->mBitangents[f1].x);
-				//	const vec3 B2 = glm::make_vec3(&curMesh->mBitangents[f2].x);
-				//}
-				// else
-				//{
-				//	const float u0 = curMesh->mTextureCoords[0][f0].x;
-				//	const float u1 = curMesh->mTextureCoords[0][f1].x;
-				//	const float u2 = curMesh->mTextureCoords[0][f2].x;
-				//
-				//	const float tv0 = curMesh->mTextureCoords[0][f0].y;
-				//	const float tv1 = curMesh->mTextureCoords[0][f1].y;
-				//	const float tv2 = curMesh->mTextureCoords[0][f2].y;
-				//
-				//	const auto uv01 = vec2(u1 - u0, tv1 - tv0);
-				//	const auto uv02 = vec2(u2 - u0, tv2 - tv0);
-				//
-				//	if (dot(uv01, uv01) == 0 || dot(uv02, uv02) == 0)
-				//	{
-				//		T = glm::normalize(v1 - v0);
-				//		B = glm::normalize(cross(N, T));
-				//	}
-				//	else
-				//	{
-				//		T = glm::normalize((v1 - v0) * uv02.y - (v2 - v0) * uv01.y);
-				//		B = glm::normalize((v2 - v0) * uv01.x - (v1 - v0) * uv02.x);
-				//	}
-				//}
+				if (curMesh->HasTextureCoords(0))
+				{
+					textureCoords.emplace_back(curMesh->mTextureCoords[0][f0].x, curMesh->mTextureCoords[0][f0].y);
+					textureCoords.emplace_back(curMesh->mTextureCoords[0][f1].x, curMesh->mTextureCoords[0][f1].y);
+					textureCoords.emplace_back(curMesh->mTextureCoords[0][f2].x, curMesh->mTextureCoords[0][f2].y);
+				}
+				else
+				{
+					textureCoords.emplace_back(0.0f, 0.0f);
+					textureCoords.emplace_back(0.0f, 0.0f);
+					textureCoords.emplace_back(0.0f, 0.0f);
+				}
 
-				// if (hasTransform)
-				//{
-				//	T = matrix3x3 * T;
-				//	B = matrix3x3 * B;
-				//}
-				//
-				// m_BaseTangents.at(fIdx) = T;
-				// m_BaseBitangents.at(fIdx) = B;
+				scene.materialIndices.push_back(matMapping[curMesh->mMaterialIndex]);
 			}
 
 			if (curMesh->HasBones())
 			{
-				m.bones.resize(curMesh->mNumBones);
+				m.weights.resize(m.vertexCount, vec4(0.0f));
+				m.joints.resize(m.vertexCount, uvec4(0));
 
-				for (uint boneIdx = 0; boneIdx < curMesh->mNumBones; boneIdx++)
+				for (int boneIdx = 0; boneIdx < curMesh->mNumBones && boneIdx < 4; boneIdx++)
 				{
-					const aiBone *aiBone = curMesh->mBones[boneIdx];
-					// Store bone name
-					MeshBone &bone = m.bones.at(boneIdx);
-					bone.name = std::string(aiBone->mName.C_Str());
+					const aiBone *bone = curMesh->mBones[boneIdx];
 
-					const aiNode *node = scene->mRootNode->FindNode(aiBone->mName);
-					bone.nodeIndex = m_NodeNameMapping[std::string(node->mName.C_Str())];
-					bone.nodeName = std::string(node->mName.C_Str());
+					const int jointIdx = skin.jointMatrices.size();
+					glm::mat4 matrix;
+					memcpy(value_ptr(matrix), &bone->mOffsetMatrix[0][0], sizeof(float) * 16);
+					skin.jointMatrices.push_back(matrix);
 
-					// Store bone weights
-					bone.boneWeights.resize(aiBone->mNumWeights);
-					for (uint w = 0; w < aiBone->mNumWeights; w++)
+					for (int i = 0; i < curMesh->mNumFaces; i++)
 					{
-						MeshBoneWeight &weight = bone.boneWeights.at(w);
-						weight.vertexId = aiBone->mWeights[w].mVertexId;
-						weight.weight = aiBone->mWeights[w].mWeight;
+						const aiFace &face = curMesh->mFaces[i];
+
+						const auto f0 = face.mIndices[0];
+						const auto f1 = face.mIndices[1];
+						const auto f2 = face.mIndices[2];
+
+						m.joints.at(f0)[boneIdx] = jointIdx;
+						m.joints.at(f1)[boneIdx] = jointIdx;
+						m.joints.at(f2)[boneIdx] = jointIdx;
 					}
 
-					bone.offsetMatrix =
-						glm::make_mat4(rowToColumn(const_cast<float *>(&aiBone->mOffsetMatrix.a1)).data);
-					bone.aiOffsetMatrix = aiBone->mOffsetMatrix;
+					for (int i = 0; i < bone->mNumWeights; i++)
+					{
+						const auto vId = bone->mWeights[i].mVertexId;
+						m.weights.at(vId)[boneIdx] = bone->mWeights[i].mWeight;
+					}
 				}
 			}
 
-			m.nodeIndex = static_cast<uint>(nodeIdx);
-			m.vertexOffset = vertexOffset;
-			m.vertexCount = curMesh->mNumVertices;
-			m.faceOffset = faceOffset;
-			m.faceCount = curMesh->mNumFaces;
-			m.materialIdx = matMapping.at(curMesh->mMaterialIndex);
-
-			vertexOffset = vertexOffset + curMesh->mNumVertices;
-			faceOffset = faceOffset + curMesh->mNumFaces;
-			meshIndex++;
+			m.matID = matMapping.at(curMesh->mMaterialIndex);
 		}
 	}
 
-	m_CurrentVertices = m_BaseVertices;
-	m_CurrentNormals = m_BaseNormals;
+	scene.skins.push_back(skin);
+
+	for (int i = 0; i < scene.nodes.size(); i++)
+	{
+		auto &node = scene.nodes.at(i);
+		if (node.meshIDs.empty())
+			continue;
+
+		node.skinIDs.resize(node.meshIDs.size(), -1);
+
+		for (int j = 0; j < node.meshIDs.size(); j++)
+		{
+			const auto mesh = assimpScene->mMeshes[node.meshIDs.at(j)];
+			if (mesh->HasBones())
+				node.skinIDs.at(j) = 0;
+		}
+	}
+
+	if (m_IsAnimated)
+	{
+		for (int i = 0; i < assimpScene->mNumAnimations; i++)
+		{
+			rfw::SceneAnimation sceneAnimation = {};
+			sceneAnimation.object = &scene;
+
+			const aiAnimation *anim = assimpScene->mAnimations[i];
+			for (int j = 0; j < anim->mNumChannels; j++)
+			{
+				const aiNodeAnim *nodeAnim = anim->mChannels[j];
+
+				if (nodeAnim->mNumPositionKeys > 0)
+				{
+					rfw::SceneAnimation::Channel channel = {};
+					channel.nodeIdx = m_NodeNameMapping[nodeAnim->mNodeName.C_Str()];
+					channel.target = SceneAnimation::Channel::TRANSLATION;
+					channel.k = nodeAnim->mNumPositionKeys;
+
+					rfw::SceneAnimation::Sampler sampler = {};
+					sampler.method = SceneAnimation::Sampler::LINEAR;
+					sampler.t.reserve(nodeAnim->mNumPositionKeys);
+					sampler.vec3_key.reserve(nodeAnim->mNumPositionKeys);
+					for (int k = 0; k < nodeAnim->mNumPositionKeys; k++)
+					{
+						const aiVectorKey &key = nodeAnim->mPositionKeys[k];
+						sampler.t.push_back(key.mTime);
+						sampler.vec3_key.push_back(vec3(key.mValue.x, key.mValue.y, key.mValue.z));
+					}
+
+					channel.samplerIdx = sceneAnimation.samplers.size();
+					sceneAnimation.samplers.emplace_back(sampler);
+					sceneAnimation.channels.push_back(channel);
+				}
+
+				if (nodeAnim->mNumRotationKeys > 0)
+				{
+					rfw::SceneAnimation::Channel channel = {};
+					channel.nodeIdx = m_NodeNameMapping[nodeAnim->mNodeName.C_Str()];
+					channel.target = SceneAnimation::Channel::ROTATION;
+					channel.k = nodeAnim->mNumRotationKeys;
+
+					rfw::SceneAnimation::Sampler sampler = {};
+					sampler.method = SceneAnimation::Sampler::LINEAR;
+					sampler.t.reserve(nodeAnim->mNumRotationKeys);
+					sampler.vec3_key.reserve(nodeAnim->mNumRotationKeys);
+					for (int k = 0; k < nodeAnim->mNumRotationKeys; k++)
+					{
+						const aiQuatKey &key = nodeAnim->mRotationKeys[k];
+						sampler.t.push_back(key.mTime);
+						sampler.quat_key.push_back(glm::quat(key.mValue.w, key.mValue.x, key.mValue.y, key.mValue.z));
+					}
+
+					channel.samplerIdx = sceneAnimation.samplers.size();
+					sceneAnimation.samplers.emplace_back(sampler);
+					sceneAnimation.channels.push_back(channel);
+				}
+
+				if (nodeAnim->mNumScalingKeys > 0)
+				{
+					rfw::SceneAnimation::Channel channel = {};
+					channel.nodeIdx = m_NodeNameMapping[nodeAnim->mNodeName.C_Str()];
+					channel.target = SceneAnimation::Channel::SCALE;
+					channel.k = nodeAnim->mNumScalingKeys;
+
+					rfw::SceneAnimation::Sampler sampler = {};
+					sampler.method = SceneAnimation::Sampler::LINEAR;
+					sampler.t.reserve(nodeAnim->mNumScalingKeys);
+					sampler.vec3_key.reserve(nodeAnim->mNumScalingKeys);
+					for (int k = 0; k < nodeAnim->mNumScalingKeys; k++)
+					{
+						const aiVectorKey &key = nodeAnim->mScalingKeys[k];
+						sampler.t.push_back(key.mTime);
+						sampler.vec3_key.push_back(vec3(key.mValue.x, key.mValue.y, key.mValue.z));
+					}
+
+					channel.samplerIdx = sceneAnimation.samplers.size();
+					sceneAnimation.samplers.emplace_back(sampler);
+					sceneAnimation.channels.push_back(channel);
+				}
+			}
+
+			sceneAnimation.ticksPerSecond = anim->mTicksPerSecond;
+			sceneAnimation.duration = anim->mDuration;
+			scene.animations.push_back(sceneAnimation);
+		}
+	}
 
 	// Transform meshes according to node transformations in scene graph
 	transformTo(0.0f);
 
 	// Update triangle data that only has to be calculated once
-	for (auto &tri : m_Triangles)
-	{
-		HostMaterial mat = matList->get(tri.material);
+	scene.updateTriangles(matList, textureCoords);
+	scene.updateTriangles();
 
-		int texID = mat.map[0].textureID;
-		if (texID > -1)
-		{
-			const Texture &texture = matList->getTextures().at(texID);
-
-			const float Ta = static_cast<float>(texture.width * texture.height) *
-							 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
-			const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			tri.LOD = 0.5f * log2f(Ta / Pa);
-		}
-	}
-
-	char buffer[1024];
-	sprintf(buffer, "Loaded \"%s\" with triangle count: %zu", filename.data(), m_Triangles.size());
-	DEBUG(buffer);
+	utils::logger::log("Loaded \"%s\" with triangle count: %zu", filename.data(), scene.triangles.size());
 }
 
-void AssimpObject::transformTo(const float timeInSeconds)
-{
-	if (!m_IsAnimated && m_HasUpdated)
-		return;
-	m_HasUpdated = true;
+void AssimpObject::transformTo(const float timeInSeconds) { scene.transformTo(timeInSeconds); }
 
-	// Start of with regular node transformations
-	std::vector<aiMatrix4x4> trsNodeTransformations = m_BaseNodeTransformations;
-
-	// Start of with clean base data
-	m_CurrentTangents = m_BaseTangents;
-	m_CurrentBitangents = m_BaseBitangents;
-	m_CurrentVertices.resize(m_BaseVertices.size());
-	m_CurrentNormals.resize(m_BaseNormals.size());
-	memset(m_CurrentVertices.data(), 0, m_CurrentVertices.size() * sizeof(vec4));
-	memset(m_CurrentNormals.data(), 0, m_CurrentNormals.size() * sizeof(vec3));
-
-	if (m_IsAnimated)
-	{
-		const float timeInTicks = timeInSeconds * static_cast<float>(m_Animations[0].ticksPerSecond);
-		const float animationTime = std::fmod(timeInTicks, static_cast<float>(m_Animations[0].duration));
-
-#if ANIMATION_ENABLED
-		// TODO: Implement mesh animations and mesh morph animations
-		// Replace node transformations with animation transformations
-		for (const auto &animation : m_Animations)
-		{
-			for (const auto &channel : animation.channels)
-			{
-				auto &location = trsNodeTransformations.at(channel.nodeIndex);
-				glm_to_ai(channel.getInterpolatedTRS(animationTime), location);
-			}
-
-			for (const auto &channel : animation.meshChannels)
-			{
-				// TODO
-			}
-
-			for (const auto &channel : animation.morphChannels)
-			{
-				// TODO
-			}
-		}
-		// Pre calculate top-down matrices for every node
-		calculateMatrices(m_SceneGraph.at(0), m_SceneGraph, trsNodeTransformations);
-#endif
-	}
-
-	for (const auto &mesh : m_Meshes)
-	{
-		// Set current data for this mesh to base data
-		if (mesh.bones.empty())
-		{
-			/*
-			 * Unfortunately, this part of the loop cannot be done on initialization.
-			 * Meshes with animations can have sub-meshes that are placed in a node with supposedly no animations.
-			 * Nodes can have children though and thus a node can be influenced by an upper node with animations.
-			 */
-			const aiMatrix4x4 &transform = m_aiPrecalcNodeTransformations.at(mesh.nodeIndex);
-			auto transform3x3 = aiMatrix3x3(transform);
-			for (uint i = 0; i < mesh.vertexCount; i++)
-			{
-				const auto vIdx = mesh.vertexOffset + i;
-				const auto baseVertex = m_BaseVertices.at(vIdx);
-				const auto baseNormal = m_BaseNormals.at(vIdx);
-
-				aiVector3D pos = aiVector3D(baseVertex.x, baseVertex.y, baseVertex.z);
-				aiVector3D normal = aiVector3D(baseNormal.x, baseNormal.y, baseNormal.z);
-
-				aiTransformVecByMatrix4(&pos, &transform);
-				aiTransformVecByMatrix3(&normal, &transform3x3);
-
-				const auto index = static_cast<size_t>(mesh.vertexOffset + i);
-
-				m_CurrentVertices.at(index) = glm::vec4(pos.x, pos.y, pos.z, 1.0f);
-				m_CurrentNormals.at(index) = glm::vec3(normal.x, normal.y, normal.z);
-			}
-			continue;
-		}
-
-		for (const auto &bone : mesh.bones)
-		{
-			aiMatrix4x4 nodeTransform = m_aiPrecalcNodeTransformations.at(mesh.nodeIndex);
-			aiMatrix4x4 skin4x4 = m_aiPrecalcNodeTransformations.at(bone.nodeIndex);
-			aiMultiplyMatrix4(&skin4x4, &bone.aiOffsetMatrix);
-
-			auto skin3x3 = aiMatrix3x3(skin4x4);
-			skin3x3.Inverse();
-
-			for (const auto &weight : bone.boneWeights)
-			{
-				const uint vIdx = mesh.vertexOffset + weight.vertexId;
-				aiVector3D pos =
-					aiVector3D(m_BaseVertices.at(vIdx).x, m_BaseVertices.at(vIdx).y, m_BaseVertices.at(vIdx).z);
-				aiTransformVecByMatrix4(&pos, &skin4x4);
-				aiVector3D n = aiVector3D(m_BaseNormals.at(vIdx).x, m_BaseNormals.at(vIdx).y, m_BaseNormals.at(vIdx).z);
-				aiTransformVecByMatrix3(&n, &skin3x3);
-
-				const vec3 vertex = glm::vec3(pos.x, pos.y, pos.z) * weight.weight;
-				const vec3 normal = glm::vec3(n.x, n.y, n.z) * weight.weight;
-
-				m_CurrentVertices.at(vIdx) += vec4(vertex, 0.0f);
-				m_CurrentNormals.at(vIdx) += normal;
-			}
-		}
-	}
-
-	updateTriangles();
-
-	// In case this object has no animations, we can clear all data after loading and transforming all data
-	if (m_HasUpdated && !m_IsAnimated)
-	{
-		m_BaseNormals.clear();
-		m_BaseNodeTransformations.clear();
-		m_BaseTexCoords.clear();
-		m_BaseVertices.clear();
-		m_BaseTangents.clear();
-		m_BaseBitangents.clear();
-	}
-}
-
-void AssimpObject::updateTriangles()
-{
-	m_Triangles.resize(m_Indices.size());
-	for (size_t i = 0, s = m_Triangles.size(); i < s; i++)
-	{
-		Triangle &tri = m_Triangles.at(i);
-		const glm::uvec3 &indices = m_Indices.at(i);
-		const vec3 &v0 = m_CurrentVertices.at(indices.x);
-		const vec3 &v1 = m_CurrentVertices.at(indices.y);
-		const vec3 &v2 = m_CurrentVertices.at(indices.z);
-
-		const vec3 &n0 = m_CurrentNormals.at(indices.x);
-		const vec3 &n1 = m_CurrentNormals.at(indices.y);
-		const vec3 &n2 = m_CurrentNormals.at(indices.z);
-
-		vec3 N = normalize(cross(v1 - v0, v2 - v0));
-
-		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
-			N *= -1.0f; // flip if not consistent with vertex normals
-
-		tri.vertex0 = v0;
-		tri.vertex1 = v1;
-		tri.vertex2 = v2;
-
-		tri.u0 = m_BaseTexCoords.at(indices.x).x;
-		tri.v0 = m_BaseTexCoords.at(indices.x).y;
-
-		tri.u1 = m_BaseTexCoords.at(indices.y).x;
-		tri.v1 = m_BaseTexCoords.at(indices.y).y;
-
-		tri.u2 = m_BaseTexCoords.at(indices.z).x;
-		tri.v2 = m_BaseTexCoords.at(indices.z).y;
-
-		// Are not actually used
-		tri.T = m_CurrentTangents.at(i);
-		tri.B = m_CurrentBitangents.at(i);
-
-		tri.Nx = N.x;
-		tri.Ny = N.y;
-		tri.Nz = N.z;
-
-		tri.vN0 = n0;
-		tri.vN1 = n1;
-		tri.vN2 = n2;
-
-		tri.material = m_MaterialIndices.at(i);
-	}
-}
-
-size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage,
-									   std::vector<aiMatrix4x4> *matrixStorage,
-									   std::map<std::string, uint> *nodeNameMapping)
+size_t rfw::AssimpObject::traverseNode(const aiNode *node, std::map<std::string, uint> *nodeNameMapping)
 {
 	// Get current index
-	const size_t currentNodeIndex = storage->size();
+	const size_t currentNodeIndex = scene.nodes.size();
 	// Add index to current node to name mapping
 	(*nodeNameMapping)[std::string(node->mName.C_Str())] = static_cast<uint>(currentNodeIndex);
 
 	// Initialize node data
-	AssimpNode n;
-	n.parent = parentIdx;
-	n.children.resize(node->mNumChildren);
+	rfw::SceneNode n = rfw::SceneNode(&scene, node->mName.C_Str(), {});
+	n.childIndices.reserve(node->mNumChildren);
 
 	if (node->mNumMeshes > 0)
 	{
-		n.meshes.resize(node->mNumMeshes);
+		m_NodesWithMeshes.push_back(currentNodeIndex);
+		n.meshIDs.resize(node->mNumMeshes);
+
 		for (uint i = 0; i < node->mNumMeshes; i++)
 		{
-			const auto meshIdx = node->mMeshes[i];
-			n.meshes.at(i) = meshIdx;
+			const auto meshIdx = scene.meshes.size();
+			scene.meshes.emplace_back();
+			scene.meshes.at(meshIdx).object = &scene;
+			m_AssimpMeshMapping.push_back(node->mMeshes[i]);
+			n.meshIDs.at(i) = meshIdx;
 		}
-
-		m_NodesWithMeshes.push_back(currentNodeIndex);
 	}
 
-	matrixStorage->push_back(node->mTransformation);
-	storage->push_back(n);
+	glm::mat4 matrix;
+	memcpy(value_ptr(matrix), &node->mTransformation[0][0], 16 * sizeof(float));
+	// Assimp provides matrices in row major form, convert to column major
+	matrix = glm::rowMajor4(matrix);
+	n.matrix = matrix;
+	n.calculateTransform();
+
+	scene.nodes.push_back(n);
 
 	// Iterate and initialize children
 	const int currentIdx = static_cast<int>(currentNodeIndex);
 	for (uint i = 0; i < node->mNumChildren; i++)
 	{
 		const aiNode *child = node->mChildren[i];
-		const size_t childIdx = traverseNode(child, currentIdx, storage, matrixStorage, nodeNameMapping);
-		storage->at(currentNodeIndex).children.at(i) = static_cast<uint>(childIdx);
+		scene.nodes.at(currentNodeIndex).childIndices.push_back(static_cast<int>(traverseNode(child, nodeNameMapping)));
 	}
 
 	return currentNodeIndex;
 }
 
-// Iterate over every node and its children, calculating every node's matrix
-void rfw::AssimpObject::calculateMatrices(const AssimpNode &node, const std::vector<AssimpNode> &nodes,
-										  const std::vector<aiMatrix4x4> &perNodeMatrices)
-{
-	m_aiPrecalcNodeTransformations.resize(nodes.size());
+uint AssimpObject::getAnimationCount() const { return static_cast<uint>(scene.animations.size()); }
 
-	const auto traverseTillParent = [&perNodeMatrices, &nodes](int currentIndex) -> aiMatrix4x4 {
-		std::vector<const aiMatrix4x4 *> matrices;
-		while (currentIndex != -1)
-		{
-			matrices.push_back(&perNodeMatrices.at(currentIndex));
-			currentIndex = nodes.at(currentIndex).parent;
-		}
+void AssimpObject::setAnimation(uint index) { m_CurrentAnimation = clamp(index, 0u, static_cast<uint>(scene.animations.size())); }
 
-		aiMatrix4x4 result;
-		aiIdentityMatrix4(&result);
-		for (int i = static_cast<int>(matrices.size()) - 1; i >= 0; i--)
-			aiMultiplyMatrix4(&result, matrices.at(i));
-
-		return result;
-	};
-
-	for (size_t i = 0, s = nodes.size(); i < s; i++)
-		m_aiPrecalcNodeTransformations.at(i) = traverseTillParent(static_cast<int>(i));
-}
-uint AssimpObject::getAnimationCount() const { return static_cast<uint>(m_Animations.size()); }
-
-void AssimpObject::setAnimation(uint index)
-{
-	m_CurrentAnimation = clamp(index, 0u, static_cast<uint>(m_Animations.size()));
-}
-
-uint AssimpObject::getMaterialForPrim(uint primitiveIdx) const
-{
-	for (const auto &mesh : m_Meshes)
-	{
-		if (mesh.faceOffset < primitiveIdx && (mesh.faceOffset + mesh.faceCount) > primitiveIdx)
-			return mesh.materialIdx;
-	}
-
-	return 0;
-}
+uint AssimpObject::getMaterialForPrim(uint primitiveIdx) const { return scene.materialIndices.at(primitiveIdx); }
 
 void AssimpObject::setCurrentAnimation(uint index)
 {
@@ -732,88 +382,18 @@ void AssimpObject::setCurrentAnimation(uint index)
 std::vector<uint> AssimpObject::getLightIndices(const std::vector<bool> &matLightFlags) const
 {
 	std::vector<uint> indices;
-	for (const auto &mesh : m_Meshes)
+	for (const auto &mesh : scene.meshes)
 	{
 		const size_t offset = indices.size();
-		if (matLightFlags.at(mesh.materialIdx))
+		if (matLightFlags.at(mesh.matID))
 		{
-			indices.resize(offset + mesh.faceCount);
-			for (uint i = 0; i < mesh.faceCount; i++)
-				indices.at(offset + i) = mesh.faceOffset + i;
+			const auto s = mesh.vertexCount / 3;
+			const auto o = mesh.vertexOffset / 3;
+			indices.resize(offset + s);
+			for (uint i = 0; i < s; i++)
+				indices.at(offset + i) = o + i;
 		}
 	}
 
 	return indices;
-}
-
-glm::mat4 rfw::AssimpObject::AnimationChannel::getInterpolatedTRS(float time) const
-{
-	vec3 position = vec3(0.0f);
-	if (!positionKeys.empty())
-	{
-
-		size_t posKeyIndex = 0, posKeyIndexNext = 0;
-		for (size_t i = 0, s = positionKeys.size() - 1; i < s; i++)
-		{
-			if (time < positionKeys.at(i).time)
-			{
-				posKeyIndex = i, posKeyIndexNext = i + 1;
-				break;
-			}
-		}
-
-		assert(posKeyIndexNext < positionKeys.size());
-		const float posDeltaTime = positionKeys.at(posKeyIndexNext).time - positionKeys.at(posKeyIndex).time;
-		const float posFactor = (time - positionKeys.at(posKeyIndex).time) / posDeltaTime;
-		const vec3 &startPos = positionKeys.at(posKeyIndex).value;
-		const vec3 &endPos = positionKeys.at(posKeyIndexNext).value;
-		position = startPos + posFactor * (endPos - startPos);
-	}
-
-	glm::quat q = glm::identity<glm::quat>();
-	if (!rotationKeys.empty())
-	{
-
-		size_t rotKeyIndex = 0, rotKeyIndexNext = 0;
-		for (size_t i = 0, s = rotationKeys.size() - 1; i < s; i++)
-		{
-			if (time < rotationKeys.at(i).time)
-			{
-				rotKeyIndex = i, rotKeyIndexNext = i + 1;
-				break;
-			}
-		}
-		assert(rotKeyIndexNext < rotationKeys.size());
-		const float rotDeltaTime = rotationKeys.at(rotKeyIndexNext).time - rotationKeys.at(rotKeyIndex).time;
-		const float rotFactor = (time - rotationKeys.at(rotKeyIndex).time) / rotDeltaTime;
-		const auto &startQuat = rotationKeys.at(rotKeyIndex).value;
-		const auto &endQuat = rotationKeys.at(rotKeyIndexNext).value;
-		q = glm::mix(startQuat, endQuat, rotFactor);
-	}
-
-	vec3 scaling = vec3(1.0f);
-	if (!scalingKeys.empty())
-	{
-		size_t scaleKeyIndex = 0, scaleKeyIndexNext = 0;
-		for (size_t i = 0, s = scalingKeys.size() - 1; i < s; i++)
-		{
-			if (time < scalingKeys.at(i).time)
-			{
-				scaleKeyIndex = i, scaleKeyIndexNext = i + 1;
-				break;
-			}
-		}
-		assert(scaleKeyIndexNext < scalingKeys.size());
-		const float scaleDeltaTime = scalingKeys.at(scaleKeyIndexNext).time - scalingKeys.at(scaleKeyIndex).time;
-		const float scaleFactor = (time - scalingKeys.at(scaleKeyIndex).time) / scaleDeltaTime;
-		const vec3 &startScale = scalingKeys.at(scaleKeyIndex).value;
-		const vec3 &endScale = scalingKeys.at(scaleKeyIndexNext).value;
-		scaling = startScale + scaleFactor * (endScale - startScale);
-	}
-
-	const glm::mat4 T = glm::translate(glm::mat4(1.0f), position);
-	const glm::mat4 R = glm::mat4_cast(glm::quat(q.w, q.x, q.y, q.z));
-	const glm::mat4 S = glm::scale(glm::mat4(1.0f), scaling);
-
-	return T * R * S;
 }

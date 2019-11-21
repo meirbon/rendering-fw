@@ -28,8 +28,9 @@ struct SceneNode
 
 	bool transformed = true;
 	bool morphed = false;
-	int meshID = -1, skinID = -1;
 
+	std::vector<int> meshIDs;
+	std::vector<int> skinIDs;
 	std::vector<float> weights;
 	std::vector<int> childIndices;
 

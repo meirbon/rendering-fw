@@ -9,9 +9,8 @@
 #include "MaterialList.h"
 #include "SceneTriangles.h"
 
-#include "SceneAnimation.h"
-
 #include "SceneObject.h"
+#include "SceneAnimation.h"
 #include "SceneMesh.h"
 #include "SceneNode.h"
 #include "MeshSkin.h"

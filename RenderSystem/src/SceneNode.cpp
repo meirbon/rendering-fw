@@ -28,35 +28,39 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 		changed = child.update(combinedTransform);
 	}
 
-	if (meshID > -1)
+	if (!meshIDs.empty())
 	{
-		if (morphed)
+		for (int i = 0; i < meshIDs.size(); i++)
 		{
-			object->meshes.at(meshID).setPose(weights);
-			morphed = false;
-			changed = true;
-		}
-		else if (skinID > -1)
-		{
-			auto &skin = object->skins.at(skinID);
+			const int meshID = meshIDs.at(i);
 
-			for (size_t s = skin.joints.size(), j = 0; j < s; j++)
+			if (morphed)
 			{
-				auto &jointNode = object->nodes.at(skin.joints.at(j));
-
-				// Create a row major matrix for SIMD accelerated scene updates
-				skin.jointMatrices.at(j) =
-					glm::rowMajor4(combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j));
+				object->meshes.at(meshID).setPose(weights);
+				morphed = false;
+				changed = true;
 			}
+			else if (skinIDs.at(i) != -1)
+			{
+				auto &skin = object->skins.at(skinIDs.at(i));
 
-			object->meshes.at(meshID).setPose(skin);
-			changed = true;
-		}
-		else if (!hasUpdatedStatic)
-		{
-			object->meshes.at(meshID).setTransform(combinedTransform);
-			hasUpdatedStatic = true;
-			changed = true;
+				for (size_t s = skin.joints.size(), j = 0; j < s; j++)
+				{
+					auto &jointNode = object->nodes.at(skin.joints.at(j));
+
+					// Create a row major matrix for SIMD accelerated scene updates
+					skin.jointMatrices.at(j) = glm::rowMajor4(combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j));
+				}
+
+				object->meshes.at(meshID).setPose(skin);
+				changed = true;
+			}
+			else if (!hasUpdatedStatic)
+			{
+				object->meshes.at(meshID).setTransform(combinedTransform);
+				hasUpdatedStatic = true;
+				changed = true;
+			}
 		}
 	}
 

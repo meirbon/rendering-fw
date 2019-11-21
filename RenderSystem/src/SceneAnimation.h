@@ -82,6 +82,11 @@ class SceneAnimation
 	SceneObject *object = nullptr;
 	std::vector<Sampler> samplers;
 	std::vector<Channel> channels;
+	
+	// TODO: Do something with these
+	double ticksPerSecond = -1;
+	double duration = 0;
+
 
 	void reset();
 	void update(float deltaTime);

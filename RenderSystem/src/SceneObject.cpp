@@ -6,6 +6,10 @@ using namespace rfw;
 
 bool rfw::SceneObject::transformTo(float timeInSeconds)
 {
+	vertices.resize(baseVertices.size());
+	normals.resize(baseNormals.size());
+	triangles.resize(baseVertices.size() / 3);
+
 	const float time = timeInSeconds / 1000.0f;
 
 	for (auto &anim : animations)
@@ -24,6 +28,9 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 
 void rfw::SceneObject::updateTriangles(uint offset, uint last)
 {
+	if (last == 0)
+		last = triangles.size();
+
 	for (uint i = offset; i < last; i++)
 	{
 		const auto idx = i * 3;

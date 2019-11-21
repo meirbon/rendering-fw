@@ -14,11 +14,6 @@ rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model
 {
 	rfw::MeshSkin s = {};
 	s.name = skin.name;
-	if (skin.skeleton == -1)
-		s.skeletonRoot = 0;
-	else
-		s.skeletonRoot = skin.skeleton;
-
 	s.joints.reserve(skin.joints.size());
 	for (auto joint : skin.joints)
 		s.joints.emplace_back(joint);
@@ -41,12 +36,18 @@ rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model
 rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node)
 {
 	auto n = rfw::SceneNode(&object.scene, node.name, {});
-	n.meshID = node.mesh == -1 ? -1 : node.mesh;
-	n.skinID = node.skin == -1 ? -1 : node.skin;
-
-	if (n.meshID != -1)
+	if (node.mesh > -1)
 	{
-		const auto morphTargets = glm::max(object.scene.meshes.at(n.meshID).poses.size(), size_t(1)) - 1;
+		n.meshIDs.push_back(node.mesh);
+		if (node.skin > -1)
+			n.skinIDs.push_back(node.skin);
+		else
+			n.skinIDs.push_back(-1);
+	}
+
+	if (!n.meshIDs.empty())
+	{
+		const auto morphTargets = glm::max(object.scene.meshes.at(n.meshIDs.at(0)).poses.size(), size_t(1)) - 1;
 		if (morphTargets > 0)
 		{
 			n.weights.resize(morphTargets, 0.0f);

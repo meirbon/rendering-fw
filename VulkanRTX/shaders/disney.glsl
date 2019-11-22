@@ -3,6 +3,25 @@
 
 #include "structures.glsl"
 
+#define BSDF_FUNC
+#define REFERENCE_OF(x) inout x
+
+struct InputValues
+{
+	float sheen;
+	float metallic;
+	float specular;
+	float clearcoat;
+	float clearcoat_gloss;
+	float roughness;
+	float anisotropic;
+	float subsurface;
+	float sheen_tint;
+	float specular_tint;
+	vec4 tint_color;
+	vec4 base_color__luminance;
+};
+
 #define BSDF_TYPE_REFLECTED 0
 #define BSDF_TYPE_TRANSMITTED 1
 #define BSDF_TYPE_SPECULAR 2
@@ -27,7 +46,19 @@ float SchlickFresnel(const float u)
 	return float(m * m) * (m * m) * m;
 }
 
-float GTR1(const float NDotH, const float a)
+BSDF_FUNC void mix_spectra(const vec3 a, const vec3 b, const float t, REFERENCE_OF(vec3) result) { result = (1.0f - t) * a + t * b; }
+BSDF_FUNC void mix_one_with_spectra(const vec3 b, const float t, REFERENCE_OF(vec3) result) { result = (1.0f - t) + t * b; }
+BSDF_FUNC void mix_spectra_with_one(const vec3 a, const float t, REFERENCE_OF(vec3) result) { result = (1.0f - t) * a + t; }
+BSDF_FUNC float microfacet_alpha_from_roughness(const float roughness) { return max(0.001f, roughness * roughness); }
+BSDF_FUNC void microfacet_alpha_from_roughness(const float roughness, const float anisotropy, REFERENCE_OF(float) alpha_x, REFERENCE_OF(float) alpha_y)
+{
+	const float square_roughness = roughness * roughness;
+	const float aspect = sqrt(1.0f + anisotropy * (anisotropy < 0 ? 0.9f : -0.9f));
+	alpha_x = max(0.001f, square_roughness / aspect);
+	alpha_y = max(0.001f, square_roughness * aspect);
+}
+
+BSDF_FUNC float GTR1(const float NDotH, const float a)
 {
 	if (a >= 1)
 		return INVPI;
@@ -93,8 +124,7 @@ float BSDFPdf(const ShadingData shadingData, const vec3 N, const vec3 wo, const 
 }
 
 // evaluate the BSDF for a given pair of directions
-vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const vec3 wi, const float t,
-			  const bool backfacing)
+vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const vec3 wi, const float t, const bool backfacing)
 {
 	const float NDotL = dot(N, wi);
 	const float NDotV = dot(N, wo);
@@ -166,8 +196,7 @@ vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const 
 			const float Fc = mix(.04f, 1.0f, FH);
 			const float Gr = SmithGGX(NDotL, .25) * SmithGGX(NDotV, .25);
 
-			brdf =
-				INVPI * Fd * Cdlin * (1.0f - METALLIC) * (1.0f - SUBSURFACE) + Gs * Fs * Ds + CLEARCOAT * Gr * Fc * Dr;
+			brdf = INVPI * Fd * Cdlin * (1.0f - METALLIC) * (1.0f - SUBSURFACE) + Gs * Fs * Ds + CLEARCOAT * Gr * Fc * Dr;
 		}
 	}
 
@@ -180,8 +209,8 @@ vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const 
 }
 
 // generate an importance sampled BSDF direction
-void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const vec3 N, const vec3 wo, inout vec3 wi,
-				inout float pdf, inout int type, const float t, const bool backfacing, const float r3, const float r4)
+void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const vec3 N, const vec3 wo, inout vec3 wi, inout float pdf, inout int type,
+				const float t, const bool backfacing, const float r3, const float r4)
 {
 	if (r3 < TRANSMISSION)
 	{
@@ -250,16 +279,15 @@ void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const
 
 // ----------------------------------------------------------------
 
-vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo,
-				  const vec3 wi, inout float pdf)
+BSDF_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo, const vec3 wi, REFERENCE_OF(float) pdf)
 {
 	const vec3 bsdf = BSDFEval(shadingData, iN, wo, wi, 0.0f, false);
 	pdf = BSDFPdf(shadingData, iN, wo, wi);
 	return bsdf;
 }
 
-vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B, const vec3 wo,
-				const float t, const bool backfacing, const float r3, const float r4, inout vec3 wi, inout float pdf)
+BSDF_FUNC vec3 SampleBSDF(const ShadingData shadingData, vec3 iN, const vec3 N, const vec3 T, const vec3 B, const vec3 wo, const float t, const bool backfacing,
+						  const float r3, const float r4, REFERENCE_OF(vec3) wi, REFERENCE_OF(float) pdf, REFERENCE_OF(bool) specular)
 {
 	int type;
 	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, r3, r4);

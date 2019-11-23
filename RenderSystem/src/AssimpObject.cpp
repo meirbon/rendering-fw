@@ -620,6 +620,8 @@ glm::mat4 rfw::AssimpObject::AnimationChannel::getInterpolatedTRS(float time) co
 		}
 	}
 
+	keyIndex = keyIndex % (positionKeys.size() - 1);
+
 	assert(keyIndex < positionKeys.size());
 	deltaTime = positionKeys.at(keyIndex + 1).time - positionKeys.at(keyIndex).time;
 	factor = (time - positionKeys.at(keyIndex).time) / deltaTime;

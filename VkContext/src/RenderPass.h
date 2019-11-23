@@ -8,7 +8,7 @@
 #include <cassert>
 #include <vulkan/vulkan.hpp>
 
-#include "Device.h"
+#include "VulkanDevice.h"
 
 namespace vkc
 {
@@ -21,7 +21,7 @@ struct Subpass
 class RenderPass
 {
   public:
-	RenderPass(Device device) : m_Device(device) {}
+	RenderPass(VulkanDevice device) : m_Device(device) {}
 	~RenderPass() { cleanup(); }
 
 	uint32_t addColorAttachment(vk::Format format, vk::AttachmentLoadOp loadOp = vk::AttachmentLoadOp::eClear,
@@ -45,7 +45,7 @@ class RenderPass
 
   private:
 	bool m_Finalized = false;
-	Device m_Device;
+	VulkanDevice m_Device;
 	vk::RenderPass m_RenderPass;
 	std::vector<vk::AttachmentDescription> m_AttachmentDescriptions;
 	std::vector<vk::SubpassDescription> m_SubpassDescriptions;

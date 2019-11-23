@@ -1,52 +1,30 @@
 #include <Structures.h>
 #include "VkMesh.h"
 
-vkc::VkMesh::VkMesh(const vkc::Device &device) : m_Device(device) {}
+vkc::VkMesh::VkMesh(const vkc::VulkanDevice &device) : m_Device(device), vertices(device), normals(device), triangles(device), indices(device) {}
 
-vkc::VkMesh::~VkMesh()
-{
-	delete vertices;
-	delete normals;
-	delete indices;
-	delete triangles;
-	vertices = nullptr;
-	normals = nullptr;
-	indices = nullptr;
-	triangles = nullptr;
-}
+vkc::VkMesh::~VkMesh() {}
 
 void vkc::VkMesh::setGeometry(const rfw::Mesh &mesh)
 {
-	delete vertices;
-	delete normals;
-	delete indices;
-	delete triangles;
-	vertices = nullptr;
-	normals = nullptr;
-	indices = nullptr;
-	triangles = nullptr;
+	vertices.allocate(mesh.vertexCount, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+					  vk::BufferUsageFlagBits::eVertexBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	vertices.copyToDevice(mesh.vertices);
 
-	vertices = new Buffer<glm::vec3>(m_Device, mesh.vertexCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-									 vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-									 ON_DEVICE);
-	vertices->CopyToDevice(mesh.vertices);
-	normals = new Buffer<glm::vec3>(m_Device, mesh.vertexCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-									vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-									ON_DEVICE);
-	normals->CopyToDevice(mesh.normals);
+	normals.allocate(mesh.vertexCount, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+					 vk::BufferUsageFlagBits::eVertexBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	normals.copyToDevice(mesh.normals);
 
 	if (mesh.hasIndices())
 	{
-		indices = new Buffer<glm::uvec3>(m_Device, mesh.triangleCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-										 vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-										 ON_DEVICE);
-		indices->CopyToDevice(mesh.indices);
+		indices.allocate(mesh.triangleCount, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+						 vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		indices.copyToDevice(mesh.indices);
 	}
 
-	triangles = new Buffer<rfw::DeviceTriangle>(
-		m_Device, mesh.triangleCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, ON_DEVICE);
-	triangles->CopyToDevice(mesh.triangles);
+	triangles.allocate(mesh.triangleCount, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+					   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	triangles.copyToDevice(mesh.triangles);
 }
 
-bool vkc::VkMesh::hasIndices() const { return indices != nullptr; }
+bool vkc::VkMesh::hasIndices() const { return indices.getSize() > 0; }

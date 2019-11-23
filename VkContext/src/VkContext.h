@@ -15,7 +15,7 @@
 #include <utils/LibExport.h>
 
 #include "ShaderModule.h"
-#include "Device.h"
+#include "VulkanDevice.h"
 #include "SwapChain.h"
 #include "FrameBuffer.h"
 #include "RenderPass.h"
@@ -60,7 +60,7 @@ class VkContext : public rfw::RenderContext
 	vk::DispatchLoaderDynamic m_LoaderDynamic = {};
 	vk::DebugUtilsMessengerEXT m_DebugMessenger = {};
 
-	Device m_Device;
+	VulkanDevice m_Device;
 	SwapChain *m_SwapChain = nullptr;
 	vk::SurfaceKHR m_Surface = {};
 	vk::PipelineLayout m_PipelineLayout = {};

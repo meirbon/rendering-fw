@@ -3,7 +3,7 @@
 //
 
 #include "ShaderModule.h"
-#include "Device.h"
+#include "VulkanDevice.h"
 
 #include <utils/File.h>
 
@@ -25,14 +25,14 @@ static std::vector<char> read_file(const std::string_view &filename)
 	return buffer;
 }
 
-ShaderModule::ShaderModule(Device &device, const std::string_view &path) : m_Device(device)
+ShaderModule::ShaderModule(VulkanDevice &device, const std::string_view &path) : m_Device(device)
 {
 	m_Module = loadModule(device, path);
 }
 
 ShaderModule::~ShaderModule() { m_Device->destroyShaderModule(m_Module); }
 
-vk::ShaderModule ShaderModule::loadModule(Device &device, const std::string_view &path)
+vk::ShaderModule ShaderModule::loadModule(VulkanDevice &device, const std::string_view &path)
 {
 	vk::ShaderModuleCreateInfo createInfo{};
 

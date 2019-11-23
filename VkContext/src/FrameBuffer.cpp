@@ -25,7 +25,7 @@ bool FrameBufferAttachment::hasStencil()
 
 bool FrameBufferAttachment::isDepthStencil() { return hasDepth() || hasStencil(); }
 
-FrameBuffer::FrameBuffer(const Device &device) : m_Device(device) {}
+FrameBuffer::FrameBuffer(const VulkanDevice &device) : m_Device(device) {}
 
 FrameBuffer::~FrameBuffer() { cleanup(); }
 

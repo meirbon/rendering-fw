@@ -8,7 +8,7 @@
 
 #include <string>
 
-#include "Device.h"
+#include "VulkanDevice.h"
 
 namespace vkc
 {
@@ -18,10 +18,10 @@ class ShaderModule
 {
   public:
 	ShaderModule() = default;
-	ShaderModule(Device &device, const std::string_view &path);
+	ShaderModule(VulkanDevice &device, const std::string_view &path);
 	~ShaderModule();
 
-	static vk::ShaderModule loadModule(Device &device, const std::string_view &path);
+	static vk::ShaderModule loadModule(VulkanDevice &device, const std::string_view &path);
 
 	[[nodiscard]] vk::ShaderModule getModule() const { return m_Module; }
 	vk::PipelineShaderStageCreateInfo getShaderStage(vk::ShaderStageFlagBits stageFlags);
@@ -29,7 +29,7 @@ class ShaderModule
 	operator vk::ShaderModule() const { return m_Module; }
 
   private:
-	Device m_Device;
+	VulkanDevice m_Device;
 	vk::ShaderModule m_Module;
 };
 } // namespace vkc

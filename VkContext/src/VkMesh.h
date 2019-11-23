@@ -1,9 +1,11 @@
 #pragma once
 
-#include "Buffer.h"
+#include "VmaBuffer.h"
 
 #include <MathIncludes.h>
 #include <DeviceStructures.h>
+
+#include "VulkanDevice.h"
 
 namespace vkc
 {
@@ -11,21 +13,22 @@ namespace vkc
 class VkMesh
 {
   public:
-	VkMesh(const Device& device);
+	VkMesh(const VulkanDevice &device);
 	~VkMesh();
 
-	void setGeometry(const rfw::Mesh& mesh);
+	void setGeometry(const rfw::Mesh &mesh);
 
 	[[nodiscard]] bool hasIndices() const;
 
 	uint vertexCount = 0;
 	uint triangleCount = 0;
-	Buffer<glm::vec3> *vertices = nullptr;
-	Buffer<glm::vec3> *normals = nullptr;
-	Buffer<glm::uvec3> *indices = nullptr;
-	Buffer<rfw::DeviceTriangle> *triangles = nullptr;
+	VmaBuffer<glm::vec3> vertices;
+	VmaBuffer<glm::vec3> normals;
+	VmaBuffer<glm::uvec3> indices;
+	VmaBuffer<rfw::DeviceTriangle> triangles;
+
   private:
-	vkc::Device m_Device;
+	vkc::VulkanDevice m_Device;
 };
 
 } // namespace vkc

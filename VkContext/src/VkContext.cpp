@@ -31,10 +31,8 @@ constexpr bool IS_DEBUG = false;
 using namespace rfw;
 using namespace vkc;
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-													VkDebugUtilsMessageTypeFlagsEXT messageType,
-													const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-													void *pUserData)
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
+													const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
 {
 	std::string severity;
 	std::string type;
@@ -74,13 +72,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 
 	if (severity == "INFO")
 	{
-		utils::logger::log("Validation Layer (%s, %s) : \"%s\"\n", severity.c_str(), type.c_str(),
-						   pCallbackData->pMessage);
+		utils::logger::log("Validation Layer (%s, %s) : \"%s\"\n", severity.c_str(), type.c_str(), pCallbackData->pMessage);
 	}
 	else
 	{
-		utils::logger::warning("Validation Layer (%s, %s) : \"%s\"\n", severity.c_str(), type.c_str(),
-							   pCallbackData->pMessage);
+		utils::logger::warning("Validation Layer (%s, %s) : \"%s\"\n", severity.c_str(), type.c_str(), pCallbackData->pMessage);
 	}
 
 	return VK_FALSE;
@@ -91,8 +87,8 @@ void VkContext::init(std::shared_ptr<utils::Window> &window)
 	m_Window = window;
 	if (!glfwVulkanSupported())
 		throw std::runtime_error("GLFW instance does not support Vulkan.");
-	vk::ApplicationInfo appInfo = vk::ApplicationInfo("Rendering FW", VK_MAKE_VERSION(1u, 0u, 0u), "No Engine",
-													  VK_MAKE_VERSION(1u, 0u, 0u), VK_API_VERSION_1_1);
+	vk::ApplicationInfo appInfo =
+		vk::ApplicationInfo("Rendering FW", VK_MAKE_VERSION(1u, 0u, 0u), "No Engine", VK_MAKE_VERSION(1u, 0u, 0u), VK_API_VERSION_1_1);
 
 	vk::InstanceCreateInfo createInfo{};
 	createInfo.setPApplicationInfo(&appInfo);
@@ -114,7 +110,7 @@ void VkContext::init(std::shared_ptr<utils::Window> &window)
 	createSurface();
 	const auto device = pickPhysicalDevice();
 
-	m_Device = Device(device, m_Surface);
+	m_Device = VulkanDevice(m_Instance, device, {VK_KHR_SWAPCHAIN_EXTENSION_NAME}, m_Surface);
 	m_LoaderDynamic = vk::DispatchLoaderDynamic(m_Instance, m_Device.getVkDevice());
 	setupDebugMessenger();
 
@@ -165,13 +161,14 @@ void VkContext::cleanup()
 	m_ImageAvailableSemaphores.clear();
 	m_RenderFinishedSemaphores.clear();
 
+	if (!m_CommandBuffers.empty())
+		m_Device.freeCommandBuffers(m_CommandBuffers, VulkanDevice::GRAPHICS);
+	m_CommandBuffers.clear();
+
 	for (auto *mesh : m_Meshes)
 		delete mesh;
 	m_Meshes.clear();
 
-	if (!m_CommandBuffers.empty())
-		m_Device->freeCommandBuffers(m_Device.getCommandPool(), m_CommandBuffers);
-	m_CommandBuffers.clear();
 	m_Device.cleanup();
 	if (m_Surface)
 	{
@@ -194,9 +191,8 @@ void VkContext::renderFrame(const rfw::Camera &camera, RenderStatus status)
 		CheckVK(error);
 
 	const vk::PipelineStageFlags waitStage = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-	vk::SubmitInfo submitInfo =
-		vk::SubmitInfo(1, &m_ImageAvailableSemaphores.at(m_CurrentFrame), &waitStage, 1,
-					   &m_CommandBuffers.at(m_CurrentFrame), 1, &m_RenderFinishedSemaphores.at(m_CurrentFrame));
+	vk::SubmitInfo submitInfo = vk::SubmitInfo(1, &m_ImageAvailableSemaphores.at(m_CurrentFrame), &waitStage, 1, &m_CommandBuffers.at(m_CurrentFrame), 1,
+											   &m_RenderFinishedSemaphores.at(m_CurrentFrame));
 
 	const auto graphicsQueue = m_Device.getGraphicsQueue();
 
@@ -206,8 +202,7 @@ void VkContext::renderFrame(const rfw::Camera &camera, RenderStatus status)
 	graphicsQueue.waitIdle();
 
 	// Queue present but wait till render is finished
-	error = m_SwapChain->queuePresent(m_Device.getPresentQueue(), imageIndex,
-									  m_RenderFinishedSemaphores.at(m_CurrentFrame));
+	error = m_SwapChain->queuePresent(m_Device.getPresentQueue(), imageIndex, m_RenderFinishedSemaphores.at(m_CurrentFrame));
 	if (error == vk::Result::eErrorOutOfDateKHR)
 	{
 		m_SwapChain->create(m_Window->getWidth(), m_Window->getHeight());
@@ -289,11 +284,9 @@ void VkContext::setupDebugMessenger()
 		return;
 
 	vk::DebugUtilsMessengerCreateInfoEXT createInfo{};
-	createInfo.messageSeverity =
-		vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-		vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-	createInfo.messageType =
-		vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation;
+	createInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+								 vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+	createInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation;
 	createInfo.pfnUserCallback = debugCallback;
 	createInfo.pUserData = nullptr;
 
@@ -311,7 +304,7 @@ vk::PhysicalDevice VkContext::pickPhysicalDevice() const
 
 	std::multimap<unsigned int, vk::PhysicalDevice> candidates;
 	for (const auto &dev : physicalDevices)
-		candidates.insert(std::make_pair(Device::rateDevice(dev, m_Surface), dev));
+		candidates.insert(std::make_pair(VulkanDevice::rateDevice(dev, m_Surface), dev));
 
 	if (candidates.rbegin()->first > 0)
 		device = candidates.rbegin()->second;
@@ -325,8 +318,7 @@ vk::PhysicalDevice VkContext::pickPhysicalDevice() const
 void VkContext::createSurface()
 {
 	vk::SurfaceKHR surface;
-	if (glfwCreateWindowSurface(m_Instance, m_Window->getGLFW(), nullptr, reinterpret_cast<VkSurfaceKHR *>(&surface)) !=
-		VK_SUCCESS)
+	if (glfwCreateWindowSurface(m_Instance, m_Window->getGLFW(), nullptr, reinterpret_cast<VkSurfaceKHR *>(&surface)) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create window surface.");
 
 	m_Surface = surface;
@@ -337,10 +329,9 @@ void VkContext::createSurface()
 void VkContext::createRenderPass()
 {
 	m_RenderPass = new RenderPass(m_Device);
-	const auto attachmentIdx = m_RenderPass->addColorAttachment(
-		m_SwapChain->getFormat(), vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
-		vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::SampleCountFlagBits::e1,
-		vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR);
+	const auto attachmentIdx = m_RenderPass->addColorAttachment(m_SwapChain->getFormat(), vk::AttachmentLoadOp::eClear, vk::AttachmentStoreOp::eStore,
+																vk::AttachmentLoadOp::eDontCare, vk::AttachmentStoreOp::eDontCare, vk::SampleCountFlagBits::e1,
+																vk::ImageLayout::eColorAttachmentOptimal, vk::ImageLayout::ePresentSrcKHR);
 
 	Subpass subpass{};
 	subpass.bindPoint = vk::PipelineBindPoint::eGraphics;
@@ -430,8 +421,8 @@ void VkContext::createGraphicsPipeline()
 	multisampling.setAlphaToOneEnable(false);
 
 	vk::PipelineColorBlendAttachmentState colorBlendAttachment{};
-	colorBlendAttachment.setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG |
-										   vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA);
+	colorBlendAttachment.setColorWriteMask(vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB |
+										   vk::ColorComponentFlagBits::eA);
 	colorBlendAttachment.setBlendEnable(false);
 	colorBlendAttachment.setSrcColorBlendFactor(vk::BlendFactor::eOne);
 	colorBlendAttachment.setDstColorBlendFactor(vk::BlendFactor::eZero);
@@ -461,9 +452,8 @@ void VkContext::createGraphicsPipeline()
 	m_PipelineLayout = m_Device->createPipelineLayout(pipelineLayoutInfo);
 	assert(m_PipelineLayout);
 
-	std::array<vk::PipelineShaderStageCreateInfo, 2> stages = {
-		vertShader.getShaderStage(vk::ShaderStageFlagBits::eVertex),
-		fragShader.getShaderStage(vk::ShaderStageFlagBits::eFragment)};
+	std::array<vk::PipelineShaderStageCreateInfo, 2> stages = {vertShader.getShaderStage(vk::ShaderStageFlagBits::eVertex),
+															   fragShader.getShaderStage(vk::ShaderStageFlagBits::eFragment)};
 
 	vk::GraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.setStageCount(static_cast<uint32_t>(stages.size()));
@@ -504,10 +494,7 @@ void VkContext::printAvailableExtensions() const
 void VkContext::createCommandBuffers()
 {
 	const auto buffers = m_SwapChain->getBuffers();
-	vk::CommandBufferAllocateInfo allocInfo = vk::CommandBufferAllocateInfo(
-		m_Device.getCommandPool(), vk::CommandBufferLevel::ePrimary, (uint32_t)buffers.size());
-
-	m_CommandBuffers = m_Device->allocateCommandBuffers(allocInfo);
+	m_CommandBuffers = m_Device.createCommandBuffers(buffers.size(), vk::CommandBufferLevel::ePrimary, VulkanDevice::GRAPHICS);
 
 	vk::CommandBufferBeginInfo beginInfo = {};
 	vk::ClearValue clearColor{};
@@ -523,14 +510,13 @@ void VkContext::createCommandBuffers()
 
 		cmdBuffer.begin(beginInfo);
 
-		vk::ImageMemoryBarrier imageBarrier = vk::ImageMemoryBarrier(
-			vk::AccessFlagBits::eColorAttachmentRead, vk::AccessFlagBits::eColorAttachmentWrite,
-			vk::ImageLayout::eGeneral, vk::ImageLayout::eColorAttachmentOptimal, 0, 0, buffer.image);
-		cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eAllGraphics, vk::PipelineStageFlagBits::eAllGraphics, {},
-								  {}, {}, {imageBarrier});
+		vk::ImageMemoryBarrier imageBarrier =
+			vk::ImageMemoryBarrier({}, {}, vk::ImageLayout::eGeneral, vk::ImageLayout::eColorAttachmentOptimal, m_Device.getQueueIndices().graphicsIdx.value(),
+								   m_Device.getQueueIndices().graphicsIdx.value(), buffer.image);
+		cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eAllGraphics, vk::PipelineStageFlagBits::eAllGraphics, {}, {}, {}, {imageBarrier});
 
-		vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo(
-			*m_RenderPass, m_Framebuffers.at(i), {{0, 0}, m_SwapChain->getExtent()}, 1, &clearColor);
+		vk::RenderPassBeginInfo renderPassInfo =
+			vk::RenderPassBeginInfo(*m_RenderPass, m_Framebuffers.at(i), {{0, 0}, m_SwapChain->getExtent()}, 1, &clearColor);
 
 		cmdBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_GraphicsPipeline);
@@ -555,10 +541,7 @@ void VkContext::createSemaphores()
 	}
 }
 
-void vkc::VkContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials,
-								  const std::vector<rfw::MaterialTexIds> &texDescriptors)
-{
-}
+void vkc::VkContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
 
 void vkc::VkContext::setTextures(const std::vector<rfw::TextureData> &materials) {}
 
@@ -575,9 +558,8 @@ void vkc::VkContext::setInstance(size_t instanceIdx, size_t mesh, const mat4 &tr
 
 void vkc::VkContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 
-void vkc::VkContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
-							   const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
-							   const rfw::DeviceDirectionalLight *directionalLights)
+void vkc::VkContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+							   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 }
 
@@ -605,8 +587,8 @@ void vkc::VkContext::update()
 		auto cmdBuffer = m_CommandBuffers.at(i);
 		cmdBuffer.begin(vk::CommandBufferBeginInfo());
 
-		vk::RenderPassBeginInfo renderPassInfo = vk::RenderPassBeginInfo(
-			*m_RenderPass, m_Framebuffers.at(i), {{0, 0}, m_SwapChain->getExtent()}, 1, &clearColor);
+		vk::RenderPassBeginInfo renderPassInfo =
+			vk::RenderPassBeginInfo(*m_RenderPass, m_Framebuffers.at(i), {{0, 0}, m_SwapChain->getExtent()}, 1, &clearColor);
 
 		cmdBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
 		cmdBuffer.bindVertexBuffers(0, m_VertexBuffers.size(), m_VertexBuffers.data(), nullptr);

@@ -9,7 +9,7 @@
 
 #include <vector>
 
-#include "Device.h"
+#include "VulkanDevice.h"
 
 namespace vkc
 {
@@ -23,7 +23,7 @@ class SwapChain
 		vk::ImageView view;
 	};
 
-	SwapChain(Device &device, vk::SurfaceKHR surface,
+	SwapChain(VulkanDevice &device, vk::SurfaceKHR surface,
 			  vk::Format desiredFormat = vk::Format::eR8G8B8A8Uint);
 	~SwapChain();
 
@@ -40,7 +40,7 @@ class SwapChain
 								  vk::AttachmentLoadOp stencilLoadOp = vk::AttachmentLoadOp::eDontCare,
 								  vk::AttachmentStoreOp stencilStoreOp = vk::AttachmentStoreOp::eDontCare) const;
 
-	[[nodiscard]] Device& getDevice() { return m_Device; }
+	[[nodiscard]] VulkanDevice getDevice() { return m_Device; }
 	[[nodiscard]] vk::SurfaceKHR getSurface() const { return m_Surface; }
 	[[nodiscard]] vk::Format getFormat() const { return m_Format; }
 	[[nodiscard]] vk::ColorSpaceKHR getColorSpace() const { return m_ColorSpace; }
@@ -52,7 +52,7 @@ class SwapChain
 	[[nodiscard]] vk::Extent2D getExtent() const { return m_Extent; }
 
   private:
-	Device m_Device;
+	VulkanDevice m_Device;
 	vk::SurfaceKHR m_Surface;
 	vk::Format m_Format{};
 	vk::ColorSpaceKHR m_ColorSpace{};

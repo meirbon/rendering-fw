@@ -7,14 +7,14 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "Device.h"
+#include "VulkanDevice.h"
 
 namespace vkc
 {
 class FrameBufferAttachment
 {
   public:
-	FrameBufferAttachment(Device dev) : device(dev) {}
+	FrameBufferAttachment(VulkanDevice dev) : device(dev) {}
 	virtual ~FrameBufferAttachment()
 	{
 		if (view)
@@ -39,7 +39,7 @@ class FrameBufferAttachment
 	bool hasStencil();
 	bool isDepthStencil();
 
-	Device device;
+	VulkanDevice device;
 	vk::Image image;
 	vk::DeviceMemory memory;
 	vk::ImageView view;
@@ -51,7 +51,7 @@ class FrameBufferAttachment
 class FrameBufferSwapChainAttachment : public FrameBufferAttachment
 {
   public:
-	FrameBufferSwapChainAttachment(Device dev, vk::Image swapchainImage, vk::ImageView swapchainImageView,
+	FrameBufferSwapChainAttachment(VulkanDevice dev, vk::Image swapchainImage, vk::ImageView swapchainImageView,
 								   vk::Extent2D ext, vk::Format form)
 		: FrameBufferAttachment(dev)
 	{
@@ -108,7 +108,7 @@ struct AttachmentCreateInfo
 class FrameBuffer
 {
   public:
-	FrameBuffer(const Device &device);
+	FrameBuffer(const VulkanDevice &device);
 	~FrameBuffer();
 
 	void cleanup();
@@ -131,7 +131,7 @@ class FrameBuffer
 	operator vk::Sampler() const { return m_Sampler; }
 
   private:
-	Device m_Device;
+	VulkanDevice m_Device;
 	uint32_t width = 0, height = 0;
 	vk::Framebuffer m_Framebuffer;
 	vk::RenderPass m_RenderPass;

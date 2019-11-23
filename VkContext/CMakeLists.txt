@@ -23,7 +23,7 @@ endif(WIN32)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${PROJECT_NAME} PUBLIC Vulkan::Vulkan ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem Vulkan::Vulkan)
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem Vulkan::Vulkan VulkanMemoryAllocator)
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

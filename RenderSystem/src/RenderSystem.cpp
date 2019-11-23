@@ -288,8 +288,7 @@ void rfw::RenderSystem::synchronize()
 
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
 {
-#if 1
-
+#if 0
 	std::vector<std::future<void>> updates;
 
 	for (size_t i = 0; i < m_Models.size(); i++)

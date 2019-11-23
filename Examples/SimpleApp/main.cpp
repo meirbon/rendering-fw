@@ -12,7 +12,7 @@
 
 #include <ImGuiContext.h>
 
-#define USE_GL_CONTEXT 1
+#define USE_GL_CONTEXT 0
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 1
@@ -26,15 +26,18 @@ int main()
 {
 	using namespace rfw;
 	using namespace utils;
+
+	auto rs = RenderSystem();
+
+	auto camera = rfw::Camera();
+	camera.position = vec3(0, 5, -10);
+
+	unsigned int mouseX, mouseY;
+
 	// try
 	//{
 #if USE_GL_CONTEXT
 	auto window = std::make_shared<Window>(1280, 720, "Window", true, std::make_pair(4, 5));
-#else
-	auto window = std::make_shared<Window>(1280, 720, "Window", true);
-#endif
-
-	auto rs = RenderSystem();
 	auto textureTarget = new GLTexture(GLTexture::VEC4, window->getWidth(), window->getHeight(), true);
 	auto textureShader = GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
 
@@ -46,12 +49,6 @@ int main()
 
 	auto imguiContext = imgui::Context(window->getGLFW());
 
-	auto camera = rfw::Camera();
-	camera.position = vec3(0, 5, -10);
-
-	camera.resize(window->getWidth(), window->getHeight());
-
-	unsigned int mouseX, mouseY;
 	window->addResizeCallback([&textureTarget, &rs, &textureShader, &camera](int width, int height) {
 		auto oldID = textureTarget->getID();
 		textureTarget = new GLTexture(GLTexture::VEC4, width, height);
@@ -65,6 +62,13 @@ int main()
 		camera.resize(width, height);
 		glViewport(0, 0, width, height);
 	});
+#else
+	auto window = std::make_shared<Window>(1280, 720, "Window", true);
+
+	window->addResizeCallback([&rs, &camera](int width, int height) { camera.resize(width, height); });
+#endif
+
+	camera.resize(window->getWidth(), window->getHeight());
 
 	window->addMousePosCallback([&mouseX, &mouseY, &window](double x, double y, double lastX, double lastY) {
 		mouseX = static_cast<uint>(x * double(window->getWidth()));
@@ -72,16 +76,24 @@ int main()
 	});
 
 	// rs.loadRenderAPI("OptiX6Context");
-	rs.loadRenderAPI("VulkanRTX");
+	// rs.loadRenderAPI("VulkanRTX");
+	rs.loadRenderAPI("VkContext");
+
 	rs.setSkybox("Envmaps/sky_15.hdr");
+
+#if USE_GL_CONTEXT
 	rs.setTarget(textureTarget);
+#else
+	rs.setTarget(window);
+#endif
 
 #if SKINNED_MESH
 	auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
 #if PICA
-	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(2))), vec3(1), vec3(8, 5, 0), 90.0f, vec3(1, 0, 0));
+	auto cesiumMan =
+		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(2))), vec3(1), vec3(8, 5, 0), 90.0f, vec3(1, 0, 0));
 	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
 	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
@@ -160,7 +172,9 @@ int main()
 	{
 		bool camChanged = false;
 
+#if USE_GL_CONTEXT
 		imguiContext.newFrame();
+#endif
 		RenderStatus status = window->pressed(KEY_B) ? Reset : Converge;
 		const float elapsed = timer.elapsed();
 		fpsStat.addSample(elapsed);
@@ -262,6 +276,7 @@ int main()
 		shadeStat.addSample(stats.shadeTime);
 		finalizeStat.addSample(stats.finalizeTime);
 
+#if USE_GL_CONTEXT
 		ImGui::Begin("Settings");
 		ImGui::BeginGroup();
 		ImGui::Text("Statistics");
@@ -379,6 +394,7 @@ int main()
 			rs.updateAnimationsTo(time);
 			playAnimationStat.addSample(anim.elapsed());
 		}
+#endif
 
 		// Synchronize scene data
 		Timer t;
@@ -406,8 +422,6 @@ int main()
 
 		// Present result
 		window->present();
-#else
-		imguiContext.render();
 #endif
 	}
 

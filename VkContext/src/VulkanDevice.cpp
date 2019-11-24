@@ -11,6 +11,7 @@
 #include <utils/Logger.h>
 
 #include "CheckVK.h"
+#include "VmaBuffer.h"
 
 using namespace vkc;
 
@@ -71,7 +72,7 @@ std::unordered_set<uint32_t> vkc::QueueFamilyIndices::getUniqueQueueIds() const
 	if (this->presentIdx.has_value())
 		ids.push_back(this->presentIdx.value());
 
-	return std::unordered_set(ids.data(), ids.data() + ids.size());
+	return std::unordered_set<uint32_t>(ids.data(), ids.data() + ids.size());
 }
 
 VulkanDevice::VulkanDevice(const VulkanDevice &rhs) : m_Members(rhs.m_Members) {}
@@ -136,10 +137,6 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 
 	m_Members->m_MemProps = m_Members->m_PhysicalDevice.getMemoryProperties();
 
-	vk::CommandPoolCreateInfo cmdPoolCreateInfo{};
-	cmdPoolCreateInfo.setPNext(nullptr);
-	cmdPoolCreateInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
-
 	const auto ids = m_Members->m_Indices.getUniqueQueueIds();
 	m_Members->m_CommandPools.resize(QUEUE_TYPE_COUNT);
 
@@ -160,7 +157,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 	i = 0;
 	for (const auto id : ids)
 	{
-		vk::CommandPoolCreateInfo cmdPoolCreateInfo{};
+		vk::CommandPoolCreateInfo cmdPoolCreateInfo = {};
 		cmdPoolCreateInfo.setPNext(nullptr);
 		cmdPoolCreateInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 		cmdPoolCreateInfo.setQueueFamilyIndex(id);

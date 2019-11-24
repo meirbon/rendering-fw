@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.hpp>
 
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined(__OBJC__)
 #import <Metal/Metal.h>
 #include <objc/objc.h>
 #endif
@@ -30,20 +30,16 @@ class Context
 
 	void newFrame();
 
-#ifdef __APPLE__
-
+#if defined(__APPLE__) && defined(__OBJC__)
 	void newFrame(MTLRenderPassDescriptor *renderPassDescriptor);
-
 #endif
 
-	void render() const;
+	void render();
 
 	void render(vk::CommandBuffer cmdBuffer);
 
-#ifdef __APPLE__
-
+#if defined(__APPLE__) && defined(__OBJC__)
 	void render(id<MTLCommandBuffer> commandBuffer, id<MTLRenderCommandEncoder> commandEncoder) const;
-
 #endif
 
   private:

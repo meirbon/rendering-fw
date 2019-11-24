@@ -89,7 +89,7 @@ template <typename T> class Buffer
 		m_Members->m_Elements = elementCount;
 
 		vk::Device vkDevice = m_Members->m_Device.getVkDevice();
-		if (location & ON_DEVICE)
+		if (m_Members->m_Flags & ON_DEVICE)
 		{
 			auto createInfo = vk::BufferCreateInfo();
 			createInfo.setPNext(nullptr);
@@ -113,7 +113,7 @@ template <typename T> class Buffer
 			vkDevice.bindBufferMemory(m_Members->m_Buffer, m_Members->m_Memory, 0);
 		}
 
-		if (location & ON_HOST)
+		if (m_Members->m_Flags & ON_HOST)
 		{
 			m_Members->m_HostBuffer = new T[elementCount];
 		}
@@ -167,7 +167,7 @@ template <typename T> class Buffer
 
 	void copyToDeviceAsync() { copyToDeviceAsync(m_Members->m_HostBuffer, getSize()); }
 
-	void copyToDevice(const T &data) { copyToDevice(&data); }
+	void copyToDevice(const T &data) { copyToDevice(&data, 0); }
 
 	void copyToDevice(const void *storage, vk::DeviceSize size = 0)
 	{

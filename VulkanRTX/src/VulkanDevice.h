@@ -5,10 +5,10 @@
 #include <unordered_set>
 
 #include <vk_mem_alloc.h>
-#include "VmaBuffer.h"
 
 namespace vkrtx
 {
+template <typename T> class VmaBuffer;
 struct QueueFamilyIndices
 {
 	QueueFamilyIndices() = default;
@@ -58,7 +58,7 @@ class VulkanDevice
 			if (m_VkDevice)
 			{
 				m_VkDevice.waitIdle();
-				for (uint i = 0; i < m_CommandPools.size(); i++)
+				for (int i = 0; i < m_CommandPools.size(); i++)
 					if (m_CommandPools.at(i))
 						m_VkDevice.destroyCommandPool(m_CommandPools.at(i));
 
@@ -106,7 +106,11 @@ class VulkanDevice
 			return getTransferQueue();
 		case (PRESENT):
 			return getPresentQueue();
+		default:
+			break;
 		}
+
+		return nullptr;
 	}
 
 	vk::Queue getGraphicsQueue() const { return m_Members->m_GraphicsQueue; }

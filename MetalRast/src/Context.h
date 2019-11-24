@@ -48,6 +48,7 @@ class Context : public rfw::RenderContext
 	void setSetting(const rfw::RenderSetting &setting) override;
 	void update() override;
 	void setProbePos(glm::uvec2 probePos) override;
+	rfw::RenderStats getStats() const override;
 
   private:
 	id<MTLDevice> m_Device;

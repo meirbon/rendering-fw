@@ -421,7 +421,7 @@ void RTXPipeline::finalize()
 	m_Generated = true;
 }
 
-void RTXPipeline::recordPushConstant(vk::CommandBuffer &cmdBuffer, uint32_t idx, uint32_t sizeInBytes, void *data)
+void RTXPipeline::recordPushConstant(vk::CommandBuffer cmdBuffer, uint32_t idx, uint32_t sizeInBytes, void *data)
 {
 	assert(m_Generated);
 	assert(m_PushConstants.size() > idx);
@@ -431,7 +431,7 @@ void RTXPipeline::recordPushConstant(vk::CommandBuffer &cmdBuffer, uint32_t idx,
 	cmdBuffer.pushConstants(m_Layout, pushConstant.stageFlags, 0, sizeInBytes, data);
 }
 
-void RTXPipeline::recordTraceCommand(vk::CommandBuffer &cmdBuffer, uint32_t width, uint32_t height, uint32_t depth)
+void RTXPipeline::recordTraceCommand(vk::CommandBuffer cmdBuffer, uint32_t width, uint32_t height, uint32_t depth)
 {
 	assert(m_Generated);
 

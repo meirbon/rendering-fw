@@ -5,10 +5,10 @@
 #include <unordered_set>
 
 #include <vk_mem_alloc.h>
-#include "VmaBuffer.h"
 
 namespace vkc
 {
+template<typename T> class VmaBuffer;
 struct QueueFamilyIndices
 {
 	QueueFamilyIndices() = default;
@@ -106,7 +106,11 @@ class VulkanDevice
 			return getTransferQueue();
 		case (PRESENT):
 			return getPresentQueue();
+		default:
+			break;
 		}
+
+		return nullptr;
 	}
 
 	vk::Queue getGraphicsQueue() const { return m_Members->m_GraphicsQueue; }

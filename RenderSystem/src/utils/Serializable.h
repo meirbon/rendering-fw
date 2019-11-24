@@ -113,7 +113,7 @@ template <typename T, unsigned int Dimensions> class Serializable
 		return Serializable<T, Dimensions>(d, dims);
 	}
 
-	const std::array<unsigned int, Dimensions> &getDimensions() const
+	const std::array<unsigned int, Dimensions> getDimensions() const
 	{
 		std::array<unsigned int, Dimensions> data;
 		memcpy(data.data(), m_Dims, Dimensions * sizeof(unsigned int));

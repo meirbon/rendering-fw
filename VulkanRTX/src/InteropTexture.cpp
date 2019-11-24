@@ -67,8 +67,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t width, uint3
 	m_BufferSize = unaligned + (unaligned % memoryRequirements.alignment);
 	memAllocInfo.setAllocationSize(m_BufferSize);
 	memoryRequirements.size = m_BufferSize;
-	memAllocInfo.setMemoryTypeIndex(
-		m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
+	memAllocInfo.setMemoryTypeIndex(m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
 	m_Memory = m_Device->allocateMemory(memAllocInfo);
 	assert(m_Memory);
 
@@ -82,8 +81,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t width, uint3
 	imageViewCreateInfo.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 	imageViewCreateInfo.setImage(m_Image);
 	imageViewCreateInfo.setFlags(vk::ImageViewCreateFlags());
-	imageViewCreateInfo.setComponents(
-		{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+	imageViewCreateInfo.setComponents({vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
 	m_ImageView = m_Device->createImageView(imageViewCreateInfo);
 
 #ifdef WIN32
@@ -95,25 +93,21 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t width, uint3
 #ifdef WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(
-			vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
 	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
 	if (getMemoryFdKHR == nullptr)
-		getMemoryFdKHR =
-			reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
+		getMemoryFdKHR = reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
 	assert(getMemoryFdKHR != nullptr);
 
 	// Acquire Fd handle to Vulkan initialized memory
-	vk::MemoryGetFdInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
+	vk::MemoryGetFdInfoKHR getMemoryHandleInfo = vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
 	getMemoryFdKHR(m_Device.getVkDevice(), (VkMemoryGetFdInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != 0);
 #endif
@@ -191,8 +185,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t texID, uint3
 	m_BufferSize = unaligned + (unaligned % memoryRequirements.alignment);
 	memAllocInfo.setAllocationSize(m_BufferSize);
 	memoryRequirements.size = m_BufferSize;
-	memAllocInfo.setMemoryTypeIndex(
-		m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
+	memAllocInfo.setMemoryTypeIndex(m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
 	m_Memory = m_Device->allocateMemory(memAllocInfo);
 	assert(m_Memory);
 
@@ -206,8 +199,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t texID, uint3
 	imageViewCreateInfo.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 	imageViewCreateInfo.setImage(m_Image);
 	imageViewCreateInfo.setFlags(vk::ImageViewCreateFlags());
-	imageViewCreateInfo.setComponents(
-		{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+	imageViewCreateInfo.setComponents({vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
 	m_ImageView = m_Device->createImageView(imageViewCreateInfo);
 
 #ifdef WIN32
@@ -219,25 +211,21 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t texID, uint3
 #ifdef WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(
-			vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
 	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
 	if (getMemoryFdKHR == nullptr)
-		getMemoryFdKHR =
-			reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
+		getMemoryFdKHR = reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
 	assert(getMemoryFdKHR != nullptr);
 
 	// Acquire Fd handle to Vulkan initialized memory
-	vk::MemoryGetFdInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
+	vk::MemoryGetFdInfoKHR getMemoryHandleInfo = vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
 	getMemoryFdKHR(m_Device.getVkDevice(), (VkMemoryGetFdInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != 0);
 #endif
@@ -333,11 +321,11 @@ void InteropTexture::cleanup()
 std::vector<const char *> InteropTexture::getRequiredExtensions()
 {
 #ifdef WIN32 // WINDOWS
-	return {VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-			VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME};
+	return {VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME, VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+			VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME};
 #else // LINUX
-	return {VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-			VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME, VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME};
+	return {VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME, VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+			VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME};
 #endif
 }
 
@@ -390,8 +378,7 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 		vk::MemoryAllocateInfo memAllocInfo{};
 		memAllocInfo.pNext = &exportAllocInfo;
 		memAllocInfo.setAllocationSize(m_BufferSize);
-		memAllocInfo.setMemoryTypeIndex(
-			m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
+		memAllocInfo.setMemoryTypeIndex(m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
 		m_Memory = m_Device->allocateMemory(memAllocInfo);
 	}
 	assert(m_Memory);
@@ -404,8 +391,7 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 	imageViewCreateInfo.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 	imageViewCreateInfo.setImage(m_Image);
 	imageViewCreateInfo.setFlags(vk::ImageViewCreateFlags());
-	imageViewCreateInfo.setComponents(
-		{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+	imageViewCreateInfo.setComponents({vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
 	m_ImageView = m_Device->createImageView(imageViewCreateInfo);
 
 #ifdef WIN32
@@ -417,25 +403,21 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 #if _WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(
-			vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
 	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
 	if (getMemoryFdKHR == nullptr)
-		getMemoryFdKHR =
-			reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
+		getMemoryFdKHR = reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
 	assert(getMemoryFdKHR != nullptr);
 
 	// Acquire Fd handle to Vulkan initialized memory
-	vk::MemoryGetFdInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
+	vk::MemoryGetFdInfoKHR getMemoryHandleInfo = vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
 	getMemoryFdKHR(m_Device.getVkDevice(), (VkMemoryGetFdInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != 0);
 #endif
@@ -462,7 +444,8 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 	auto cmdBuffer = m_Device.createOneTimeCmdBuffer();
 	auto queue = m_Device.getGraphicsQueue();
 
-	transitionImageToInitialState(cmdBuffer.getVkCommandBuffer(), queue);
+	auto vkCmdBuffer = cmdBuffer.getVkCommandBuffer();
+	transitionImageToInitialState(vkCmdBuffer, queue);
 	cmdBuffer.submit(queue, true);
 }
 
@@ -510,8 +493,7 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 		vk::MemoryAllocateInfo memAllocInfo{};
 		memAllocInfo.pNext = &exportAllocInfo;
 		memAllocInfo.setAllocationSize(m_BufferSize);
-		memAllocInfo.setMemoryTypeIndex(
-			m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
+		memAllocInfo.setMemoryTypeIndex(m_Device.getMemoryType(memoryRequirements, vk::MemoryPropertyFlagBits::eDeviceLocal));
 		m_Memory = m_Device->allocateMemory(memAllocInfo);
 	}
 	assert(m_Memory);
@@ -524,8 +506,7 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 	imageViewCreateInfo.setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 	imageViewCreateInfo.setImage(m_Image);
 	imageViewCreateInfo.setFlags(vk::ImageViewCreateFlags());
-	imageViewCreateInfo.setComponents(
-		{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+	imageViewCreateInfo.setComponents({vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
 	m_ImageView = m_Device->createImageView(imageViewCreateInfo);
 
 #ifdef WIN32
@@ -537,25 +518,21 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 #if _WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(
-			vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
 	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
 	if (getMemoryFdKHR == nullptr)
-		getMemoryFdKHR =
-			reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
+		getMemoryFdKHR = reinterpret_cast<PFN_vkGetMemoryFdKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryFdKHR"));
 	assert(getMemoryFdKHR != nullptr);
 
 	// Acquire Fd handle to Vulkan initialized memory
-	vk::MemoryGetFdInfoKHR getMemoryHandleInfo =
-		vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
+	vk::MemoryGetFdInfoKHR getMemoryHandleInfo = vk::MemoryGetFdInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueFd);
 	getMemoryFdKHR(m_Device.getVkDevice(), (VkMemoryGetFdInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != 0);
 #endif
@@ -581,8 +558,9 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 
 	auto cmdBuffer = m_Device.createOneTimeCmdBuffer();
 	auto queue = m_Device.getGraphicsQueue();
+	auto vkCmdBuffer = cmdBuffer.getVkCommandBuffer();
 
-	transitionImageToInitialState(cmdBuffer.getVkCommandBuffer(), queue);
+	transitionImageToInitialState(vkCmdBuffer, queue);
 	cmdBuffer.submit(queue, true);
 }
 
@@ -591,7 +569,7 @@ vk::DescriptorImageInfo vkrtx::InteropTexture::getDescriptorImageInfo() const
 	return vk::DescriptorImageInfo(nullptr, m_ImageView, vk::ImageLayout::eGeneral);
 }
 
-void InteropTexture::transitionImageToInitialState(vk::CommandBuffer &cmdBuffer, vk::Queue &queue)
+void InteropTexture::transitionImageToInitialState(vk::CommandBuffer cmdBuffer, vk::Queue &queue)
 {
 	vk::ImageSubresourceRange subresourceRange;
 	subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;

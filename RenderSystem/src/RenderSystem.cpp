@@ -10,6 +10,7 @@
 #include <ContextExport.h>
 
 #include "utils/File.h"
+#include "utils/Timer.h"
 #include "Quad.h"
 #include <future>
 
@@ -22,6 +23,7 @@
 #include <utils/Timer.h>
 #elif defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
+#include <utils/gl/CheckGL.h>
 #else
 static_assert(false, "Platform not supported");
 #endif
@@ -171,13 +173,18 @@ void rfw::RenderSystem::unloadRenderAPI()
 
 void rfw::RenderSystem::setTarget(std::shared_ptr<utils::Window> window) { m_Context->init(window); }
 
-void RenderSystem::setTarget(GLuint *textureID, uint width, uint height) { m_Context->init(textureID, width, height); }
+void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
+{
+	m_Context->init(textureID, width, height);
+	CheckGL();
+}
 
 void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 {
 	if (texture == nullptr)
 		throw std::runtime_error("Invalid texture.");
 	m_Context->init(&texture->m_ID, texture->getWidth(), texture->getHeight());
+	CheckGL();
 }
 
 void RenderSystem::setSkybox(std::string_view filename)
@@ -194,7 +201,7 @@ void RenderSystem::setSkybox(std::string_view filename)
 
 void rfw::RenderSystem::synchronize()
 {
-	utils::Timer t;
+	rfw::utils::Timer t;
 
 	if (m_Changed[SKYBOX])
 		m_Context->setSkyDome(m_Skybox->getBuffer(), m_Skybox->getWidth(), m_Skybox->getHeight());

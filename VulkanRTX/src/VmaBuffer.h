@@ -6,12 +6,12 @@
 #include <utils/Logger.h>
 
 #include "CheckVK.h"
+#include "VulkanDevice.h"
 
 namespace vkrtx
 {
 
 template <typename T> class Buffer;
-class VulkanDevice;
 template <typename T> class VmaBuffer
 {
   private:

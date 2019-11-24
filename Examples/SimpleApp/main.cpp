@@ -12,13 +12,13 @@
 
 #include <ImGuiContext.h>
 
-#define USE_GL_CONTEXT 0
+#define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 1
 #define PICA 0
 #define PICA_LIGHTS 0
-#define SPONZA 1
+#define SPONZA 0
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
 
@@ -51,7 +51,7 @@ int main()
 
 	window->addResizeCallback([&textureTarget, &rs, &textureShader, &camera](int width, int height) {
 		auto oldID = textureTarget->getID();
-		textureTarget = new GLTexture(GLTexture::VEC4, width, height);
+		textureTarget = new GLTexture(GLTexture::VEC4, width, height, true);
 		rs.setTarget(textureTarget);
 		textureShader.bind();
 		textureTarget->bind(0);
@@ -77,7 +77,8 @@ int main()
 
 	// rs.loadRenderAPI("OptiX6Context");
 	// rs.loadRenderAPI("VulkanRTX");
-	rs.loadRenderAPI("VkContext");
+	// rs.loadRenderAPI("VkContext");
+	rs.loadRenderAPI("GLRenderer");
 
 	rs.setSkybox("Envmaps/sky_15.hdr");
 

@@ -419,7 +419,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				}
 				else
 				{
-					WARNING("Unknown property: \"%s\"", attribute.first);
+					WARNING("Unknown property: \"%s\"", attribute.first.data());
 				}
 			}
 

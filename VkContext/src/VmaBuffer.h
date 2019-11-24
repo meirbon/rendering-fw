@@ -6,6 +6,7 @@
 #include <utils/Logger.h>
 
 #include "CheckVK.h"
+#include "VulkanDevice.h"
 
 namespace vkc
 {
@@ -37,7 +38,7 @@ template <typename T> class VmaBuffer
 		VmaPool pool = nullptr;
 		VmaMemoryUsage usage;
 
-		VulkanDevice device;
+		vkc::VulkanDevice device;
 		vk::Buffer buffer = nullptr;
 		vk::DeviceSize elements = 0;
 
@@ -56,9 +57,8 @@ template <typename T> class VmaBuffer
 		assert(m_Members->device);
 	}
 
-	VmaBuffer(const VulkanDevice &device, vk::DeviceSize elementCount, vk::MemoryPropertyFlags memFlags,
-			  vk::BufferUsageFlags usageFlags, VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY,
-			  bool forceFlags = false, VmaPool pool = nullptr)
+	VmaBuffer(const VulkanDevice &device, vk::DeviceSize elementCount, vk::MemoryPropertyFlags memFlags, vk::BufferUsageFlags usageFlags,
+			  VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY, bool forceFlags = false, VmaPool pool = nullptr)
 	{
 		m_Members = std::make_shared<Members>();
 		m_Members->device = device;
@@ -107,8 +107,8 @@ template <typename T> class VmaBuffer
 		VmaAllocationCreateInfo allocInfo = {};
 		allocInfo.usage = usage;
 		allocInfo.pool = m_Members->pool;
-		CheckVK(vmaCreateBuffer(m_Members->allocator, (VkBufferCreateInfo *)&createInfo, &allocInfo,
-								(VkBuffer *)&m_Members->buffer, &m_Members->allocation, &m_Members->allocInfo));
+		CheckVK(vmaCreateBuffer(m_Members->allocator, (VkBufferCreateInfo *)&createInfo, &allocInfo, (VkBuffer *)&m_Members->buffer, &m_Members->allocation,
+								&m_Members->allocInfo));
 		assert(m_Members->allocInfo.deviceMemory);
 	}
 
@@ -116,8 +116,7 @@ template <typename T> class VmaBuffer
 	 * (Re-)initialize a buffer with specified settings
 	 */
 	void allocate(vk::DeviceSize elementCount, vk::MemoryPropertyFlags memFlags, vk::BufferUsageFlags usageFlags,
-				  VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY, bool forceFlags = false,
-				  VkMemoryRequirements memReqs = {})
+				  VmaMemoryUsage usage = VMA_MEMORY_USAGE_GPU_ONLY, bool forceFlags = false, VkMemoryRequirements memReqs = {})
 	{
 		assert(m_Members);
 		assert(m_Members->device);
@@ -150,8 +149,8 @@ template <typename T> class VmaBuffer
 		else
 			allocInfo.preferredFlags = (VkMemoryPropertyFlags)m_Members->memFlags;
 
-		CheckVK((vk::Result)vmaCreateBuffer(m_Members->allocator, (VkBufferCreateInfo *)&createInfo, &allocInfo,
-								(VkBuffer *)&m_Members->buffer, &m_Members->allocation, &m_Members->allocInfo));
+		CheckVK((vk::Result)vmaCreateBuffer(m_Members->allocator, (VkBufferCreateInfo *)&createInfo, &allocInfo, (VkBuffer *)&m_Members->buffer,
+											&m_Members->allocation, &m_Members->allocInfo));
 		assert(m_Members->allocInfo.deviceMemory);
 	}
 
@@ -171,9 +170,8 @@ template <typename T> class VmaBuffer
 		}
 		else
 		{
-			auto stagingBuffer =
-				VmaBuffer<uint8_t>(m_Members->device, size, vk::MemoryPropertyFlagBits::eHostVisible,
-								   vk::BufferUsageFlagBits::eTransferSrc, VMA_MEMORY_USAGE_CPU_TO_GPU, true);
+			auto stagingBuffer = VmaBuffer<uint8_t>(m_Members->device, size, vk::MemoryPropertyFlagBits::eHostVisible, vk::BufferUsageFlagBits::eTransferSrc,
+													VMA_MEMORY_USAGE_CPU_TO_GPU, true);
 			memcpy(stagingBuffer.map(), storage, size);
 			stagingBuffer.unmap();
 			stagingBuffer.copyTo(this);
@@ -193,9 +191,8 @@ template <typename T> class VmaBuffer
 		else
 		{
 			assert(m_Members->usageFlags & vk::BufferUsageFlagBits::eTransferSrc);
-			auto stagingBuffer =
-				VmaBuffer<uint8_t>(m_Members->device, getSize(), vk::MemoryPropertyFlagBits::eHostVisible,
-								   vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_TO_CPU, true);
+			auto stagingBuffer = VmaBuffer<uint8_t>(m_Members->device, getSize(), vk::MemoryPropertyFlagBits::eHostVisible,
+													vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_TO_CPU, true);
 			this->copyTo(&stagingBuffer);
 			memcpy(storage, stagingBuffer.map(), stagingBuffer.getSize());
 			stagingBuffer.unmap();
@@ -208,8 +205,7 @@ template <typename T> class VmaBuffer
 		assert(m_Members->usageFlags & vk::BufferUsageFlagBits::eTransferSrc);
 		assert(buffer->getBufferUsageFlags() & vk::BufferUsageFlagBits::eTransferDst);
 
-		auto cmdBuffer =
-			m_Members->device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::TRANSFER);
+		auto cmdBuffer = m_Members->device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::TRANSFER);
 		vk::BufferCopy copyRegion = vk::BufferCopy(0, 0, m_Members->elements * sizeof(T));
 		cmdBuffer->copyBuffer(m_Members->buffer, *buffer, 1, &copyRegion);
 
@@ -223,8 +219,7 @@ template <typename T> class VmaBuffer
 		assert(m_Members->usageFlags & vk::BufferUsageFlagBits::eTransferSrc);
 		assert(buffer->getBufferUsageFlags() & vk::BufferUsageFlagBits::eTransferDst);
 
-		auto cmdBuffer =
-			m_Members->device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::TRANSFER);
+		auto cmdBuffer = m_Members->device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::TRANSFER);
 		vk::BufferCopy copyRegion = vk::BufferCopy(0, 0, m_Members->elements * sizeof(T));
 		cmdBuffer->copyBuffer(*this, *buffer, 1, &copyRegion);
 
@@ -251,8 +246,7 @@ template <typename T> class VmaBuffer
 		vmaUnmapMemory(m_Members->allocator, m_Members->allocation);
 	}
 
-	[[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo(vk::DeviceSize offset = 0,
-																   vk::DeviceSize range = 0) const
+	[[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo(vk::DeviceSize offset = 0, vk::DeviceSize range = 0) const
 	{
 		assert(m_Members->device);
 		vk::DescriptorBufferInfo info{};
@@ -285,4 +279,4 @@ template <typename T> class VmaBuffer
   private:
 	std::shared_ptr<Members> m_Members;
 };
-} // namespace vkrtx
+} // namespace vkc

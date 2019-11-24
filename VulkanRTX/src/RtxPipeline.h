@@ -128,8 +128,8 @@ class RTXPipeline
 
 	void finalize();
 
-	void recordPushConstant(vk::CommandBuffer &cmdBuffer, uint32_t idx, uint32_t sizeInBytes, void *data);
-	void recordTraceCommand(vk::CommandBuffer &cmdBuffer, uint32_t width, uint32_t height = 1, uint32_t depth = 1);
+	void recordPushConstant(vk::CommandBuffer cmdBuffer, uint32_t idx, uint32_t sizeInBytes, void *data);
+	void recordTraceCommand(vk::CommandBuffer cmdBuffer, uint32_t width, uint32_t height = 1, uint32_t depth = 1);
 
 	operator vk::Pipeline() const
 	{

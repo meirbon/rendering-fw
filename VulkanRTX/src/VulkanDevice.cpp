@@ -11,6 +11,7 @@
 #include <utils/Logger.h>
 
 #include "CheckVK.h"
+#include "VmaBuffer.h"
 
 using namespace vkrtx;
 
@@ -68,7 +69,7 @@ std::unordered_set<uint32_t> vkrtx::QueueFamilyIndices::getUniqueQueueIds() cons
 	if (this->presentIdx.has_value())
 		ids.push_back(this->presentIdx.value());
 
-	return std::unordered_set(ids.data(), ids.data() + ids.size());
+	return std::unordered_set<uint32_t>(ids.data(), ids.data() + ids.size());
 }
 
 VulkanDevice::VulkanDevice(const VulkanDevice &rhs) : m_Members(rhs.m_Members) {}

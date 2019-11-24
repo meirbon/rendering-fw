@@ -113,6 +113,8 @@ void Context::update() {}
 
 void Context::setProbePos(glm::uvec2 probePos) {}
 
+rfw::RenderStats Context::getStats() const { return rfw::RenderStats(); }
+
 rfw::RenderContext *createRenderContext() { return new Context(); }
 
 void destroyRenderContext(rfw::RenderContext *ptr)

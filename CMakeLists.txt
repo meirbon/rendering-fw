@@ -11,7 +11,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
 if (WIN32)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
-	set(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /PROFILE")
+	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /PROFILE")
 	set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} /PROFILE)
 	set(CMAKE_MODULE_LINKER_FLAGS ${CMAKE_MODULE_LINKER_FLAGS} /PROFILE)
 else (WIN32)
@@ -31,13 +31,15 @@ add_subdirectory(RenderContext)
 add_subdirectory(RenderSystem)
 add_subdirectory(VkContext)
 add_subdirectory(VulkanRTX)
+add_subdirectory(GLRenderer)
+
+add_subdirectory(Examples/SimpleApp)
+
+add_dependencies(SimpleApp VkContext VulkanRTX GLRenderer)
 
 if (APPLE)
 	add_subdirectory(Examples/MetalApp)
 else (APPLE)
-	add_subdirectory(Examples/SimpleApp)
-	add_dependencies(SimpleApp VulkanRTX)
-
 	add_subdirectory(Examples/VulkanApp)
 endif (APPLE)
 
@@ -47,7 +49,6 @@ if (${CUDA_FOUND})
 endif (${CUDA_FOUND})
 if (APPLE)
 	add_subdirectory(MetalRast)
-	add_dependencies(SimpleApp MetalRast)
 endif (APPLE)
 
 add_custom_target(CopyCommonAssets)

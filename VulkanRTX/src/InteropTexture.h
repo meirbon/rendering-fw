@@ -20,7 +20,7 @@ class InteropTexture
 	void recordTransitionToVulkan(vk::CommandBuffer cmdBuffer);
 	void recordTransitionToGL(vk::CommandBuffer cmdBuffer);
 
-	void transitionImageToInitialState(vk::CommandBuffer &cmdBuffer, vk::Queue &queue);
+	void transitionImageToInitialState(vk::CommandBuffer cmdBuffer, vk::Queue &queue);
 	void cleanup();
 
 	[[nodiscard]] vk::ImageView getImageView() const { return m_ImageView; }

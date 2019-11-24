@@ -22,7 +22,9 @@ static inline void _CheckGL(const char *f, int l)
 			strcat(t, "INVALID FRAMEBUFFER OPERATION");
 		else
 			strcat(t, "UNKNOWN ERROR");
+
 		std::cout << "Error on line " << l << " of " << f << " :: " << t << std::endl;
+		std::cout << "\t" << glewGetErrorString(error) << std::endl;
 	}
 }
 

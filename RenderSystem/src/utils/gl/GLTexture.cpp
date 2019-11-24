@@ -4,11 +4,11 @@
 namespace rfw::utils
 {
 
-GLTexture::GLTexture(TextureType type, uint width, uint height, bool initialize)
-	: m_Type(type), m_Width(width), m_Height(height)
+GLTexture::GLTexture(TextureType type, uint width, uint height, bool initialize) : m_Type(type), m_Width(width), m_Height(height)
 {
 	glGenTextures(1, &m_ID);
 	bind();
+	CheckGL();
 	if (initialize)
 	{
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

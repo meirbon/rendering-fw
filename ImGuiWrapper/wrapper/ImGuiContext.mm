@@ -1,5 +1,3 @@
-
-
 #include "ImGuiContext.h"
 
 #include "imgui_impl_glfw.h"
@@ -64,6 +62,20 @@ void Context::render(id<MTLCommandBuffer> commandBuffer, id<MTLRenderCommandEnco
 	assert(m_Members->type == METAL);
 	ImGui::Render();
 	ImGui_ImplMetal_RenderDrawData(ImGui::GetDrawData(), commandBuffer, commandEncoder);
+}
+
+void imgui::Context::render()
+{
+	ImGui::Render();
+
+	switch (m_Members->type)
+	{
+	case (GLFW):
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+		break;
+	default:
+		break;
+	}
 }
 
 void Context::render(vk::CommandBuffer cmdBuffer)

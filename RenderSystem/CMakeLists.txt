@@ -34,3 +34,9 @@ set_target_properties(${PROJECT_NAME}
 		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 		CXX_STANDARD 17
 		)
+
+if (UNIX)
+	set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "-mavx2 -mfma")
+elseif (MSVC AND NOT MSVC_VERSION LESS 1800)
+	set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "/arch:AVX2")
+endif ()

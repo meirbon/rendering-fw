@@ -122,7 +122,7 @@ void vkrtx::Context::init(GLuint *glTextureID, uint width, uint height)
 		m_InteropTexture = new InteropTexture(m_Device, *glTextureID, m_ScrWidth, m_ScrHeight);
 		auto cmdBuffer = m_Device.createOneTimeCmdBuffer();
 		auto queue = m_Device.getGraphicsQueue();
-		m_InteropTexture->transitionImageToInitialState(cmdBuffer.getVkCommandBuffer(), queue);
+		m_InteropTexture->transitionImageToInitialState(cmdBuffer, queue);
 		cmdBuffer.submit(queue, true);
 		resizeBuffers();			// resize path trace storage buffer
 		initializeDescriptorSets(); // Update descriptor sets with new target
@@ -268,7 +268,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 		pushConstant[0] = c.pathLength;
 		pushConstant[1] = pathCount;
 		pushConstant[2] = STAGE_PRIMARY_RAY;
-		rtPipeline->recordPushConstant(cmdBuffer.getVkCommandBuffer(), 0, 3 * sizeof(uint32_t),
+		rtPipeline->recordPushConstant(cmdBuffer, 0, 3 * sizeof(uint32_t),
 									   pushConstant); // Push intersection stage to shader
 		rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount);
 

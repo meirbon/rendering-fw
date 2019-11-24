@@ -3,9 +3,7 @@
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_vulkan.h"
 
-using namespace imgui;
-
-Context::Context(GLFWwindow *window)
+imgui::Context::Context(GLFWwindow *window)
 {
 	IMGUI_CHECKVERSION();
 	m_Members = std::make_shared<Members>();
@@ -23,9 +21,9 @@ Context::Context(GLFWwindow *window)
 //	// TODO
 //}
 
-Context::~Context() = default;
+imgui::Context::~Context() = default;
 
-void Context::newFrame()
+void imgui::Context::newFrame()
 {
 	switch (m_Members->type)
 	{
@@ -43,7 +41,7 @@ void Context::newFrame()
 	ImGui::NewFrame();
 }
 
-void Context::render() const
+void imgui::Context::render()
 {
 	ImGui::Render();
 
@@ -57,13 +55,13 @@ void Context::render() const
 	}
 }
 
-void Context::render(vk::CommandBuffer cmdBuffer)
+void imgui::Context::render(vk::CommandBuffer cmdBuffer)
 {
 	assert(m_Members->type == VULKAN);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer);
 }
 
-Context::Members::~Members()
+imgui::Context::Members::~Members()
 {
 	switch (type)
 	{

@@ -28,6 +28,7 @@ template <typename T, GLenum B, GLenum U> class Buffer
 	void bind() const { glBindBuffer(B, m_BufferId); }
 	void unbind() const { glBindBuffer(B, 0); }
 	size_t getSize() const { return m_Size; }
+	size_t getCount() const { return m_Size / sizeof(T); }
 	void setData(const std::vector<T> &data)
 	{
 		glBindBuffer(B, m_BufferId);

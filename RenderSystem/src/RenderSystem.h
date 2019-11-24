@@ -63,18 +63,16 @@ class LightReference
 		SPOT = 2,
 		DIRECTIONAL = 3
 	};
+
+	LightReference(size_t index, LightType type, rfw::RenderSystem &system) : m_Index(index), m_System(&system), m_Type(type) { assert(m_System); }
+	LightReference() = default;
+
 	operator uint() const { return static_cast<uint>(m_Index); }
 	operator size_t() const { return m_Index; }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 	[[nodiscard]] LightType getType() const { return m_Type; }
 
   private:
-	explicit LightReference(size_t index, LightType type, rfw::RenderSystem &system)
-		: m_Index(index), m_System(&system), m_Type(type)
-	{
-		assert(m_System);
-	}
-
 	size_t m_Index;
 	rfw::RenderSystem *m_System;
 	LightType m_Type;
@@ -85,7 +83,8 @@ class InstanceReference
 {
 	friend class rfw::RenderSystem;
 
-  private:
+  public:
+	InstanceReference() = default;
 	InstanceReference(size_t index, GeometryReference reference, rfw::RenderSystem &system)
 	{
 		m_Members = std::make_shared<Members>(reference);
@@ -98,7 +97,6 @@ class InstanceReference
 		m_Members->m_Scaling = glm::vec3(1.0f);
 	}
 
-  public:
 	operator uint() const { return static_cast<uint>(m_Members->m_Index); }
 	operator size_t() const { return m_Members->m_Index; }
 
@@ -194,13 +192,10 @@ class RenderSystem
 
 	rfw::GeometryReference addObject(std::string_view fileName, int material = -1);
 	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, int material = -1);
-	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform,
-									 int material = -1);
-	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height,
-								   const uint material);
-	rfw::InstanceReference addInstance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f),
-									   glm::vec3 translation = glm::vec3(0.0f), float degrees = 1.0f,
-									   glm::vec3 axes = glm::vec3(1.0f));
+	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
+	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, const uint material);
+	rfw::InstanceReference addInstance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f), glm::vec3 translation = glm::vec3(0.0f),
+									   float degrees = 1.0f, glm::vec3 axes = glm::vec3(1.0f));
 	void updateInstance(const rfw::InstanceReference &instanceRef, const mat4 &transform);
 	void setAnimationTime(const rfw::GeometryReference &instanceRef, float timeInSeconds);
 
@@ -210,8 +205,7 @@ class RenderSystem
 	void renderFrame(const Camera &camera, RenderStatus status = Converge);
 
 	LightReference addPointLight(const glm::vec3 &position, float energy, const glm::vec3 &radiance);
-	LightReference addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter,
-								float energy, const glm::vec3 &direction);
+	LightReference addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, float energy, const glm::vec3 &direction);
 	LightReference addDirectionalLight(const glm::vec3 &direction, float energy, const glm::vec3 &radiance);
 
 	LightReference getAreaLightReference(size_t index);

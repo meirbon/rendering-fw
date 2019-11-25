@@ -449,6 +449,9 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		}
 	}
 
+	for (auto& N : m_CurrentNormals)
+		N = normalize(N);
+
 	updateTriangles();
 }
 

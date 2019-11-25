@@ -32,10 +32,7 @@ void rfw::Camera::serialize(std::string_view file) const
 	rfw::utils::file::write(file, byteData);
 }
 
-rfw::utils::Serializable<rfw::Camera, 1> rfw::Camera::serialize() const
-{
-	return rfw::utils::Serializable<rfw::Camera, 1>(*this);
-}
+rfw::utils::Serializable<rfw::Camera, 1> rfw::Camera::serialize() const { return rfw::utils::Serializable<rfw::Camera, 1>(*this); }
 
 rfw::Camera rfw::Camera::deserialize(std::string_view file)
 {
@@ -72,13 +69,13 @@ rfw::CameraView Camera::getView() const
 	return view;
 }
 
-mat4 Camera::getMatrix() const
+mat4 Camera::getMatrix(const float near, const float far) const
 {
 	glm::vec3 right, up, forward;
 	calculateMatrix(right, up, forward);
 
-	mat4 projection = glm::perspective(radians(FOV), aspectRatio, 0.1f, 1e20f);
-	mat4 view = glm::lookAt(position, position + forward * focalDistance, up * focalDistance);
+	const mat4 projection = glm::perspective(radians(FOV), aspectRatio, near, far);
+	const mat4 view = glm::lookAt(position, position + forward * focalDistance, up * focalDistance);
 	return projection * view;
 }
 

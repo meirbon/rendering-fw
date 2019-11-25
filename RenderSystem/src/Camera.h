@@ -29,7 +29,7 @@ class Camera
 	glm::ivec2 pixelCount = glm::ivec2(1, 1); // actual pixel count; needed for pixel spread angle
 
 	[[nodiscard]] rfw::CameraView getView() const;
-	[[nodiscard]] mat4 getMatrix() const;
+	[[nodiscard]] mat4 getMatrix(float near = 0.1f, float far = 1e10f) const;
 	void resize(int w, int h);
 	void lookAt(const glm::vec3 &O, const glm::vec3 &T); // position the camera at O, looking at T
 	void translateRelative(const glm::vec3 &T);			 // move camera relative to orientation

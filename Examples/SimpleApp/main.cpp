@@ -16,7 +16,7 @@
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 1
-#define PICA 0
+#define PICA 1
 #define PICA_LIGHTS 0
 #define SPONZA 0
 #define DRAGON 0

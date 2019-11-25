@@ -49,7 +49,13 @@ class Context : public RenderContext
 	rfw::RenderStats getStats() const override;
 
   private:
-	utils::GLShader* m_SimpleShader;
+	std::vector<std::vector<glm::mat4>> m_Instances;
+	std::vector<std::vector<glm::mat4>> m_InverseInstances;
+
+	std::vector<int> m_InstanceGeometry;
+	std::vector<glm::mat4> m_InstanceMatrices;
+
+	utils::GLShader *m_SimpleShader;
 	std::vector<GLMesh *> m_Meshes;
 	bool m_InitializedGlew = false;
 	GLuint m_TargetID, m_FboID, m_RboID;

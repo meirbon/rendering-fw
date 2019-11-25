@@ -10,7 +10,8 @@ out vec3 N;
 
 void main()
 {
-    vec4 pos = CamMatrix * Vertex;
+	vec4 pos = CamMatrix * Vertex;
+	gl_Position = pos;
     Pos = pos.xyz;
     N = Normal;
 }

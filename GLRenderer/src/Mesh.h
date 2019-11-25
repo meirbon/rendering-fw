@@ -8,6 +8,7 @@
 #include <utils/gl/CheckGL.h>
 #include <utils/gl/GLBuffer.h>
 #include <utils/gl/GLShader.h>
+#include <utils/gl/VertexArray.h>
 
 #include <Structures.h>
 
@@ -25,7 +26,7 @@ class GLMesh
 	utils::Buffer<uint, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> indexBuffer;
 	utils::Buffer<vec4, GL_ARRAY_BUFFER, GL_STATIC_DRAW> vertexBuffer;
 	utils::Buffer<vec3, GL_ARRAY_BUFFER, GL_STATIC_DRAW> normalBuffer;
-	GLuint VAO = 0;
+	utils::GLVertexArray vao;
 
 };
 } // namespace rfw

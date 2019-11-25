@@ -17,6 +17,6 @@ double getElapsedNanoSeconds();
 
 static time_point getTime() { return clock::now(); }
 
-static double getTimeSinceEpoch() { return std::time(nullptr); }
+static double getTimeSinceEpoch() { return static_cast<double>(std::time(nullptr)); }
 
 } // namespace rfw::utils

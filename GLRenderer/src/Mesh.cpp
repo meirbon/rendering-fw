@@ -4,9 +4,9 @@
 
 #include "Mesh.h"
 
-rfw::GLMesh::GLMesh() { glGenVertexArrays(1, &VAO); }
+rfw::GLMesh::GLMesh() = default;
 
-rfw::GLMesh::~GLMesh() { glDeleteVertexArrays(1, &VAO); }
+rfw::GLMesh::~GLMesh() = default;
 
 void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 {
@@ -18,17 +18,9 @@ void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 	CheckGL();
 	vertexBuffer.setData(mesh.vertices, mesh.vertexCount * sizeof(vec4));
 	CheckGL();
-	vertexBuffer.setData(mesh.normals, mesh.vertexCount * sizeof(vec3));
+	normalBuffer.setData(mesh.normals, mesh.vertexCount * sizeof(vec3));
 	CheckGL();
 
-	glBindVertexArray(VAO);
-	glEnableVertexAttribArray(0);
-	vertexBuffer.bind();
-	glVertexAttribPointer(0, 4, GL_FLOAT, false, sizeof(vec4), nullptr);
-	CheckGL();
-	glEnableVertexAttribArray(1);
-	normalBuffer.bind();
-	glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(vec3), nullptr);
-	CheckGL();
-	glBindVertexArray(0);
+	vao.setBuffer(0, vertexBuffer, 4, GL_FLOAT, false, 0);
+	vao.setBuffer(1, normalBuffer, 3, GL_FLOAT, false, 0);
 }

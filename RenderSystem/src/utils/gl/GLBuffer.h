@@ -2,8 +2,18 @@
 
 #include <GL/glew.h>
 
+#include <tuple>
+
 namespace rfw::utils
 {
+template <GLenum B> std::pair<GLuint, GLuint> getBindingState()
+{
+	GLuint ID = 0, size = 0;
+	glGetIntegerv(B, &ID);
+	glGetBufferParameteriv(B, GL_BUFFER_SIZE, &size);
+	return std::make_pair(ID, size);
+}
+
 template <typename T, GLenum B, GLenum U> class Buffer
 {
   public:

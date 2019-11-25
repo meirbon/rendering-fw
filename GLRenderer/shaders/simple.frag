@@ -7,5 +7,6 @@ in vec3 N;
 
 void main()
 {
-    Color = vec4(N, 1.0f);
+//    Color = vec4(N, 1.0f);
+    Color = vec4(1.0f);
 }

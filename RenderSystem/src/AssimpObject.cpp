@@ -608,7 +608,7 @@ std::vector<uint> AssimpObject::getLightIndices(const std::vector<bool> &matLigh
 glm::mat4 rfw::AssimpObject::AnimationChannel::getInterpolatedTRS(float time) const
 {
 	glm::mat4 result = glm::identity<glm::mat4>();
-	int keyIndex;
+	int keyIndex = 0;
 	float deltaTime, factor;
 
 	for (int i = 0, s = int(positionKeys.size()) - 1; i < s; i++)

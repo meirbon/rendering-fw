@@ -4,6 +4,8 @@
 
 #include "Context.h"
 
+#include <utils/gl/GLDraw.h>
+
 using namespace rfw;
 
 rfw::RenderContext *createRenderContext() { return new Context(); }
@@ -73,7 +75,6 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	CheckGL();
 
-#if 1
 	m_SimpleShader->bind();
 	const auto matrix = camera.getMatrix();
 	m_SimpleShader->setUniform("CamMatrix", matrix);
@@ -82,15 +83,10 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	for (auto *mesh : m_Meshes)
 	{
-		assert(mesh->VAO);
-
-		m_SimpleShader->bind();
-		glBindVertexArray(mesh->VAO);
-		CheckGL();
+		mesh->vao.bind();
 		if (mesh->hasIndices)
 		{
 			mesh->indexBuffer.bind();
-			CheckGL();
 			glDrawElements(GL_TRIANGLES, mesh->indexBuffer.getCount(), GL_UNSIGNED_INT, nullptr);
 			CheckGL();
 		}
@@ -102,7 +98,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	}
 
 	m_SimpleShader->unbind();
-#endif
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

@@ -8,11 +8,13 @@
 #include "gLTF/gLTFObject.h"
 
 #include <ContextExport.h>
+#include <future>
 
 #include "utils/File.h"
 #include "utils/Timer.h"
 #include "Quad.h"
-#include <future>
+
+#include "utils/gl/CheckGL.h"
 
 #ifdef WIN32
 #ifndef WIN32_LEAN_AND_MEAN

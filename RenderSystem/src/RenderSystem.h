@@ -124,12 +124,12 @@ class InstanceReference
 	struct Members
 	{
 		explicit Members(const GeometryReference &ref);
-		glm::vec3 m_Translation;
-		glm::quat m_Rotation;
-		glm::vec3 m_Scaling;
-		size_t m_Index;
+		glm::vec3 m_Translation = glm::vec3(0);
+		glm::quat m_Rotation = glm::identity<glm::quat>();
+		glm::vec3 m_Scaling = glm::vec3(1);
+		size_t m_Index = 0;
 		GeometryReference m_Reference;
-		rfw::RenderSystem *m_System;
+		rfw::RenderSystem *m_System = nullptr;
 	};
 	std::shared_ptr<Members> m_Members;
 };

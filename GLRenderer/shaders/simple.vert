@@ -15,9 +15,8 @@ out vec3 N;
 
 void main()
 {
-	Pos = CamMatrix * InstanceMatrices[gl_InstanceID] * Vertex;
+	WPos = (InstanceMatrices[gl_InstanceID] * Vertex).xyz;
+	Pos = CamMatrix * vec4(WPos, 1.0);
 	gl_Position = Pos;
-
-	WPos = (inverse(CamMatrix) * Pos).xyz;
     N = (InstanceMatrices[gl_InstanceID] * vec4(Normal, 0)).xyz;
 }

@@ -5,6 +5,7 @@
 #include "Context.h"
 
 #include <utils/gl/GLDraw.h>
+#include <utils/gl/GLTexture.h>
 
 using namespace rfw;
 
@@ -17,6 +18,7 @@ Context::~Context()
 	for (GLMesh *mesh : m_Meshes)
 		delete mesh;
 	m_Meshes.clear();
+	m_Textures.clear();
 
 	delete m_SimpleShader;
 }
@@ -127,7 +129,23 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
 
-void Context::setTextures(const std::vector<rfw::TextureData> &textures) {}
+void Context::setTextures(const std::vector<rfw::TextureData> &textures)
+{
+	m_Textures.clear();
+	m_Textures.resize(textures.size());
+
+	for (int i = 0; i < m_Textures.size(); i++)
+	{
+		const auto &tex = textures.at(i);
+		auto &glTex = m_Textures.at(i);
+		if (tex.type == TextureData::FLOAT4)
+			glTex.setData((vec4 *)tex.data, tex.width, tex.height, 0);
+		else // tex.type == TextureData::UINT
+			glTex.setData((uint *)tex.data, tex.width, tex.height, 0);
+
+		glTex.generateMipMaps();
+	}
+}
 
 void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 {

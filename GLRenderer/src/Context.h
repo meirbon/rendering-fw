@@ -54,6 +54,8 @@ class Context : public RenderContext
 
 	std::vector<int> m_InstanceGeometry;
 	std::vector<glm::mat4> m_InstanceMatrices;
+	 
+	std::vector<utils::GLTexture> m_Textures;
 
 	utils::GLShader *m_SimpleShader;
 	std::vector<GLMesh *> m_Meshes;

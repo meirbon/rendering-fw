@@ -16,6 +16,7 @@ class GLTexture
 	friend class rfw::RenderSystem;
 	enum TextureType
 	{
+		NONE = 0,
 		UINT = GL_RGBA8UI,
 		UINT4 = GL_RGBA32UI,
 		INT = GL_RGBA8I,
@@ -24,19 +25,25 @@ class GLTexture
 	};
 
   public:
+	GLTexture();
 	GLTexture(TextureType type, uint width, uint height, bool initialize = true);
 	~GLTexture();
+	GLTexture(const GLTexture &other);
+	GLTexture(GLTexture &other);
 
+	void initialize(TextureType type, uint width, uint height);
 	void cleanup();
 
 	void bind() const;
 	void bind(uint slot) const;
 	static void unbind();
 
-	void setData(const std::vector<glm::vec4> &data, uint width, uint height) const;
-	void setData(const glm::vec4 *data, uint width, uint height) const;
-	void setData(const std::vector<uint> &data, uint width, uint height) const;
-	void setData(const uint *data, uint width, uint height) const;
+	void setData(const std::vector<glm::vec4> &data, uint width, uint height, uint layer = 0);
+	void setData(const std::vector<uint> &data, uint width, uint height, uint layer = 0);
+
+	void setData(const glm::vec4 *data, uint width, uint height, uint layer = 0);
+	void setData(const uint *data, uint width, uint height, uint layer = 0);
+
 	[[nodiscard]] GLuint getID() const;
 	[[nodiscard]] GLuint64 getHandle() const;
 	void generateMipMaps() const;

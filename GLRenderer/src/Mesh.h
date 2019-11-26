@@ -8,9 +8,11 @@
 #include <utils/gl/CheckGL.h>
 #include <utils/gl/GLBuffer.h>
 #include <utils/gl/GLShader.h>
+#include <utils/gl/GLTexture.h>
 #include <utils/gl/VertexArray.h>
 
 #include <Structures.h>
+#include <DeviceStructures.h>
 
 namespace rfw
 {
@@ -38,7 +40,7 @@ class GLMesh
 
 	utils::GLVertexArray vao;
 
-	void draw(utils::GLShader &shader, uint count) const;
+	void draw(utils::GLShader &shader, uint count, const DeviceMaterial *materials, const utils::GLTexture *textures) const;
 
   private:
 	std::vector<SubMesh> meshes;

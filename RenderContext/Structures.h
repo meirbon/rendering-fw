@@ -51,14 +51,18 @@ struct Triangle
 	glm::vec3 vertex2; // 156
 	float dummy3;	  // 160 bytes.
 
+	static float calculateArea(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2)
+	{
+		const float a = length(v1 - v0);
+		const float b = length(v2 - v1);
+		const float c = length(v0 - v2);
+		const float s = (a + b + c) * 0.5f;
+		return sqrtf(s * (s - a) * (s - b) * (s - c)); // Heron's formula
+	}
+
 	void updateArea()
 	{
-		const float a = length(vertex1 - vertex0);
-		const float b = length(vertex2 - vertex1);
-		const float c = length(vertex0 - vertex2);
-		const float s = (a + b + c) * 0.5f;
-		area = sqrtf(s * (s - a) * (s - b) * (s - c)); // Heron's formula
-													   // invArea = max(0.0f, 1.0f / area);
+		area = calculateArea(vertex0, vertex1, vertex2);
 	}
 };
 

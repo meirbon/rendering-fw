@@ -15,7 +15,7 @@
 #define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
-#define SKINNED_MESH 0
+#define SKINNED_MESH 1
 #define PICA 0
 #define PICA_LIGHTS 0
 #define SPONZA 1
@@ -66,7 +66,7 @@ int main()
 
 	window->addResizeCallback([&rs, &camera](int width, int height) { camera.resize(width, height); });
 #endif
-	
+
 	camera.resize(window->getWidth(), window->getHeight());
 
 	window->addMousePosCallback([&mouseX, &mouseY, &window](double x, double y, double lastX, double lastY) {
@@ -75,7 +75,7 @@ int main()
 	});
 
 	// rs.loadRenderAPI("OptiX6Context");
-	// rs.loadRenderAPI("VulkanRTX");
+	//	rs.loadRenderAPI("VulkanRTX");
 	// rs.loadRenderAPI("VkContext");
 	rs.loadRenderAPI("GLRenderer");
 
@@ -118,7 +118,7 @@ int main()
 	camera.aperture = 0.001f;
 	camera.focalDistance = 15.0f;
 	auto lightMaterial = rs.addMaterial(vec3(30), 1);
-	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(0, 250, 0), 60.0f, 180.0f, lightMaterial);
+	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(0, 200, 0), 30.0f, 120.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 	auto staticRef = rs.addObject("Models/sponza/sponza.obj", false);
 	auto staticInstanceRef = rs.addInstance(staticRef, vec3(0.1f), vec3(0.0f), 180.0f, vec3(0, 1, 0));

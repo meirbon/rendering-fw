@@ -86,9 +86,7 @@ void Context::cleanup()
 	m_Meshes.clear();
 
 	m_Textures.clear();
-
-	delete m_Materials;
-	m_Materials = nullptr;
+	m_Materials.clear();
 }
 
 void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
@@ -116,11 +114,6 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 		m_SimpleShader->setUniform(buffer, m_TextureBindings.at(i));
 	}
 
-	CheckGL();
-	assert(m_Materials);
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_Materials->getID());
-	CheckGL();
-
 	for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
 	{
 		const GLMesh *mesh = m_Meshes.at(i);
@@ -146,7 +139,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			// Update instance matrices
 			m_SimpleShader->setUniform("InstanceMatrices", instance.data() + offset, count, false);
 			m_SimpleShader->setUniform("InverseMatrices", inverseInstance.data() + offset, count, false);
-			mesh->draw(*m_SimpleShader, count);
+			mesh->draw(*m_SimpleShader, count, m_Materials.data(), m_Textures.data());
 		}
 	}
 
@@ -158,14 +151,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
-	delete m_Materials;
-	m_Materials = new utils::Buffer<DeviceMaterial, GL_SHADER_STORAGE_BUFFER, GL_STATIC_READ>();
-	m_Materials->setData(materials);
-	CheckGL();
-
-	const auto mats = m_Materials->read();
-
-	printf("hi");
+	m_Materials = materials;
 }
 
 void Context::setTextures(const std::vector<rfw::TextureData> &textures)
@@ -186,6 +172,12 @@ void Context::setTextures(const std::vector<rfw::TextureData> &textures)
 	{
 		const auto &tex = textures.at(i);
 		auto &glTex = m_Textures.at(i);
+
+		glTex.bind();
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 		if (tex.type == TextureData::FLOAT4)
 			glTex.setData(static_cast<vec4 *>(tex.data), tex.width, tex.height);
@@ -226,6 +218,25 @@ void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, siz
 void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
 						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
+	m_LightCount = lightCount;
+
+	m_AreaLights.resize(lightCount.areaLightCount);
+	if (!m_AreaLights.empty())
+		memcpy(m_AreaLights.data(), areaLights, m_AreaLights.size() * sizeof(AreaLight));
+
+	m_PointLights.resize(lightCount.pointLightCount);
+	if (!m_PointLights.empty())
+		memcpy(m_PointLights.data(), pointLights, m_PointLights.size() * sizeof(PointLight));
+
+	m_DirectionalLights.resize(lightCount.directionalLightCount);
+	if (!m_DirectionalLights.empty())
+		memcpy(m_DirectionalLights.data(), directionalLights, m_DirectionalLights.size() * sizeof(DirectionalLight));
+
+	m_SpotLights.resize(lightCount.spotLightCount);
+	if (!m_SpotLights.empty())
+		memcpy(m_SpotLights.data(), spotLights, m_SpotLights.size() * sizeof(SpotLight));
+
+	setLights(m_SimpleShader);
 }
 
 void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
@@ -253,3 +264,66 @@ void Context::update()
 void Context::setProbePos(glm::uvec2 probePos) {}
 
 rfw::RenderStats Context::getStats() const { return rfw::RenderStats(); }
+
+void Context::setLights(utils::GLShader *shader)
+{
+	shader->bind();
+	shader->setUniform("lightCount",
+					   uvec4(m_LightCount.areaLightCount, m_LightCount.pointLightCount, m_LightCount.spotLightCount, m_LightCount.directionalLightCount));
+
+	for (int i = 0, s = static_cast<int>(m_AreaLights.size()); i < s; i++)
+	{
+		const auto &l = m_AreaLights.at(i);
+
+		char buffer[128];
+		sprintf(buffer, "areaLights[%i].position_area", i);
+		shader->setUniform(buffer, vec4(l.position, Triangle::calculateArea(l.vertex0, l.vertex1, l.vertex2)));
+		sprintf(buffer, "areaLights[%i].normal", i);
+		shader->setUniform(buffer, l.normal);
+		sprintf(buffer, "areaLights[%i].radiance", i);
+		shader->setUniform(buffer, l.radiance);
+		sprintf(buffer, "areaLights[%i].vertex0", i);
+		shader->setUniform(buffer, l.vertex0);
+		sprintf(buffer, "areaLights[%i].vertex1", i);
+		shader->setUniform(buffer, l.vertex1);
+		sprintf(buffer, "areaLights[%i].vertex2", i);
+		shader->setUniform(buffer, l.vertex2);
+	}
+
+	for (int i = 0, s = static_cast<int>(m_PointLights.size()); i < s; i++)
+	{
+		const auto &l = m_PointLights.at(i);
+
+		char buffer[128];
+		sprintf(buffer, "pointLights[%i].position_energy", i);
+		shader->setUniform(buffer, vec4(l.position, l.energy));
+		sprintf(buffer, "pointLights[%i].radiance", i);
+		shader->setUniform(buffer, l.radiance);
+	}
+
+	for (int i = 0, s = static_cast<int>(m_SpotLights.size()); i < s; i++)
+	{
+		const auto &l = m_SpotLights.at(i);
+
+		char buffer[128];
+		sprintf(buffer, "spotLights[%i].position_cos_inner", i);
+		shader->setUniform(buffer, vec4(l.position, l.cosInner));
+		sprintf(buffer, "spotLights[%i].radiance_cos_outer", i);
+		shader->setUniform(buffer, vec4(l.radiance, l.cosOuter));
+		sprintf(buffer, "spotLights[%i].direction", i);
+		shader->setUniform(buffer, l.direction);
+	}
+
+	for (int i = 0, s = static_cast<int>(m_DirectionalLights.size()); i < s; i++)
+	{
+		const auto &l = m_DirectionalLights.at(i);
+
+		char buffer[128];
+		sprintf(buffer, "dirLights[%i].direction_energy", i);
+		shader->setUniform(buffer, vec4(l.direction, l.energy));
+		sprintf(buffer, "dirLights[%i].radiance", i);
+		shader->setUniform(buffer, l.radiance);
+	}
+
+	shader->unbind();
+}

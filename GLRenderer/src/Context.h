@@ -50,6 +50,8 @@ class Context : public RenderContext
 	rfw::RenderStats getStats() const override;
 
   private:
+	void setLights(utils::GLShader* shader);
+
 	std::vector<std::vector<glm::mat4>> m_Instances;
 	std::vector<std::vector<glm::mat4>> m_InverseInstances;
 
@@ -57,8 +59,13 @@ class Context : public RenderContext
 	std::vector<glm::mat4> m_InstanceMatrices;
 	std::vector<utils::GLTexture> m_Textures;
 	std::vector<GLint> m_TextureBindings;
-	
-	utils::Buffer<DeviceMaterial, GL_SHADER_STORAGE_BUFFER, GL_STATIC_READ> *m_Materials = nullptr;
+	std::vector<DeviceMaterial> m_Materials;
+
+	LightCount m_LightCount;
+	std::vector<PointLight> m_PointLights;
+	std::vector<AreaLight> m_AreaLights;
+	std::vector<DirectionalLight> m_DirectionalLights;
+	std::vector<SpotLight> m_SpotLights;
 
 	utils::GLShader *m_SimpleShader;
 	std::vector<GLMesh *> m_Meshes;

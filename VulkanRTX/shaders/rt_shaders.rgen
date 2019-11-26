@@ -53,8 +53,6 @@ void GenerateEyeRay(inout vec3 O, inout vec3 D, const uint pixelIdx, const uint 
 	const int sx = int(pixelIdx) % camera.scrwidth;
 	const int sy = int(pixelIdx) / camera.scrwidth;
 
-	const vec2 pixelCenter = vec2( gl_LaunchIDNV.xy ) + vec2( 0.5 );
-
 	float r0, r1, r2, r3;
  #ifdef BLUENOISE
 	if (sampleIdx < 256)
@@ -101,7 +99,7 @@ void GenerateEyeRay(inout vec3 O, inout vec3 D, const uint pixelIdx, const uint 
 	const float u = (float(sx) + r0) * (1.0f / float(camera.scrwidth));
 	const float v = (float(sy) + r1) * (1.0f / float(camera.scrheight));
 	const vec3 pointOnPixel = p1 + u * right + v * up;
-	D = normalize( pointOnPixel - camera.pos_lensSize.xyz );
+	D = normalize(pointOnPixel - O);
 }
 
 void main()

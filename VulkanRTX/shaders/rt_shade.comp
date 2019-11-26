@@ -1,5 +1,6 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_nonuniform_qualifier : require
 
 #include "structures.glsl"
 #include "tools.glsl"
@@ -52,7 +53,7 @@ layout(set = 0, binding = cPATH_THROUGHPUTS) buffer pathThroughputs { vec4 data[
 
 layout(set = 0, binding = cPOTENTIAL_CONTRIBUTIONS) buffer potentialContributionsBuffer { PotentialContribution potentialContributions[]; };
 layout(set = 0, binding = cSKYBOX) uniform sampler2D skybox;
-layout(set = 0, binding = cTRIANGLES) buffer triangleBuffers { DeviceTriangle tdata[]; } tbuffers[MAX_TRIANGLE_BUFFERS];
+layout(set = 0, binding = cTRIANGLES) buffer triangleBuffers { DeviceTriangle tdata[]; } tbuffers[];
 layout(set = 0, binding = cINVERSE_TRANSFORMS) buffer instanceInvTransform { mat4 invTransforms[]; };
 layout(set = 0, binding = cACCUMULATION_BUFFER) buffer accumulationBuffer { vec4 acPixels[]; };
 layout(set = 0, binding = cBLUENOISE) buffer   blueNoiseBuffer { int blueNoise[]; };

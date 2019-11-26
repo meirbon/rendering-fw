@@ -26,6 +26,7 @@ class Quad : public SceneTriangles
   private:
 	std::vector<uint> m_Indices;
 	std::vector<glm::vec4> m_Vertices;
+	std::vector<glm::vec3> m_Normals;
 	std::vector<Triangle> m_Triangles;
 
 	unsigned int m_MatID;

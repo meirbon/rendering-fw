@@ -18,6 +18,7 @@
 #include <utils/gl/GLBuffer.h>
 #include <utils/gl/GLShader.h>
 #include <utils/gl/GLTexture.h>
+#include <utils/gl/GLTextureArray.h>
 
 #include "Mesh.h"
 
@@ -54,8 +55,10 @@ class Context : public RenderContext
 
 	std::vector<int> m_InstanceGeometry;
 	std::vector<glm::mat4> m_InstanceMatrices;
-	 
 	std::vector<utils::GLTexture> m_Textures;
+	std::vector<GLint> m_TextureBindings;
+	
+	utils::Buffer<DeviceMaterial, GL_SHADER_STORAGE_BUFFER, GL_STATIC_READ> *m_Materials = nullptr;
 
 	utils::GLShader *m_SimpleShader;
 	std::vector<GLMesh *> m_Meshes;

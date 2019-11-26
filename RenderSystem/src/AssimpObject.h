@@ -199,17 +199,7 @@ class AssimpObject : public SceneTriangles
 
 	void setCurrentAnimation(uint index);
 
-	[[nodiscard]] rfw::Mesh getMesh() const override
-	{
-		rfw::Mesh mesh{};
-		mesh.vertices = m_CurrentVertices.data();
-		mesh.normals = m_CurrentNormals.data();
-		mesh.triangles = m_Triangles.data();
-		mesh.vertexCount = m_CurrentVertices.size();
-		mesh.triangleCount = m_Indices.size();
-		mesh.indices = m_Indices.data();
-		return mesh;
-	}
+	[[nodiscard]] rfw::Mesh getMesh() const override;
 
 	bool isAnimated() const override { return !m_Animations.empty(); }
 	uint getAnimationCount() const override;
@@ -235,6 +225,7 @@ class AssimpObject : public SceneTriangles
 	std::vector<uint> m_MaterialIndices;
 	std::vector<glm::vec4> m_BaseVertices;
 	std::vector<glm::vec3> m_BaseNormals;
+	std::vector<glm::vec2> m_TexCoords;
 
 	std::vector<MeshAnimation> m_Animations;
 

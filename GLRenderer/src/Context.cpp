@@ -37,6 +37,16 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 		m_InitializedGlew = true;
 
 		m_SimpleShader = new utils::GLShader("glshaders/simple.vert", "glshaders/simple.frag");
+		CheckGL();
+	}
+
+	if (m_FboID)
+	{
+		glDeleteFramebuffers(1, &m_FboID);
+		glDeleteRenderbuffers(1, &m_RboID);
+
+		m_FboID = 0;
+		m_RboID = 0;
 	}
 
 	m_Width = width;
@@ -65,8 +75,20 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 
 void Context::cleanup()
 {
-	glDeleteFramebuffers(1, &m_FboID);
-	glDeleteRenderbuffers(1, &m_RboID);
+	if (m_FboID)
+	{
+		glDeleteFramebuffers(1, &m_FboID), m_FboID = 0;
+		glDeleteRenderbuffers(1, &m_RboID), m_RboID = 0;
+	}
+
+	for (auto *mesh : m_Meshes)
+		delete mesh;
+	m_Meshes.clear();
+
+	m_Textures.clear();
+
+	delete m_Materials;
+	m_Materials = nullptr;
 }
 
 void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
@@ -79,45 +101,52 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glClearColor(0, 0, 0, 1.0f);
 
 	m_SimpleShader->bind();
-	auto matrix = camera.getMatrix(0.1f, 1e2f);
+	auto matrix = camera.getMatrix(0.1f, 1e16f);
 	const auto matrix3x3 = mat3(matrix);
 	matrix = glm::scale(matrix, vec3(1, -1, 1));
 	m_SimpleShader->setUniform("CamMatrix", matrix);
 	m_SimpleShader->setUniform("CamMatrix3x3", matrix3x3);
 
+	for (int i = 0; i < m_Textures.size(); i++)
+	{
+		m_Textures.at(i).bind(i);
+
+		char buffer[128];
+		sprintf(buffer, "textures[%i]", i);
+		m_SimpleShader->setUniform(buffer, m_TextureBindings.at(i));
+	}
+
+	CheckGL();
+	assert(m_Materials);
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, m_Materials->getID());
 	CheckGL();
 
 	for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
 	{
+		const GLMesh *mesh = m_Meshes.at(i);
+		const std::vector<glm::mat4> &instance = m_Instances.at(i);
+		const std::vector<glm::mat4> &inverseInstance = m_InverseInstances.at(i);
+
+		if (instance.empty())
+			continue;
+
+		mesh->vao.bind();
+
 		int sj = 0;
-		if (m_Instances.at(i).size() > 0 && m_Instances.at(i).size() < 32)
+		if (instance.size() < 32)
 			sj = 1;
 		else
-			sj = static_cast<int>(m_Instances.at(i).size() / 32);
+			sj = static_cast<int>(instance.size() / 32);
 
 		for (int j = 0; j < sj; j++)
 		{
 			const auto offset = j * 32;
-			const auto count = min(32, int(m_Instances.at(i).size()) - offset);
+			const auto count = min(32, int(instance.size()) - offset);
 
 			// Update instance matrices
-			m_SimpleShader->setUniform("InstanceMatrices", m_Instances.at(i).data() + offset, count, false);
-			m_SimpleShader->setUniform("InverseMatrices", m_InverseInstances.at(i).data() + offset, count, false);
-
-			const GLMesh *mesh = m_Meshes.at(i);
-			mesh->vao.bind();
-
-			if (mesh->hasIndices)
-			{
-				mesh->indexBuffer.bind();
-				glDrawElementsInstanced(GL_TRIANGLES, mesh->indexBuffer.getCount(), GL_UNSIGNED_INT, nullptr, (GLsizei)m_Instances.at(i).size());
-			}
-			else
-			{
-				glDrawArraysInstanced(GL_TRIANGLES, 0, mesh->vertexBuffer.getCount(), (GLsizei)m_Instances.at(i).size());
-			}
-
-			CheckGL();
+			m_SimpleShader->setUniform("InstanceMatrices", instance.data() + offset, count, false);
+			m_SimpleShader->setUniform("InverseMatrices", inverseInstance.data() + offset, count, false);
+			mesh->draw(*m_SimpleShader, count);
 		}
 	}
 
@@ -127,24 +156,48 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
+void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+{
+	delete m_Materials;
+	m_Materials = new utils::Buffer<DeviceMaterial, GL_SHADER_STORAGE_BUFFER, GL_STATIC_READ>();
+	m_Materials->setData(materials);
+	CheckGL();
+
+	const auto mats = m_Materials->read();
+
+	printf("hi");
+}
 
 void Context::setTextures(const std::vector<rfw::TextureData> &textures)
 {
+	GLint value;
+	glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &value);
+
+	if (value < textures.size())
+	{
+		FAILURE("Too many textures supplied, maximum supported by current GPU: %i", value);
+	}
+
 	m_Textures.clear();
 	m_Textures.resize(textures.size());
+	m_TextureBindings.resize(textures.size());
 
-	for (int i = 0; i < m_Textures.size(); i++)
+	for (int i = 0; i < textures.size(); i++)
 	{
 		const auto &tex = textures.at(i);
 		auto &glTex = m_Textures.at(i);
+
 		if (tex.type == TextureData::FLOAT4)
-			glTex.setData((vec4 *)tex.data, tex.width, tex.height, 0);
-		else // tex.type == TextureData::UINT
-			glTex.setData((uint *)tex.data, tex.width, tex.height, 0);
+			glTex.setData(static_cast<vec4 *>(tex.data), tex.width, tex.height);
+		else
+			glTex.setData(static_cast<uint *>(tex.data), tex.width, tex.height);
 
 		glTex.generateMipMaps();
+		glTex.bind(i);
+		m_TextureBindings.at(i) = i;
 	}
+
+	CheckGL();
 }
 
 void Context::setMesh(size_t index, const rfw::Mesh &mesh)

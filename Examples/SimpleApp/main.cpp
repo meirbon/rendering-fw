@@ -15,10 +15,10 @@
 #define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
-#define SKINNED_MESH 1
-#define PICA 1
+#define SKINNED_MESH 0
+#define PICA 0
 #define PICA_LIGHTS 0
-#define SPONZA 0
+#define SPONZA 1
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
 
@@ -29,8 +29,7 @@ int main()
 
 	auto rs = RenderSystem();
 
-	auto camera = rfw::Camera();
-	camera.position = vec3(0, 5, -10);
+	auto camera = rfw::Camera::deserialize("camera.bin");
 
 	unsigned int mouseX, mouseY;
 
@@ -67,7 +66,7 @@ int main()
 
 	window->addResizeCallback([&rs, &camera](int width, int height) { camera.resize(width, height); });
 #endif
-
+	
 	camera.resize(window->getWidth(), window->getHeight());
 
 	window->addMousePosCallback([&mouseX, &mouseY, &window](double x, double y, double lastX, double lastY) {

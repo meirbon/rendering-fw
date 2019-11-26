@@ -225,7 +225,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	m_BaseVertices.resize(vertexCount);
 	m_BaseNormals.resize(vertexCount);
 
-	std::vector<vec2> uvs(vertexCount);
+	m_TexCoords.resize(vertexCount);
 
 	m_Indices.resize(faceCount);
 	m_MaterialIndices.resize(faceCount);
@@ -261,9 +261,9 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				m_BaseVertices.at(vIdx) = vertex;
 				m_BaseNormals.at(vIdx) = normal;
 				if (curMesh->HasTextureCoords(0))
-					uvs.at(vIdx) = vec2(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
+					m_TexCoords.at(vIdx) = vec2(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
 				else
-					uvs.at(vIdx) = vec2(0.0f);
+					m_TexCoords.at(vIdx) = vec2(0.0f);
 			}
 
 			for (uint f = 0; f < curMesh->mNumFaces; f++)
@@ -340,10 +340,10 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	m_CurrentVertices = m_BaseVertices;
 	m_CurrentNormals = m_BaseNormals;
 
-	updateTriangles(uvs);
+	updateTriangles(m_TexCoords);
 
 	// Transform meshes according to node transformations in scene graph
-	transformTo(0.0f);
+	AssimpObject::transformTo(0.0f);
 
 	// Update triangle data that only has to be calculated once
 	for (auto &tri : m_Triangles)
@@ -382,7 +382,7 @@ void AssimpObject::transformTo(const float timeInSeconds)
 	if (m_IsAnimated)
 	{
 		const float timeInTicks = timeInSeconds * static_cast<float>(m_Animations[0].ticksPerSecond);
-		const float animationTime = std::fmod(timeInTicks, static_cast<float>(m_Animations[0].duration));
+		const float animationTime = fmod(timeInTicks, static_cast<float>(m_Animations[0].duration));
 
 #if ANIMATION_ENABLED
 		// TODO: Implement mesh animations and mesh morph animations
@@ -417,21 +417,18 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		{
 			/*
 			 * Unfortunately, this part of the loop cannot be done on initialization.
-			 * Meshes with animations can have sub-meshes that are placed in a node with supposedly no animations.
-			 * Nodes can have children though and thus a node can be influenced by an upper node with animations.
+			 * Meshes that are affected by animations can be placed in a node with a parent hierarchy
+			 * in which one of the parent nodes can be influenced by an animations.
 			 */
 			const glm::mat4 &transform = m_SceneGraph.at(mesh.nodeIndex).combinedTransform;
 			const glm::mat3 transform3x3 = mat3(transform);
-			for (uint i = 0; i < mesh.vertexCount; i++)
+			for (uint i = 0, vIdx = mesh.vertexOffset; i < mesh.vertexCount; i++, vIdx++)
 			{
-				const auto vIdx = mesh.vertexOffset + i;
-				const auto baseVertex = m_BaseVertices.at(vIdx);
-				const auto baseNormal = m_BaseNormals.at(vIdx);
+				const auto &baseVertex = m_BaseVertices.at(vIdx);
+				const auto &baseNormal = m_BaseNormals.at(vIdx);
 
-				const auto index = static_cast<size_t>(mesh.vertexOffset + i);
-
-				m_CurrentVertices.at(index) = transform * baseVertex;
-				m_CurrentNormals.at(index) = transform3x3 * baseNormal;
+				m_CurrentVertices.at(vIdx) = transform * baseVertex;
+				m_CurrentNormals.at(vIdx) = transform3x3 * baseNormal;
 			}
 			continue;
 		}
@@ -448,9 +445,6 @@ void AssimpObject::transformTo(const float timeInSeconds)
 			}
 		}
 	}
-
-	for (auto& N : m_CurrentNormals)
-		N = normalize(N);
 
 	updateTriangles();
 }
@@ -589,6 +583,19 @@ void AssimpObject::setCurrentAnimation(uint index)
 {
 	assert(index < getAnimationCount());
 	m_CurrentAnimation = index;
+}
+
+rfw::Mesh rfw::AssimpObject::getMesh() const
+{
+	rfw::Mesh mesh{};
+	mesh.vertices = m_CurrentVertices.data();
+	mesh.normals = m_CurrentNormals.data();
+	mesh.triangles = m_Triangles.data();
+	mesh.vertexCount = m_CurrentVertices.size();
+	mesh.triangleCount = m_Indices.size();
+	mesh.indices = m_Indices.data();
+	mesh.texCoords = m_TexCoords.data();
+	return mesh;
 }
 
 std::vector<uint> AssimpObject::getLightIndices(const std::vector<bool> &matLightFlags) const

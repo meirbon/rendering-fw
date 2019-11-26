@@ -522,6 +522,7 @@ rfw::Mesh rfw::gLTFObject::getMesh() const
 	mesh.indices = nullptr;
 	mesh.vertexCount = scene.vertices.size();
 	mesh.triangleCount = scene.vertices.size() / 3;
+	mesh.texCoords = texCoords.data();
 	return mesh;
 }
 

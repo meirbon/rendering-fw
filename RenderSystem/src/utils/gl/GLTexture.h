@@ -17,10 +17,10 @@ class GLTexture
 	enum TextureType
 	{
 		NONE = 0,
-		UINT = GL_RGBA8UI,
-		UINT4 = GL_RGBA32UI,
-		INT = GL_RGBA8I,
-		INT4 = GL_RGBA32I,
+		UINT = GL_RGBA,
+		UINT4 = GL_RGBA,
+		INT = GL_RGBA,
+		INT4 = GL_RGBA,
 		VEC4 = GL_RGBA32F
 	};
 
@@ -29,7 +29,6 @@ class GLTexture
 	GLTexture(TextureType type, uint width, uint height, bool initialize = true);
 	~GLTexture();
 	GLTexture(const GLTexture &other);
-	GLTexture(GLTexture &other);
 
 	void initialize(TextureType type, uint width, uint height);
 	void cleanup();

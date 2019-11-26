@@ -16,12 +16,25 @@ class GLVertexArray
 		GLuint bufferSize;
 	};
 
-	GLVertexArray() { glGenVertexArrays(1, &m_ID); }
+	GLVertexArray()
+	{
+		glGenVertexArrays(1, &m_ID);
+		CheckGL();
+	}
 	~GLVertexArray() { glDeleteVertexArrays(1, &m_ID); }
 	GLVertexArray(const GLVertexArray &other) = delete;
 
-	void bind() const { glBindVertexArray(m_ID); }
-	void unbind() const { glBindVertexArray(0); }
+	void bind() const
+	{
+		glBindVertexArray(m_ID);
+		CheckGL();
+	}
+
+	static void unbind()
+	{
+		glBindVertexArray(0);
+		CheckGL();
+	}
 
 	template <typename T, GLenum B>
 	void setBuffer(GLuint index, const rfw::utils::Buffer<T, GL_ARRAY_BUFFER, B> &buffer, GLint elementCount = -1, GLenum type = GL_FLOAT,
@@ -34,7 +47,9 @@ class GLVertexArray
 		bind();
 		buffer.bind();
 		glEnableVertexAttribArray(index);
+		CheckGL();
 		glVertexAttribPointer(index, elementCount, type, normalized, sizeof(T), (const void *)structOffset);
+		CheckGL();
 		unbind();
 		CheckGL();
 	}
@@ -42,6 +57,8 @@ class GLVertexArray
 	std::vector<std::pair<GLuint, Binding>> getBindingInfo()
 	{
 		std::vector<std::pair<GLuint, Binding>> result;
+
+		bind();
 
 		GLint vertexAttribCount = 0;
 		glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &vertexAttribCount);
@@ -52,23 +69,23 @@ class GLVertexArray
 
 			if (isOn)
 			{
-				int VBOID = 0;
-				int size = 0;
+				auto VBOID = 0;
+				auto size = 0;
 
 				glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING, &VBOID);
 				glGetBufferParameteriv(GL_ARRAY_BUFFER, GL_BUFFER_SIZE, &size);
 
-				Binding b;
-				b.bufferID = VBOID;
-				b.bufferSize = size;
-				result.push_back(std::make_pair(GLuint(i), b));
+				Binding b = {static_cast<GLuint>(VBOID), static_cast<GLuint>(size)};
+				result.emplace_back(GLuint(i), b);
 			}
 		}
+
+		unbind();
 
 		return result;
 	}
 
   private:
-	GLuint m_ID;
+	GLuint m_ID{};
 };
 } // namespace rfw::utils

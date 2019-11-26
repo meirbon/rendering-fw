@@ -240,8 +240,15 @@ void rfw::RenderSystem::synchronize()
 				continue;
 
 			const auto &model = m_Models.at(i);
+			const auto mesh = model->getMesh();
 
-			m_Context->setMesh(i, model->getMesh());
+			assert(mesh.vertexCount > 0);
+			assert(mesh.triangleCount > 0);
+			assert(mesh.vertices);
+			assert(mesh.normals);
+			assert(mesh.triangles);
+
+			m_Context->setMesh(i, mesh);
 
 			// Reset state
 			m_ModelChanged.at(i) = false;

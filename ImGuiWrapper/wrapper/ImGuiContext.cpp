@@ -77,6 +77,8 @@ imgui::Context::Members::~Members()
 	case (VULKAN):
 		ImGui_ImplVulkan_Shutdown();
 		break;
+	default:
+		break;
 	}
 
 	if (context)

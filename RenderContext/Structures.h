@@ -176,6 +176,7 @@ struct Mesh
 	// Per vertex data
 	const glm::vec4 *vertices = nullptr;
 	const glm::vec3 *normals = nullptr;
+	const glm::vec2 *texCoords = nullptr;
 
 	// Per face data
 	const rfw::Triangle *triangles = nullptr;
@@ -185,6 +186,7 @@ struct Mesh
 
 	bool hasIndices() const { return indices != nullptr; }
 	bool hasNormals() const { return normals != nullptr; }
+	bool hasTexCoords() const { return texCoords != nullptr; }
 };
 
 struct TextureData

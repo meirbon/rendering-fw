@@ -46,8 +46,9 @@ template <typename T> class ArrayProxy
 	}
 
 	ArrayProxy(std::initializer_list<T> const &data)
-		: m_Size(static_cast<uint32_t>(data.end() - data.begin())), m_Data(data.begin())
+		: m_Size(static_cast<uint32_t>(data.end() - data.begin()))
 	{
+		m_Data = data.begin();
 	}
 
 	const T *data() const { return m_Data; }

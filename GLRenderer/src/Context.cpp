@@ -98,8 +98,10 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glClearColor(0, 0, 0, 1.0f);
 
+	glViewport(0, 0, m_Width, m_Height);
+
 	m_SimpleShader->bind();
-	auto matrix = camera.getMatrix(0.1f, 1e16f);
+	auto matrix = camera.getMatrix(0.01f, 1e16f);
 	const auto matrix3x3 = mat3(matrix);
 	m_SimpleShader->setUniform("CamMatrix", matrix);
 	m_SimpleShader->setUniform("CamMatrix3x3", matrix3x3);
@@ -137,8 +139,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			const auto count = min(32, int(instance.size()) - offset);
 
 			// Update instance matrices
-			m_SimpleShader->setUniform("InstanceMatrices", instance.data() + offset, count, false);
-			m_SimpleShader->setUniform("InverseMatrices", inverseInstance.data() + offset, count, false);
+			m_SimpleShader->setUniform("InstanceMatrices[0]", instance.data() + offset, count, false);
+			m_SimpleShader->setUniform("InverseMatrices[0]", inverseInstance.data() + offset, count, false);
 			mesh->draw(*m_SimpleShader, count, m_Materials.data(), m_Textures.data());
 		}
 	}

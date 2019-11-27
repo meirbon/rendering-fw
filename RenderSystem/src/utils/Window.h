@@ -186,6 +186,7 @@ class Window
 			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef __APPLE__
 			glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+//			glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 #endif
 		}
 		else

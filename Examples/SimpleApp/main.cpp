@@ -15,10 +15,10 @@
 #define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
-#define SKINNED_MESH 0
-#define PICA 1
+#define SKINNED_MESH 1
+#define PICA 0
 #define PICA_LIGHTS 0
-#define SPONZA 0
+#define SPONZA 1
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
 
@@ -61,6 +61,8 @@ int main(int argc, char *argv[])
 		camera.resize(width, height);
 		glViewport(0, 0, width, height);
 	});
+
+	glViewport(0, 0, window->getWidth(), window->getHeight());
 #else
 	auto window = std::make_shared<Window>(1280, 720, "Window", true);
 
@@ -436,6 +438,7 @@ int main(int argc, char *argv[])
 		renderStat.addSample(t.elapsed());
 
 #if USE_GL_CONTEXT
+		glViewport(0, 0, window->getFramebufferWidth(), window->getFramebufferHeight());
 		textureShader.bind();
 		textureTarget->bind(0);
 		textureShader.setUniform("tex", 0);

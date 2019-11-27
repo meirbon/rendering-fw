@@ -74,9 +74,12 @@ mat4 Camera::getMatrix(const float near, const float far) const
 	const vec3 up = vec3(0, 1, 0);
 	const vec3 forward = -direction;
 
-	const mat4 projection = glm::scale(glm::perspective(radians(FOV), aspectRatio, near, far), vec3(-1, -1, -1));
-	const mat4 view = glm::lookAt(position, position + forward * tanf(glm::radians(FOV * 0.5f)), up);
-	return projection * view;
+	const float fovDist = tanf(glm::radians(FOV * 0.5f));
+
+	const mat4 flip = scale(mat4(1.0f), vec3(-1));
+	const mat4 projection = perspective(radians(FOV), aspectRatio, near, far);
+	const mat4 view = glm::lookAt(position, position + forward * fovDist, up);
+	return projection * flip * view;
 }
 
 void Camera::resize(int w, int h)

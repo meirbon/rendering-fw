@@ -1,4 +1,4 @@
-#version 450
+#version 410
 
 out vec4 Color;
 
@@ -77,21 +77,21 @@ uniform DirectionalLight dirLights[32];
 #define SPOT_LIGHT_COUNT lightCount.z
 #define DIR_LIGHT_COUNT lightCount.w
 
-void createTangentSpace(const vec3 N, inout vec3 T, inout vec3 B)
+void createTangentSpace(vec3 N, inout vec3 T, inout vec3 B)
 {
-    const float sign = sign(N.z);
-    const float a = -1.0f / (sign + N.z);
-    const float b = N.x * N.y * a;
+    float sign = sign(N.z);
+    float a = -1.0f / (sign + N.z);
+    float b = N.x * N.y * a;
     T = vec3(1.0f + sign * N.x * N.x * a, sign * b, -sign * N.x);
     B = vec3(b, sign + N.y * N.y * a, -N.y);
 }
 
-vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
+vec3 tangentToWorld(vec3 s, vec3 N, vec3 T, vec3 B)
 {
     return vec3(dot(T, s), dot(B, s), dot(N, s));
 }
 
-vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
+vec3 worldToTangent(vec3 s, vec3 N, vec3 T, vec3 B)
 {
     return T * s.x + B * s.y + N * s.z;
 }
@@ -99,7 +99,7 @@ vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
 void main()
 {
     vec3 normal = N;
-    const uint flags = floatBitsToUint(color_flags.w);
+    uint flags = floatBitsToUint(color_flags.w);
     vec3 finalColor = vec3(0);
     vec3 color = color_flags.xyz;
 
@@ -109,7 +109,7 @@ void main()
         createTangentSpace(normal, T, B);
         if (MAT_HASDIFFUSEMAP)
         {
-            const vec4 texel = texture(t0, UV);
+            vec4 texel = texture(t0, UV);
             if (MAT_HASALPHA && texel.w < 0.5f)
             {
                 discard;
@@ -148,10 +148,10 @@ void main()
         for (int i = 0; i < AREA_LIGHT_COUNT; i++)
         {
             vec3 L = areaLights[i].position_area.xyz - WPos.xyz;
-            const float dist2 = dot(L, L);
+            float dist2 = dot(L, L);
             L /= sqrt(dist2);
-            const float NdotL = max(dot(normal, L), 0);
-            const float LNdotL = max(-dot(areaLights[i].normal, L), 0);
+            float NdotL = max(dot(normal, L), 0);
+            float LNdotL = max(-dot(areaLights[i].normal, L), 0);
             if (NdotL > 0 && LNdotL > 0)
             {
                 finalColor += color * areaLights[i].radiance * NdotL * areaLights[i].position_area.w * (1.0f / dist2);

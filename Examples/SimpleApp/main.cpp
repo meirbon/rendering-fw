@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
 	//{
 #if USE_GL_CONTEXT
 	auto window = std::make_shared<Window>(1280, 720, "Window", true, std::make_pair(4, 5));
-	auto textureTarget = new GLTexture(GLTexture::VEC4, window->getWidth(), window->getHeight(), true);
+	auto textureTarget = new GLTexture(GLTexture::VEC4, window->getFramebufferWidth(), window->getFramebufferHeight(), true);
 	auto textureShader = GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
 
 	textureShader.bind();
@@ -48,9 +48,9 @@ int main(int argc, char *argv[])
 
 	auto imguiContext = imgui::Context(window->getGLFW());
 
-	window->addResizeCallback([&textureTarget, &rs, &textureShader, &camera](int width, int height) {
+	window->addResizeCallback([&window, &textureTarget, &rs, &textureShader, &camera](int width, int height) {
 		auto oldID = textureTarget->getID();
-		textureTarget = new GLTexture(GLTexture::VEC4, width, height, true);
+		textureTarget = new GLTexture(GLTexture::VEC4, window->getFramebufferWidth(), window->getFramebufferHeight(), true);
 		rs.setTarget(textureTarget);
 		textureShader.bind();
 		textureTarget->bind(0);
@@ -118,8 +118,8 @@ int main(int argc, char *argv[])
 #if PICA
 	auto cesiumMan =
 		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(2))), vec3(1), vec3(8, 5, 0), 90.0f, vec3(1, 0, 0));
-//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
-//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
+	//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
+	//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
 	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
 	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
 

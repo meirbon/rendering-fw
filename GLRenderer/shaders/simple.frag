@@ -7,6 +7,8 @@ in vec3 WPos;
 in vec3 N;
 in vec2 UV;
 
+uniform vec3 ambient;
+
 // Material
 uniform uvec4 baseData;
 uniform uvec4 parameters;
@@ -146,15 +148,18 @@ void main()
             normal = normalize(normal * T + mapNormal * B + mapNormal * normal);
         }
 
+        finalColor += color * ambient;
+
         for (int i = 0; i < AREA_LIGHT_COUNT; i++)
         {
-            const vec3 L = areaLights[i].position_area.xyz - WPos.xyz;
+            vec3 L = areaLights[i].position_area.xyz - WPos.xyz;
             const float dist2 = dot(L, L);
+            L /= sqrt(dist2);
             const float NdotL = max(dot(normal, L), 0);
             const float LNdotL = max(-dot(areaLights[i].normal, L), 0);
             if (NdotL > 0 && LNdotL > 0)
             {
-                finalColor += color / 6.28f * areaLights[i].radiance * NdotL * areaLights[i].position_area.w * (1.0f / dist2);
+                finalColor += color * areaLights[i].radiance * NdotL * areaLights[i].position_area.w * (1.0f / dist2);
             }
         }
     }

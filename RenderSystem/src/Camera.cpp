@@ -71,11 +71,11 @@ rfw::CameraView Camera::getView() const
 
 mat4 Camera::getMatrix(const float near, const float far) const
 {
-	glm::vec3 right, up, forward;
-	calculateMatrix(right, up, forward);
+	const vec3 up = vec3(0, 1, 0);
+	const vec3 forward = direction;
 
-	const mat4 projection = glm::perspective(radians(FOV), aspectRatio, near, far);
-	const mat4 view = glm::lookAt(position, position + forward * focalDistance, up * focalDistance);
+	const mat4 projection = glm::scale(glm::perspective(radians(FOV), aspectRatio, near, far), vec3(-1, -1, -1));
+	const mat4 view = glm::lookAt(position, position + -forward * focalDistance, up);
 	return projection * view;
 }
 

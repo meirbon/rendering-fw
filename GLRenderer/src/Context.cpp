@@ -101,9 +101,9 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	m_SimpleShader->bind();
 	auto matrix = camera.getMatrix(0.1f, 1e16f);
 	const auto matrix3x3 = mat3(matrix);
-	matrix = glm::scale(matrix, vec3(1, -1, 1));
 	m_SimpleShader->setUniform("CamMatrix", matrix);
 	m_SimpleShader->setUniform("CamMatrix3x3", matrix3x3);
+	m_SimpleShader->setUniform("ambient", m_Ambient);
 
 	for (int i = 0; i < m_Textures.size(); i++)
 	{
@@ -176,8 +176,9 @@ void Context::setTextures(const std::vector<rfw::TextureData> &textures)
 		glTex.bind();
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		CheckGL();
 
 		if (tex.type == TextureData::FLOAT4)
 			glTex.setData(static_cast<vec4 *>(tex.data), tex.width, tex.height);
@@ -256,8 +257,10 @@ void Context::update()
 
 	for (int i = 0, s = static_cast<int>(m_InstanceGeometry.size()); i < s; i++)
 	{
-		m_Instances.at(m_InstanceGeometry.at(i)).push_back(m_InstanceMatrices.at(i));
-		m_InverseInstances.at(m_InstanceGeometry.at(i)).push_back(inverse(m_InstanceMatrices.at(i)));
+		const auto geoIdx = m_InstanceGeometry.at(i);
+
+		m_Instances.at(geoIdx).push_back(m_InstanceMatrices.at(i));
+		m_InverseInstances.at(geoIdx).push_back(inverse(m_InstanceMatrices.at(i)));
 	}
 }
 

@@ -75,7 +75,7 @@ int main()
 	});
 
 	// rs.loadRenderAPI("OptiX6Context");
-	//	rs.loadRenderAPI("VulkanRTX");
+	// rs.loadRenderAPI("VulkanRTX");
 	// rs.loadRenderAPI("VkContext");
 	rs.loadRenderAPI("GLRenderer");
 

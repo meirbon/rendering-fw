@@ -50,6 +50,8 @@ class Context : public RenderContext
 	rfw::RenderStats getStats() const override;
 
   private:
+	glm::vec3 m_Ambient = glm::vec3(0.1f);
+
 	void setLights(utils::GLShader* shader);
 
 	std::vector<std::vector<glm::mat4>> m_Instances;

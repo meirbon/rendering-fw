@@ -232,6 +232,8 @@ class RenderSystem
 	std::vector<rfw::GeometryReference> getGeometry();
 	size_t getGeometryCount() const;
 	rfw::RenderStats getRenderStats() const;
+	bool hasContext() const { return m_Context != nullptr; }
+	bool hasRenderer() const { return m_Context != nullptr; }
 
   private:
 	void updateAreaLights();

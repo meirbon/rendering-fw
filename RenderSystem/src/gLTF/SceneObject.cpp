@@ -1,3 +1,4 @@
+#define GLM_FORCE_SIMD_AVX2
 #include "SceneObject.h"
 
 using namespace rfw;
@@ -18,7 +19,7 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 
 	for (auto idx : rootNodes)
 	{
-		glm::mat4 matrix = glm::identity<glm::mat4>();
+		auto matrix = glm::identity<glm::mat4>();
 		changed |= nodes.at(idx).update(matrix);
 	}
 
@@ -44,11 +45,13 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 			tri.vertex1 = v1;
 			tri.vertex2 = v2;
 
-			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-
 			const vec3 &n0 = normals.at(idx + 0);
 			const vec3 &n1 = normals.at(idx + 1);
 			const vec3 &n2 = normals.at(idx + 2);
+
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
 
 			tri.Nx = N.x;
 			tri.Ny = N.y;

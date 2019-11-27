@@ -11,6 +11,8 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 {
 	using namespace glm;
 
+	const __m128 normalFix = _mm_set_ps(0.0f, -1.0f, -1.0f, 1.0f);
+
 #if 0
 	for (uint i = 0; i < vertexCount; i++)
 	{
@@ -19,13 +21,21 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 		const uvec4 &j4 = joints.at(i);
 		const vec4 &w4 = weights.at(i);
 
-		mat4 skinMatrix = w4.x * skin.jointMatrices.at(j4.x);
-		skinMatrix += w4.y * skin.jointMatrices.at(j4.y);
-		skinMatrix += w4.z * skin.jointMatrices.at(j4.z);
-		skinMatrix += w4.w * skin.jointMatrices.at(j4.w);
+		mat4 skinMatrix =
+			w4.x * skin.jointMatrices.at(j4.x) + w4.y * skin.jointMatrices.at(j4.y) + w4.z * skin.jointMatrices.at(j4.z) + w4.w * skin.jointMatrices.at(j4.w);
 
-		object->vertices.at(idx) = vec4(vec3(object->baseVertices.at(idx)), 1.0f) * skinMatrix;
-		object->normals.at(idx) = object->baseNormals.at(idx) * mat3(skinMatrix);
+		vec4 vertex = vec4(0);
+		vertex.x = dot(glm::make_vec4(value_ptr(skinMatrix)), object->baseVertices.at(idx));
+		vertex.y = dot(glm::make_vec4(value_ptr(skinMatrix) + 4), object->baseVertices.at(idx));
+		vertex.z = dot(glm::make_vec4(value_ptr(skinMatrix) + 8), object->baseVertices.at(idx));
+		vertex.w = dot(glm::make_vec4(value_ptr(skinMatrix) + 12), object->baseVertices.at(idx));
+		object->vertices.at(idx) = vertex;
+
+		vec3 normal = vec3(0);
+		normal.x = dot(glm::make_vec3(value_ptr(skinMatrix) + 0), object->baseNormals.at(idx));
+		normal.y = -dot(glm::make_vec3(value_ptr(skinMatrix) + 4), object->baseNormals.at(idx));
+		normal.z = -dot(glm::make_vec3(value_ptr(skinMatrix) + 8), object->baseNormals.at(idx));
+		object->normals.at(idx) = normal;
 	}
 
 	object->updateTriangles(vertexOffset / 3, vertexCount / 3);
@@ -80,7 +90,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 
 			// load vertices and normal
 			__m128 vtxOrig = _mm_load_ps(&object->baseVertices[v].x);
-			__m128 normOrig = _mm_maskload_ps(&object->baseNormals[v].x, _mm_set_epi32(0, -1, -1, -1));
+			__m128 normOrig = _mm_maskload_ps(&object->baseNormals[v].x, _mm_set_epi32(0, ~0, ~0, ~0));
 
 			// combine vectors to use AVX2 instead of SSE
 			__m256 combined = _mm256_set_m128(normOrig, vtxOrig);
@@ -94,7 +104,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 			__m128 norm = _mm256_extractf128_ps(combined, 1);
 
 			// normalize normal
-			norm = _mm_mul_ps(norm, _mm_rsqrt_ps(_mm_dp_ps(norm, norm, 0x77)));
+			norm = _mm_mul_ps(_mm_mul_ps(norm, normalFix), _mm_rsqrt_ps(_mm_dp_ps(norm, norm, 0x77)));
 
 			// store for reuse
 			tri_vtx[t_v] = vtx;
@@ -146,12 +156,12 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	object->dirty = true;
 }
 
-void rfw::SceneMesh::setPose(rfw::utils::ArrayProxy<float> weights)
+void rfw::SceneMesh::setPose(const std::vector<float> &weights)
 {
 	assert(weights.size() == poses.size() - 1);
 	const auto weightCount = weights.size();
 
-	for (int s = vertexCount, i = 0; i < s; i++)
+	for (int s = static_cast<int>(vertexCount), i = 0; i < s; i++)
 	{
 		const auto idx = i + vertexOffset;
 		object->vertices.at(idx) = vec4(poses.at(0).positions.at(i), 1.0f);
@@ -164,6 +174,9 @@ void rfw::SceneMesh::setPose(rfw::utils::ArrayProxy<float> weights)
 			object->vertices.at(idx) += weights.at(j - 1) * vec4(pose.positions.at(i), 0);
 			object->normals.at(idx) += weights.at(j - 1) * pose.normals.at(i);
 		}
+
+		object->normals.at(idx).y *= -1.0f;
+		object->normals.at(idx).z *= -1.0f;
 	}
 
 	object->updateTriangles(vertexOffset / 3, vertexCount / 3);
@@ -180,7 +193,8 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 	for (int i = 0, idx = vertexOffset; i < vertexCount; i++, idx++)
 	{
 		baseVertex[i] = transform * object->baseVertices.at(idx);
-		baseNormal[i] = matrix3x3 * object->baseNormals.at(idx);
+		// TODO
+		baseNormal[i] = object->baseNormals.at(idx);
 	}
 
 	const auto offset = vertexOffset / 3;

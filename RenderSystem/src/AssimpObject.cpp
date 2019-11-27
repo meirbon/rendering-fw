@@ -1,3 +1,4 @@
+#define GLM_FORCE_SIMD_AVX2
 #include "AssimpObject.h"
 
 #include <MathIncludes.h>
@@ -8,12 +9,11 @@
 #include <glm/gtx/matrix_major_storage.hpp>
 
 #include <assimp/cimport.h>
-#include <assimp/matrix4x4.h>
-#include <assimp/matrix3x3.h>
-#include <assimp/vector3.h>
 #include "Settings.h"
 #include "utils/Logger.h"
 #include "utils/Timer.h"
+
+#define AVX2_MATRIX_MUL 1
 
 namespace rfw
 {
@@ -420,8 +420,23 @@ void AssimpObject::transformTo(const float timeInSeconds)
 			 * Meshes that are affected by animations can be placed in a node with a parent hierarchy
 			 * in which one of the parent nodes can be influenced by an animations.
 			 */
+#if AVX2_MATRIX_MUL
+			const aligned_mat4 transform = m_SceneGraph.at(mesh.nodeIndex).combinedTransform;
+			const aligned_mat3 transform3x3 = glm::mat3(transform);
+
+			for (uint i = 0, vIdx = mesh.vertexOffset; i < mesh.vertexCount; i++, vIdx++)
+			{
+				const glm::aligned_vec4 baseVertex = m_BaseVertices.at(vIdx);
+				const glm::aligned_vec3 baseNormal = m_BaseNormals.at(vIdx);
+
+				m_CurrentVertices.at(vIdx) = transform * baseVertex;
+				m_CurrentNormals.at(vIdx) = transform3x3 * baseNormal;
+			}
+
+#else
 			const glm::mat4 &transform = m_SceneGraph.at(mesh.nodeIndex).combinedTransform;
 			const glm::mat3 transform3x3 = mat3(transform);
+
 			for (uint i = 0, vIdx = mesh.vertexOffset; i < mesh.vertexCount; i++, vIdx++)
 			{
 				const auto &baseVertex = m_BaseVertices.at(vIdx);
@@ -430,12 +445,13 @@ void AssimpObject::transformTo(const float timeInSeconds)
 				m_CurrentVertices.at(vIdx) = transform * baseVertex;
 				m_CurrentNormals.at(vIdx) = transform3x3 * baseNormal;
 			}
+#endif
 			continue;
 		}
 
 		for (const auto &bone : mesh.bones)
 		{
-			const glm::mat4 &skin4x4 = m_SceneGraph.at(bone.nodeIndex).combinedTransform * bone.offsetMatrix;
+			const glm::aligned_mat4 skin4x4 = m_SceneGraph.at(bone.nodeIndex).combinedTransform * bone.offsetMatrix;
 			const glm::mat3 skin3x3 = mat3(skin4x4);
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
 			{

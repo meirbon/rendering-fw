@@ -15,14 +15,14 @@
 #define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
-#define SKINNED_MESH 1
-#define PICA 0
+#define SKINNED_MESH 0
+#define PICA 1
 #define PICA_LIGHTS 0
-#define SPONZA 1
+#define SPONZA 0
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
 
-int main()
+int main(int argc, char *argv[])
 {
 	using namespace rfw;
 	using namespace utils;
@@ -74,10 +74,32 @@ int main()
 		mouseY = static_cast<uint>(y * double(window->getHeight()));
 	});
 
-	// rs.loadRenderAPI("OptiX6Context");
-	// rs.loadRenderAPI("VulkanRTX");
-	// rs.loadRenderAPI("VkContext");
-	rs.loadRenderAPI("GLRenderer");
+	for (int i = 0; i < argc; i++)
+	{
+		const std::string arg = argv[i];
+		if (arg == "-r" && argc >= (i + 1))
+		{
+			const std::string renderer = argv[i + 1];
+			try
+			{
+				rs.loadRenderAPI(renderer);
+				break;
+			}
+			catch (const std::exception &e)
+			{
+				WARNING("Attempted to load given renderer \"%s\" but error occured: %s", renderer.c_str(), e.what());
+			}
+		}
+	}
+
+	if (!rs.hasContext())
+	{
+		// Pick default renderer
+		rs.loadRenderAPI("GLRenderer");
+		// rs.loadRenderAPI("OptiX6Context");
+		// rs.loadRenderAPI("VulkanRTX");
+		// rs.loadRenderAPI("VkContext");
+	}
 
 	rs.setSkybox("Envmaps/sky_15.hdr");
 
@@ -94,8 +116,8 @@ int main()
 #if PICA
 	auto cesiumMan =
 		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(2))), vec3(1), vec3(8, 5, 0), 90.0f, vec3(1, 0, 0));
-	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
-	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
+//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
+//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
 	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
 	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
 
@@ -104,7 +126,7 @@ int main()
 	staticInstanceRef.rotate(180.0f, vec3(0, 1, 0));
 	staticInstanceRef.update();
 
-	auto lightMaterial = rs.addMaterial(vec3(30), 1);
+	auto lightMaterial = rs.addMaterial(vec3(10), 1);
 	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(-10, 25, 4), 10.0f, 10.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
@@ -316,6 +338,7 @@ int main()
 			rs.setSetting({"denoise", denoise ? "1" : "0"});
 		camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");
 		camChanged |= ImGui::DragFloat("Focal dist", &camera.focalDistance, 0.0001f, 0.00001f, 1e10f, "%.7f");
+		camChanged |= ImGui::DragFloat("FOV", &camera.FOV, 0.1f, 20.0f, 120.0f);
 		ImGui::EndGroup();
 
 		ImGui::Separator();

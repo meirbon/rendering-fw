@@ -10,7 +10,7 @@ in vec2 UV;
 uniform vec3 ambient;
 
 // Material
-uniform uvec4 baseData;
+uniform vec4 color_flags;
 uniform uvec4 parameters;
 uniform sampler2D t0;
 uniform sampler2D t1;
@@ -36,7 +36,6 @@ uniform sampler2D r;
 #define MAT_HASSMOOTHNORMALS        ((flags & (1u << 11u)) != 0)
 #define MAT_HASALPHA                ((flags & (1u << 12u)) != 0)
 #define MAT_HASALPHAMAP                ((flags & (1u << 13u)) != 0)
-
 
 struct AreaLight
 {
@@ -100,13 +99,9 @@ vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
 void main()
 {
     vec3 normal = N;
-    const uint flags = MAT_FLAGS;
-    const vec2 base_rg = unpackHalf2x16(baseData.x);
-    const vec2 base_b_medium_r = unpackHalf2x16(baseData.y);
-    const vec2 medium_gb = unpackHalf2x16(baseData.z);
-
+    const uint flags = floatBitsToUint(color_flags.w);
     vec3 finalColor = vec3(0);
-    vec3 color = vec3(base_rg.x, base_rg.y, base_b_medium_r.x);
+    vec3 color = color_flags.xyz;
 
     if (!any(greaterThan(color, vec3(1))))
     {
@@ -162,6 +157,10 @@ void main()
                 finalColor += color * areaLights[i].radiance * NdotL * areaLights[i].position_area.w * (1.0f / dist2);
             }
         }
+    }
+    else
+    {
+        finalColor = color;
     }
 
     Color = vec4(finalColor, Pos.w);

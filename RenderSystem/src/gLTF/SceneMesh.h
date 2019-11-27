@@ -19,7 +19,7 @@ struct SceneMesh
 	};
 
 	void setPose(const rfw::MeshSkin &skin);
-	void setPose(rfw::utils::ArrayProxy<float> weights);
+	void setPose(const std::vector<float>& weights);
 	void setTransform(const glm::mat4 &transform);
 
 	unsigned int matID = 0;

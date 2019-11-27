@@ -5,6 +5,8 @@
 #include <DeviceStructures.h>
 #include "Mesh.h"
 
+using namespace rfw::utils;
+
 rfw::GLMesh::GLMesh() { CheckGL(); }
 
 rfw::GLMesh::~GLMesh()
@@ -87,9 +89,9 @@ void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 				// Store mesh with offsets
 				SubMesh m = {};
 				m.matID = lastMaterial;
-				m.first = first;						// first index
-				m.last = i * 3 - 1;						// last index
-				m.count = i /* m.last + 1 */ - m.first; // vertex count
+				m.first = first;				  // first index
+				m.last = i * 3 - 1;				  // last index
+				m.count = (m.last + 1) - m.first; // vertex count
 				meshes.emplace_back(m);
 
 				lastMaterial = tri.material;
@@ -146,8 +148,13 @@ void rfw::GLMesh::draw(utils::GLShader &shader, uint count, const DeviceMaterial
 		{
 			mesh.indexBuffer->bind();
 			const auto &mat = materials[mesh.matID];
+			const auto hostMat = reinterpret_cast<const Material *>(&mat);
+
 			const auto flags = mat.baseData4.w;
-			shader.setUniform("baseData", mat.baseData4);
+			vec4 color_flags = vec4(hostMat->getColor(), 0);
+			memcpy(&color_flags.w, &mat.baseData4.w, sizeof(unsigned int));
+
+			shader.setUniform("color_flags", color_flags);
 			shader.setUniform("parameters", mat.parameters);
 
 			if (Material::hasFlag(flags, HasDiffuseMap))
@@ -176,6 +183,31 @@ void rfw::GLMesh::draw(utils::GLShader &shader, uint count, const DeviceMaterial
 		for (const auto &mesh : meshes)
 		{
 			const auto &mat = materials[mesh.matID];
+			const auto hostMat = reinterpret_cast<const Material *>(&mat);
+
+			const auto flags = mat.baseData4.w;
+			vec4 color_flags = vec4(hostMat->getColor(), 0);
+			memcpy(&color_flags.w, &mat.baseData4.w, sizeof(unsigned int));
+
+			shader.setUniform("color_flags", color_flags);
+			shader.setUniform("parameters", mat.parameters);
+
+			if (Material::hasFlag(flags, HasDiffuseMap))
+				textures[mat.t0data4.w].bind(0);
+			if (Material::hasFlag(flags, Has2ndDiffuseMap))
+				textures[mat.t1data4.w].bind(1);
+			if (Material::hasFlag(flags, Has3rdDiffuseMap))
+				textures[mat.t2data4.w].bind(2);
+			if (Material::hasFlag(flags, HasNormalMap))
+				textures[mat.n0data4.w].bind(3);
+			if (Material::hasFlag(flags, Has2ndNormalMap))
+				textures[mat.n1data4.w].bind(4);
+			if (Material::hasFlag(flags, Has3rdNormalMap))
+				textures[mat.n2data4.w].bind(5);
+			if (Material::hasFlag(flags, HasSpecularityMap))
+				textures[mat.sdata4.w].bind(6);
+			if (Material::hasFlag(flags, HasRoughnessMap))
+				textures[mat.rdata4.w].bind(7);
 
 			glDrawArraysInstanced(GL_TRIANGLES, mesh.first, mesh.count, count);
 			CheckGL();

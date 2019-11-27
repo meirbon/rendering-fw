@@ -26,6 +26,8 @@ rfw::MeshSkin convertSkin(const tinygltf::Skin skin, const tinygltf::Model model
 
 		s.inverseBindMatrices.resize(accessor.count);
 		memcpy(s.inverseBindMatrices.data(), &buffer.data.at(accessor.byteOffset + bufferView.byteOffset), accessor.count * sizeof(glm::mat4));
+		//for (auto& ibm : s.inverseBindMatrices)
+		//	ibm = rowMajor4(ibm);
 
 		s.jointMatrices.resize(accessor.count, glm::mat4(1.0f));
 	}
@@ -242,22 +244,22 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 			{
 				auto fan = move(tmpIndices);
 				tmpIndices.clear();
-				for (size_t s = fan.size(), i = 2; i < s; i++)
+				for (size_t sj = fan.size(), p = 2; p < sj; p++)
 				{
 					tmpIndices.push_back(fan.at(0));
-					tmpIndices.push_back(fan.at(i - 1));
-					tmpIndices.push_back(fan.at(i));
+					tmpIndices.push_back(fan.at(p - 1));
+					tmpIndices.push_back(fan.at(p));
 				}
 			}
 			else if (prim.mode == TINYGLTF_MODE_TRIANGLE_STRIP)
 			{
 				auto strip = move(tmpIndices);
 				tmpIndices.clear();
-				for (size_t s = strip.size(), i = 2; i < s; i++)
+				for (size_t sj = strip.size(), p = 2; p < sj; p++)
 				{
-					tmpIndices.push_back(strip.at(i - 2));
-					tmpIndices.push_back(strip.at(i - 1));
-					tmpIndices.push_back(strip.at(i));
+					tmpIndices.push_back(strip.at(p - 2));
+					tmpIndices.push_back(strip.at(p - 1));
+					tmpIndices.push_back(strip.at(p));
 				}
 			}
 			else if (prim.mode != TINYGLTF_MODE_TRIANGLES)
@@ -278,7 +280,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
 						{
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t p = 0; p < count; p++, a += byteStride)
 							{
 								tmpVertices.push_back(*((glm::vec3 *)a));
 							}
@@ -286,9 +288,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
 							// WARNING("%s", "Double precision positions are not supported (yet).");
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t p = 0; p < count; p++, a += byteStride)
 							{
-								tmpVertices.push_back(glm::vec3(*((glm::dvec3 *)a)));
+								tmpVertices.emplace_back(*((glm::dvec3 *)a));
 							}
 						}
 					}
@@ -303,7 +305,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
 						{
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
 								tmpNormals.push_back(*((glm::vec3 *)a));
 							}
@@ -311,9 +313,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
 							// WARNING("%s", "Double precision positions are not supported (yet).");
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpNormals.push_back(glm::vec3(*((glm::dvec3 *)a)));
+								tmpNormals.emplace_back(*((glm::dvec3 *)a));
 							}
 						}
 					}
@@ -330,7 +332,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
 						{
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
 								tmpUvs.push_back(*((glm::vec2 *)a));
 							}
@@ -338,9 +340,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
 							// WARNING("%s", "Double precision normals are not supported (yet).");
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpUvs.push_back(glm::vec2(*((glm::dvec2 *)a)));
+								tmpUvs.emplace_back(*((glm::dvec2 *)a));
 							}
 						}
 					}
@@ -359,19 +361,19 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
 						{
-							using ushort = unsigned short;
+							using unshort = unsigned short;
 
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpJoints.push_back(glm::uvec4(*((ushort *)a), *((ushort *)(a + 2)), *((ushort *)(a + 4)), *((ushort *)(a + 6))));
+								tmpJoints.emplace_back(*((unshort *)a), *((unshort *)(a + 2)), *((unshort *)(a + 4)), *((unshort *)(a + 6)));
 							}
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE)
 						{
 							using uchar = unsigned char;
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpJoints.push_back(glm::uvec4(*((uchar *)a), *((uchar *)(a + 1)), *((uchar *)(a + 2)), *((uchar *)(a + 3))));
+								tmpJoints.emplace_back(*((uchar *)a), *((uchar *)(a + 1)), *((uchar *)(a + 2)), *((uchar *)(a + 3)));
 							}
 						}
 						else
@@ -390,7 +392,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_FLOAT)
 						{
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
 								glm::vec4 w4;
 								memcpy(&w4, a, sizeof(glm::vec4));
@@ -402,13 +404,13 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
 						{
 							// WARNING("%s", "Double precision weights are not supported (yet).");
-							for (size_t i = 0; i < count; i++, a += byteStride)
+							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
 								glm::dvec4 w4;
 								memcpy(&w4, a, sizeof(glm::dvec4));
-								float norm = 1.0f / (w4.x + w4.y + w4.z + w4.w);
+								const float norm = 1.0 / (w4.x + w4.y + w4.z + w4.w);
 								w4 *= norm;
-								tmpWeights.push_back(vec4(w4));
+								tmpWeights.emplace_back(w4);
 							}
 						}
 					}
@@ -430,27 +432,27 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 			if (!mesh.weights.empty())
 			{
 				tmpPoses.emplace_back();
-				for (size_t s = tmpVertices.size(), j = 0; j < s; j++)
+				for (size_t sv = tmpVertices.size(), n = 0; n < sv; n++)
 				{
-					tmpPoses.at(0).positions.push_back(tmpVertices.at(j));
-					tmpPoses.at(0).normals.push_back(tmpNormals.at(j));
+					tmpPoses.at(0).positions.push_back(tmpVertices.at(n));
+					tmpPoses.at(0).normals.push_back(tmpNormals.at(n));
 				}
 			}
 
-			for (size_t j = 0; j < mesh.weights.size(); j++)
+			for (size_t o = 0; o < mesh.weights.size(); o++)
 			{
 				tmpPoses.emplace_back();
 				auto &pose = tmpPoses.at(tmpPoses.size() - 1);
 
-				for (const auto &target : prim.targets.at(j))
+				for (const auto &target : prim.targets.at(o))
 				{
-					const Accessor &accessor = model.accessors.at(target.second);
-					const BufferView &view = model.bufferViews.at(accessor.bufferView);
-					const float *a = (const float *)(model.buffers.at(view.buffer).data.data() + view.byteOffset + accessor.byteOffset);
+					const Accessor &acc = model.accessors.at(target.second);
+					const BufferView &vi = model.bufferViews.at(acc.bufferView);
+					const auto *va = (const float *)(model.buffers.at(vi.buffer).data.data() + vi.byteOffset + acc.byteOffset);
 
-					for (size_t m = 0; m < accessor.count; m++)
+					for (size_t p = 0; p < acc.count; p++)
 					{
-						const auto v = glm::vec3(a[m * 3], a[m * 3 + 1], a[m * 3 + 2]);
+						const auto v = glm::vec3(va[p * 3], va[p * 3 + 1], va[p * 3 + 2]);
 
 						if (target.first == "POSITION")
 							pose.positions.push_back(v);
@@ -461,7 +463,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 			}
 
 			addPrimitive(m, tmpIndices, tmpVertices, tmpNormals, tmpUvs, tmpPoses, tmpJoints, tmpWeights,
-						 prim.material >= 0 ? (prim.material + m_BaseMaterialIdx) : 0);
+						 prim.material >= 0 ? static_cast<int>(prim.material + m_BaseMaterialIdx) : 0);
 		}
 
 		m.vertexCount = scene.baseVertices.size() - m.vertexOffset;
@@ -581,11 +583,10 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 		pose.positions.reserve(indices.size());
 		pose.normals.reserve(indices.size());
 
-		for (size_t j = 0, s = indices.size(); j < s; j++)
+		for (int idx : indices)
 		{
-			const auto idx = indices.at(j);
 			pose.positions.push_back(origPose.positions.at(idx));
-			pose.normals.push_back(origPose.normals.at(idx));
+			pose.normals.emplace_back(origPose.normals.at(idx));
 		}
 	}
 
@@ -608,12 +609,12 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 	{
 		const auto idx = indices.at(i);
 
-		scene.baseVertices.push_back(vec4(vertices.at(idx), 1.0f));
+		scene.baseVertices.emplace_back(vertices.at(idx), 1.0f);
 		scene.baseNormals.push_back(normals.at(idx));
 		if (!uvs.empty())
 			texCoords.push_back(uvs.at(idx));
 		else
-			texCoords.push_back(vec2(0.0f));
+			texCoords.emplace_back(0.0f);
 	}
 
 	// Add per-face data
@@ -644,7 +645,7 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 		tri.vN1 = n1;
 		tri.vN2 = n2;
 
-		if (uvs.size() > 0)
+		if (!uvs.empty())
 		{
 			tri.u0 = uvs.at(idx.x).x;
 			tri.u1 = uvs.at(idx.y).x;
@@ -653,16 +654,6 @@ void rfw::gLTFObject::addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> 
 			tri.v0 = uvs.at(idx.x).y;
 			tri.v1 = uvs.at(idx.y).y;
 			tri.v2 = uvs.at(idx.z).y;
-		}
-		else
-		{
-			tri.u0 = 0.0f;
-			tri.u1 = 0.0f;
-			tri.u2 = 0.0f;
-
-			tri.v0 = 0.0f;
-			tri.v1 = 0.0f;
-			tri.v2 = 0.0f;
 		}
 
 		tri.material = materialIdx;

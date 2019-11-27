@@ -206,7 +206,7 @@ class AssimpObject : public SceneTriangles
 	void setAnimation(uint index) override;
 	uint getMaterialForPrim(uint primitiveIdx) const override;
 
-	std::vector<uint> getLightIndices(const std::vector<bool> &matLightFlags) const override;
+	[[nodiscard]] std::vector<uint> getLightIndices(const std::vector<bool> &matLightFlags) const override;
 
   private:
 	std::vector<size_t> m_NodesWithMeshes;

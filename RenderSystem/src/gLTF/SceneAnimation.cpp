@@ -22,7 +22,7 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 	auto bufferView = gltfModel.bufferViews[inputAccessor.bufferView];
 	auto buffer = gltfModel.buffers[bufferView.buffer];
 
-	const float *a = (const float *)(buffer.data.data() + bufferView.byteOffset + inputAccessor.byteOffset);
+	const auto *a = (const float *)(buffer.data.data() + bufferView.byteOffset + inputAccessor.byteOffset);
 
 	size_t count = inputAccessor.count;
 	for (int i = 0; i < count; i++)
@@ -33,7 +33,7 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 	bufferView = gltfModel.bufferViews[outputAccessor.bufferView];
 	buffer = gltfModel.buffers[bufferView.buffer];
 
-	const unsigned char *b = (const unsigned char *)(buffer.data.data() + bufferView.byteOffset + outputAccessor.byteOffset);
+	const auto *b = (const unsigned char *)(buffer.data.data() + bufferView.byteOffset + outputAccessor.byteOffset);
 	if (outputAccessor.type == TINYGLTF_TYPE_VEC3)
 	{
 		// b is an array of floats (for scale or translation)
@@ -103,7 +103,7 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 			break;
 		}
 		for (int i = 0; i < outputAccessor.count; i++)
-			sampler.quat_key.push_back(quat(fdata[i * 4 + 3], fdata[i * 4], fdata[i * 4 + 1], fdata[i * 4 + 2]));
+			sampler.quat_key.emplace_back(fdata[i * 4 + 3], fdata[i * 4], fdata[i * 4 + 1], fdata[i * 4 + 2]);
 	}
 	else
 	{

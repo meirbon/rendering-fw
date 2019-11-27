@@ -8,6 +8,7 @@ in vec3 N;
 in vec2 UV;
 
 uniform vec3 ambient;
+uniform vec3 forward;
 
 // Material
 uniform vec4 color_flags;
@@ -57,7 +58,7 @@ struct SpotLight
 {
     vec4 position_cos_inner;
     vec4 radiance_cos_outer;
-    vec3 direction;
+    vec4 direction_energy;
 };
 
 struct DirectionalLight
@@ -94,6 +95,11 @@ vec3 tangentToWorld(vec3 s, vec3 N, vec3 T, vec3 B)
 vec3 worldToTangent(vec3 s, vec3 N, vec3 T, vec3 B)
 {
     return T * s.x + B * s.y + N * s.z;
+}
+
+float evalLighting(vec3 N, vec3 T, vec3 B, vec3 wo, vec3 wi)
+{
+    return abs(dot(wi, N));
 }
 
 void main()
@@ -147,14 +153,62 @@ void main()
 
         for (int i = 0; i < AREA_LIGHT_COUNT; i++)
         {
-            vec3 L = areaLights[i].position_area.xyz - WPos.xyz;
+            AreaLight light = areaLights[i];
+            vec3 L = light.position_area.xyz - WPos.xyz;
             float dist2 = dot(L, L);
             L /= sqrt(dist2);
-            float NdotL = max(dot(normal, L), 0);
-            float LNdotL = max(-dot(areaLights[i].normal, L), 0);
+            float NdotL = dot(normal, L);
+            float LNdotL = -dot(light.normal, L);
             if (NdotL > 0 && LNdotL > 0)
             {
-                finalColor += color * areaLights[i].radiance * NdotL * areaLights[i].position_area.w * (1.0f / dist2);
+                float pdf = evalLighting(normal, T, B, forward, L);
+                finalColor += color * light.radiance * NdotL * light.position_area.w * (1.0f / dist2);
+            }
+        }
+
+        for (int i = 0; i < POINT_LIGHT_COUNT; i++)
+        {
+            PointLight light = pointLights[i];
+
+            vec3 L = light.position_energy.xyz - WPos.xyz;
+            float dist2 = dot(L, L);
+            L /= sqrt(dist2);
+            float NdotL = dot(normal, L);
+            if (NdotL > 0)
+            {
+                float pdf = evalLighting(normal, T, B, forward, L);
+                finalColor += color * light.radiance * light.position_energy.w * NdotL * (1.0f / dist2);
+            }
+        }
+
+        for (int i = 0; i < SPOT_LIGHT_COUNT; i++)
+        {
+            SpotLight light = spotLights[i];
+            vec4 P = light.position_cos_inner;
+            vec4 E = light.radiance_cos_outer;
+            vec4 D = light.direction_energy;
+            vec3 pos = P.xyz;
+            vec3 L = WPos.xyz - P.xyz;
+            float dist2 = dot(L, L);
+            L = normalize(L);
+            float d = max(0.0f, dot(L, D.xyz) - E.w) / (P.w - E.w);
+            float NdotL = -dot(normal, L);
+            float LNdotL = min(1.0f, d);
+            if (NdotL > 0 && LNdotL > 0)
+            {
+                float pdf = evalLighting(normal, T, B, forward, L);
+                finalColor += color * spotLights[i].radiance_cos_outer.xyz * D.w * NdotL * LNdotL * (1.0f / dist2);
+            }
+        }
+
+        for (int i = 0; i < DIR_LIGHT_COUNT; i++)
+        {
+            DirectionalLight light = dirLights[i];
+            float NdotL = -dot(light.direction_energy.xyz, N);
+            if (NdotL > 0)
+            {
+                float pdf = evalLighting(normal, T, B, forward, -light.direction_energy.xyz);
+                finalColor += color * light.radiance * light.direction_energy.w * NdotL;
             }
         }
     }

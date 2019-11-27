@@ -16,9 +16,9 @@
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 1
-#define PICA 0
-#define PICA_LIGHTS 0
-#define SPONZA 1
+#define PICA 1
+#define PICA_LIGHTS 1
+#define SPONZA 0
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
 
@@ -117,7 +117,8 @@ int main(int argc, char *argv[])
 
 #if PICA
 	auto cesiumMan =
-		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(2))), vec3(1), vec3(8, 5, 0), 90.0f, vec3(1, 0, 0));
+		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false,
+			glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0, 3), 90.0f, vec3(1, 0, 0));
 	//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
 	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
@@ -129,11 +130,11 @@ int main(int argc, char *argv[])
 	staticInstanceRef.update();
 
 	auto lightMaterial = rs.addMaterial(vec3(10), 1);
-	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(-10, 25, 4), 10.0f, 10.0f, lightMaterial);
+	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(-10, 25, 4), 8.0f, 8.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
-	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), 1.0f, vec3(1000));
-	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(1000), cos(radians(45.0f)), 1.0f, vec3(0, -1, 0));
+	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), 10.0f, vec3(10));
+	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), 20.0f, vec3(0, -1, 0));
 	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), 1.0f, vec3(1));
 #endif
 #endif

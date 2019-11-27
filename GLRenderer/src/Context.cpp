@@ -106,6 +106,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	m_SimpleShader->setUniform("CamMatrix", matrix);
 	m_SimpleShader->setUniform("CamMatrix3x3", matrix3x3);
 	m_SimpleShader->setUniform("ambient", m_Ambient);
+	m_SimpleShader->setUniform("forward", -camera.direction);
 
 	for (int i = 0; i < m_Textures.size(); i++)
 	{
@@ -315,8 +316,8 @@ void Context::setLights(utils::GLShader *shader)
 		shader->setUniform(buffer, vec4(l.position, l.cosInner));
 		sprintf(buffer, "spotLights[%i].radiance_cos_outer", i);
 		shader->setUniform(buffer, vec4(l.radiance, l.cosOuter));
-		sprintf(buffer, "spotLights[%i].direction", i);
-		shader->setUniform(buffer, l.direction);
+		sprintf(buffer, "spotLights[%i].direction_energy", i);
+		shader->setUniform(buffer, vec4(l.direction, l.energy));
 	}
 
 	for (int i = 0, s = static_cast<int>(m_DirectionalLights.size()); i < s; i++)

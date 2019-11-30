@@ -115,14 +115,15 @@ int main(int argc, char *argv[])
 	auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
-#if PICA
+	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), 1.0f, vec3(1));
 	auto cesiumMan =
-		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false,
-			glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0, 3), 90.0f, vec3(1, 0, 0));
+		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0, 3), 90.0f, vec3(1, 0, 0));
+
 	//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
-	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
-	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
+//	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
+//	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
+#if PICA
 
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);
@@ -135,7 +136,7 @@ int main(int argc, char *argv[])
 #if PICA_LIGHTS
 	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), 10.0f, vec3(10));
 	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), 20.0f, vec3(0, -1, 0));
-	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), 1.0f, vec3(1));
+
 #endif
 #endif
 
@@ -360,27 +361,33 @@ int main(int argc, char *argv[])
 
 		ImGui::Text("Distance %f", distance);
 		ImGui::Text("Instance %zu", instanceIdx);
-		auto instanceObject = rs.getInstanceReference(instanceIdx);
+		try
+		{
+			auto instanceObject = rs.getInstanceReference(instanceIdx);
 
-		auto instanceTranslation = instanceObject.getTranslation();
-		auto instanceScaling = instanceObject.getScaling();
-		auto instanceRotation = glm::eulerAngles(instanceObject.getRotation());
+			auto instanceTranslation = instanceObject.getTranslation();
+			auto instanceScaling = instanceObject.getScaling();
+			auto instanceRotation = glm::eulerAngles(instanceObject.getRotation());
 
-		ImGui::Text("Instance");
-		if (ImGui::DragFloat3("Translation", value_ptr(instanceTranslation), 0.1f, -1e20f, 1e20f))
-		{
-			instanceObject.setTranslation(instanceTranslation);
-			instanceObject.update();
+			ImGui::Text("Instance");
+			if (ImGui::DragFloat3("Translation", value_ptr(instanceTranslation), 0.1f, -1e20f, 1e20f))
+			{
+				instanceObject.setTranslation(instanceTranslation);
+				instanceObject.update();
+			}
+			if (ImGui::DragFloat3("Scaling", value_ptr(instanceScaling), 0.1f, -1e20f, 1e20f))
+			{
+				instanceObject.setScaling(instanceScaling);
+				instanceObject.update();
+			}
+			if (ImGui::DragFloat3("Rotation", value_ptr(instanceRotation), 0.01f, -1e20f, 1e20f))
+			{
+				instanceObject.setRotation(glm::quat(instanceRotation));
+				instanceObject.update();
+			}
 		}
-		if (ImGui::DragFloat3("Scaling", value_ptr(instanceScaling), 0.1f, -1e20f, 1e20f))
+		catch (const std::exception &e)
 		{
-			instanceObject.setScaling(instanceScaling);
-			instanceObject.update();
-		}
-		if (ImGui::DragFloat3("Rotation", value_ptr(instanceRotation), 0.01f, -1e20f, 1e20f))
-		{
-			instanceObject.setRotation(glm::quat(instanceRotation));
-			instanceObject.update();
 		}
 
 		ImGui::EndGroup();

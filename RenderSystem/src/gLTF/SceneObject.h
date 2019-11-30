@@ -25,6 +25,7 @@ class SceneObject
 	std::vector<glm::vec4> vertices;
 	std::vector<glm::vec3> normals;
 	std::vector<glm::uvec3> indices;
+	std::vector<glm::vec2> texCoords;
 
 	std::vector<rfw::Triangle> triangles;
 	std::vector<uint> materialIndices;

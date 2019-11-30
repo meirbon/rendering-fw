@@ -33,7 +33,7 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 
 	if (indices.empty())
 	{
-		for (uint i = offset; i < last; i++)
+		for (int i = static_cast<int>(offset), s = static_cast<int>(last); i < s; i++)
 		{
 			const auto idx = i * 3;
 			Triangle &tri = triangles.at(i);
@@ -66,7 +66,7 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 	}
 	else
 	{
-		for (uint i = offset; i < last; i++)
+		for (int i = static_cast<int>(offset), s = static_cast<int>(last); i < s; i++)
 		{
 			const auto index = indices.at(i);
 			Triangle &tri = triangles.at(i);

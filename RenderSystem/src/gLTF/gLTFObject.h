@@ -21,8 +21,7 @@ namespace rfw
 class gLTFObject : public SceneTriangles
 {
   public:
-	explicit gLTFObject(std::string_view filename, MaterialList *matList, uint ID,
-						const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
+	explicit gLTFObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
 	~gLTFObject() = default;
 
 	void transformTo(float timeInSeconds = 0.0f) override;
@@ -43,14 +42,7 @@ class gLTFObject : public SceneTriangles
 
 	SceneObject scene;
 
-	std::vector<glm::vec2> texCoords;
-
   private:
-	void addPrimitive(rfw::SceneMesh &mesh, const std::vector<int> &indices, const std::vector<glm::vec3> &vertices,
-					  const std::vector<glm::vec3> &normals, const std::vector<glm::vec2> &uvs,
-					  const std::vector<rfw::SceneMesh::Pose> &poses, const std::vector<glm::uvec4> &joints,
-					  const std::vector<glm::vec4> &weights, int materialIdx);
-
 	unsigned int m_BaseMaterialIdx;
 	int m_ID = -1;
 	bool m_IsAnimated = false, m_HasUpdated = false;

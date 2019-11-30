@@ -8,16 +8,35 @@
 
 namespace rfw
 {
+struct TmpPrim
+{
+	std::vector<int> indices;
+	std::vector<glm::vec3> normals, vertices;
+	std::vector<glm::vec2> uvs;
+	std::vector<glm::uvec4> joints;
+	std::vector<glm::vec4> weights;
+	std::vector<rfw::SceneMesh::Pose> poses;
+	int matID;
+};
+
 class SceneObject;
 struct SceneNode
 {
-	SceneNode(SceneObject *obj, std::string name, rfw::utils::ArrayProxy<int> children);
+	struct Transform
+	{
+		glm::vec3 translation = vec3(0);
+		glm::quat rotation = glm::identity<glm::quat>();
+		glm::vec3 scale = vec3(1);
+	};
+
+	SceneNode(SceneObject *obj, std::string name, rfw::utils::ArrayProxy<int> children, rfw::utils::ArrayProxy<int> meshIDs,
+			  rfw::utils::ArrayProxy<int> skinIDs, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform);
 
 	bool update(glm::mat4 accumulatedTransform);
 	void calculateTransform();
 
 	glm::mat4 combinedTransform = glm::mat4(1.0f); // Combined transform of parent nodes
-	glm::mat4 localTransform = glm::mat4(1.0f);	// T * R * S
+	glm::mat4 localTransform = glm::mat4(1.0f);	   // T * R * S
 
 	const std::string name = "";
 

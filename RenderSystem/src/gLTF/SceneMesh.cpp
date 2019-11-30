@@ -5,161 +5,43 @@
 
 #include "MeshSkin.h"
 
+#define ALLOW_INDEXED_DATA 0
+
 using namespace glm;
 
 void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 {
 	using namespace glm;
 
-	const __m128 normalFix = _mm_set_ps(0.0f, -1.0f, -1.0f, 1.0f);
+	auto vertices = getVertices();
+	const auto baseVertices = getBaseVertices();
+	auto normals = getNormals();
+	const auto baseNormals = getBaseNormals();
 
-#if 0
-	for (uint i = 0; i < vertexCount; i++)
+	for (int i = 0, s = static_cast<int>(vertexCount); i < s; i++)
 	{
-		const auto idx = i + vertexOffset;
-
 		const uvec4 &j4 = joints.at(i);
 		const vec4 &w4 = weights.at(i);
 
-		mat4 skinMatrix =
-			w4.x * skin.jointMatrices.at(j4.x) + w4.y * skin.jointMatrices.at(j4.y) + w4.z * skin.jointMatrices.at(j4.z) + w4.w * skin.jointMatrices.at(j4.w);
+		const mat4 mx = skin.jointMatrices.at(j4.x) * w4.x;
+		const mat4 my = skin.jointMatrices.at(j4.y) * w4.y;
+		const mat4 mz = skin.jointMatrices.at(j4.z) * w4.z;
+		const mat4 mw = skin.jointMatrices.at(j4.w) * w4.w;
 
-		vec4 vertex = vec4(0);
-		vertex.x = dot(glm::make_vec4(value_ptr(skinMatrix)), object->baseVertices.at(idx));
-		vertex.y = dot(glm::make_vec4(value_ptr(skinMatrix) + 4), object->baseVertices.at(idx));
-		vertex.z = dot(glm::make_vec4(value_ptr(skinMatrix) + 8), object->baseVertices.at(idx));
-		vertex.w = dot(glm::make_vec4(value_ptr(skinMatrix) + 12), object->baseVertices.at(idx));
-		object->vertices.at(idx) = vertex;
+		const mat4 skinMatrix = mx + my + mz + mw;
 
-		vec3 normal = vec3(0);
-		normal.x = dot(glm::make_vec3(value_ptr(skinMatrix) + 0), object->baseNormals.at(idx));
-		normal.y = -dot(glm::make_vec3(value_ptr(skinMatrix) + 4), object->baseNormals.at(idx));
-		normal.z = -dot(glm::make_vec3(value_ptr(skinMatrix) + 8), object->baseNormals.at(idx));
-		object->normals.at(idx) = normal;
+		vertices[i] = skinMatrix * baseVertices[i];
+		normals[i] = skinMatrix * vec4(baseNormals[i], 0);
 	}
 
-	object->updateTriangles(vertexOffset / 3, vertexCount / 3);
-#else
-	// https://github.com/jbikker/lighthouse2/blob/master/lib/RenderSystem/host_mesh.cpp
-	for (uint s = faceCount, t = 0; t < s; t++)
-	{
-		__m128 tri_vtx[3], tri_nrm[3];
-		// adjust vertices of triangle
-		for (int t_v = 0; t_v < 3; t_v++)
-		{
-			// vertex index
-			int v = t * 3 + t_v + (vertexOffset / 3);
-			// calculate weighted skin matrix
-			// skinM = w4.x * skin->jointMat[j4.x]
-			//       + w4.y * skin->jointMat[j4.y]
-			//       + w4.z * skin->jointMat[j4.z]
-			//       + w4.w * skin->jointMat[j4.w];
-
-			// the 4 joint indices
-			uvec4 j4 = joints[v];
-			// the 4 weights of each joint
-
-			__m128 w4 = _mm_load_ps((const float *)&weights[v]);
-
-			// create scalars for matrix scaling, use same shuffle value to help with uOP cache
-			__m256 w4x = _mm256_broadcastss_ps(w4); // w4.x component shuffled to all elements
-			w4 = _mm_shuffle_ps(w4, w4, 0b111001);
-			__m256 w4y = _mm256_broadcastss_ps(w4); // w4.y component shuffled to all elements
-			w4 = _mm_shuffle_ps(w4, w4, 0b111001);
-			__m256 w4z = _mm256_broadcastss_ps(w4); // w4.z component shuffled to all elements
-			w4 = _mm_shuffle_ps(w4, w4, 0b111001);
-			__m256 w4w = _mm256_broadcastss_ps(w4); // w4.w component shuffled to all elements
-
-			// top half of weighted skin matrix
-			__m256 skinM_T = _mm256_mul_ps(w4x, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.x])));
-			skinM_T = _mm256_fmadd_ps(w4y, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.y])), skinM_T);
-			skinM_T = _mm256_fmadd_ps(w4z, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.z])), skinM_T);
-			skinM_T = _mm256_fmadd_ps(w4w, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.w])), skinM_T);
-
-			// bottom half of weighted skin matrix
-			__m256 skinM_L = _mm256_mul_ps(w4x, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.x]) + 8));
-			skinM_L = _mm256_fmadd_ps(w4y, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.y]) + 8), skinM_L);
-			skinM_L = _mm256_fmadd_ps(w4z, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.z]) + 8), skinM_L);
-			skinM_L = _mm256_fmadd_ps(w4w, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.w]) + 8), skinM_L);
-
-			// double each row so we can do two matrix multiplication at once
-			__m256 skinM0 = _mm256_permute2f128_ps(skinM_T, skinM_T, 0x00);
-			__m256 skinM1 = _mm256_permute2f128_ps(skinM_T, skinM_T, 0x11);
-			__m256 skinM2 = _mm256_permute2f128_ps(skinM_L, skinM_L, 0x00);
-			__m256 skinM3 = _mm256_permute2f128_ps(skinM_L, skinM_L, 0x11);
-
-			// load vertices and normal
-			__m128 vtxOrig = _mm_load_ps(&object->baseVertices[v].x);
-			__m128 normOrig = _mm_maskload_ps(&object->baseNormals[v].x, _mm_set_epi32(0, ~0, ~0, ~0));
-
-			// combine vectors to use AVX2 instead of SSE
-			__m256 combined = _mm256_set_m128(normOrig, vtxOrig);
-
-			// multiply vertex with skin matrix, multiply normal with skin matrix
-			// using HADD and MUL is faster than OR and DP
-			combined = _mm256_hadd_ps(_mm256_hadd_ps(_mm256_mul_ps(combined, skinM0), _mm256_mul_ps(combined, skinM1)),
-									  _mm256_hadd_ps(_mm256_mul_ps(combined, skinM2), _mm256_mul_ps(combined, skinM3)));
-			// extract vertex and normal from combined vector
-			__m128 vtx = _mm256_castps256_ps128(combined);
-			__m128 norm = _mm256_extractf128_ps(combined, 1);
-
-			// normalize normal
-			norm = _mm_mul_ps(_mm_mul_ps(norm, normalFix), _mm_rsqrt_ps(_mm_dp_ps(norm, norm, 0x77)));
-
-			// store for reuse
-			tri_vtx[t_v] = vtx;
-			_mm_store_ps(&object->vertices[v].x, vtx);
-			tri_nrm[t_v] = norm;
-			_mm_maskstore_ps(&object->normals[v].x, _mm_set_epi32(0, -1, -1, -1), norm);
-		}
-
-		// get vectors to calculate triangle normal
-		__m128 N_a = _mm_sub_ps(tri_vtx[1], tri_vtx[0]);
-		__m128 N_b = _mm_sub_ps(tri_vtx[2], tri_vtx[0]);
-		// cross product with four shuffles
-		// |a.x|   |b.x|   | a.y * b.z - a.z * b.y |
-		// |a.y| X |b.y| = | a.z * b.x - a.x * b.z |
-		// |a.z|   |b.z|   | a.x * b.y - a.y * b.x |
-
-		// Can be be done with three shuffles...
-		// |a.y|   |b.y|   | a.z * b.x - a.x * b.z |
-		// |a.z| X |b.z| = | a.x * b.y - a.y * b.x |
-		// |a.x|   |b.x|   | a.y * b.z - a.z * b.y |
-		// shuffle(..., 0b010010) = [x, y, z] -> [z, x, y] or [y, z, x] -> [x, y, z]
-		__m128 N = _mm_fmsub_ps(N_b, _mm_shuffle_ps(N_a, N_a, 0b010010), _mm_mul_ps(N_a, _mm_shuffle_ps(N_b, N_b, 0b010010)));
-		// reshuffle to get final result
-		N = _mm_shuffle_ps(N, N, 0b010010);
-		// normalize cross product
-		N = _mm_mul_ps(N, _mm_rsqrt_ps(_mm_dp_ps(N, N, 0x77)));
-		// insert into Wth element of tri_nrm (xyzw)
-		// 0bxx______ -> element to copy from
-		// 0b__xx____ -> element to copy to
-		// 0b____0000 -> don't set any values to zero
-		tri_nrm[0] = _mm_insert_ps(tri_nrm[0], N, 0b00110000);
-		tri_nrm[1] = _mm_insert_ps(tri_nrm[1], N, 0b01110000);
-		tri_nrm[2] = _mm_insert_ps(tri_nrm[2], N, 0b10110000);
-
-		const auto to = t + (vertexOffset / 3);
-
-		// we use stores, because we can write multiple times to L1
-		_mm_store_ps(&object->triangles[to].vertex0.x, tri_vtx[0]);
-		_mm_store_ps(&object->triangles[to].vertex1.x, tri_vtx[1]);
-		_mm_store_ps(&object->triangles[to].vertex2.x, tri_vtx[2]);
-		// store to [vN0 (float3), Nx (float)]
-		_mm_store_ps(&object->triangles[to].vN0.x, tri_nrm[0]);
-		// store to [vN1 (float3), Ny (float)]
-		_mm_store_ps(&object->triangles[to].vN1.x, tri_nrm[1]);
-		// store to [vN1 (float3), Nz (float)]
-		_mm_store_ps(&object->triangles[to].vN2.x, tri_nrm[2]);
-	}
-#endif
+	object->updateTriangles(faceOffset, faceOffset + faceCount);
 	object->dirty = true;
 }
 
-void rfw::SceneMesh::setPose(const std::vector<float> &weights)
+void rfw::SceneMesh::setPose(const std::vector<float> &wghts)
 {
-	assert(weights.size() == poses.size() - 1);
-	const auto weightCount = weights.size();
+	assert(wghts.size() == poses.size() - 1);
+	const auto weightCount = wghts.size();
 
 	for (int s = static_cast<int>(vertexCount), i = 0; i < s; i++)
 	{
@@ -171,8 +53,8 @@ void rfw::SceneMesh::setPose(const std::vector<float> &weights)
 		{
 			const auto &pose = poses.at(j);
 
-			object->vertices.at(idx) += weights.at(j - 1) * vec4(pose.positions.at(i), 0);
-			object->normals.at(idx) += weights.at(j - 1) * pose.normals.at(i);
+			object->vertices.at(idx) += wghts.at(j - 1) * vec4(pose.positions.at(i), 0);
+			object->normals.at(idx) += wghts.at(j - 1) * pose.normals.at(i);
 		}
 
 		object->normals.at(idx).y *= -1.0f;
@@ -185,37 +67,269 @@ void rfw::SceneMesh::setPose(const std::vector<float> &weights)
 
 void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 {
-	vec4 *baseVertex = &object->vertices.at(vertexOffset);
-	vec3 *baseNormal = &object->normals.at(vertexOffset);
-
 	const auto matrix3x3 = mat3(transform);
 
-	for (int i = 0, idx = vertexOffset; i < vertexCount; i++, idx++)
+	auto vertices = getVertices();
+	const auto baseVertices = getBaseVertices();
+	auto normals = getNormals();
+	const auto baseNormals = getBaseNormals();
+
+	for (int i = 0; i < vertexCount; i++)
 	{
-		baseVertex[i] = transform * object->baseVertices.at(idx);
-		// TODO
-		baseNormal[i] = object->baseNormals.at(idx);
+		vertices[i] = transform * baseVertices[i];
+		normals[i] = matrix3x3 * baseNormals[i];
 	}
 
-	const auto offset = vertexOffset / 3;
-	for (uint s = (vertexCount / 3), i = 0, triIdx = offset; i < s; i++, triIdx++)
+	if (flags & HAS_INDICES)
 	{
-		const auto idx = i * 3;
-		auto &tri = object->triangles.at(triIdx);
-		tri.vertex0 = vec3(baseVertex[idx + 0]);
-		tri.vertex1 = vec3(baseVertex[idx + 1]);
-		tri.vertex2 = vec3(baseVertex[idx + 2]);
+		const auto offset = vertexOffset / 3;
+		for (uint s = (vertexCount / 3), i = 0, triIdx = offset; i < s; i++, triIdx++)
+		{
+			const auto idx = i * 3;
+			auto &tri = object->triangles.at(triIdx);
+			tri.vertex0 = vec3(vertices[idx + 0]);
+			tri.vertex1 = vec3(vertices[idx + 1]);
+			tri.vertex2 = vec3(vertices[idx + 2]);
 
-		const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 
-		tri.vN0 = baseNormal[idx + 0];
-		tri.vN1 = baseNormal[idx + 1];
-		tri.vN2 = baseNormal[idx + 2];
+			tri.vN0 = normals[idx + 0];
+			tri.vN1 = normals[idx + 1];
+			tri.vN2 = normals[idx + 2];
 
-		tri.Nx = N.x;
-		tri.Ny = N.y;
-		tri.Nz = N.z;
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+		}
+	}
+	else
+	{
+		for (int i = 0; i < faceCount; i++)
+		{
+			const auto idx = i + faceOffset;
+
+			const auto indices = object->indices.at(idx) + vertexOffset;
+			auto &tri = object->triangles.at(idx);
+
+			tri.vertex0 = vec3(vertices[indices.x]);
+			tri.vertex1 = vec3(vertices[indices.y]);
+			tri.vertex2 = vec3(vertices[indices.z]);
+
+			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+
+			tri.vN0 = normals[indices.x];
+			tri.vN1 = normals[indices.y];
+			tri.vN2 = normals[indices.z];
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+		}
 	}
 
 	object->dirty = true;
 }
+
+vec4 *rfw::SceneMesh::getVertices() { return &object->vertices.at(vertexOffset); }
+const vec4 *rfw::SceneMesh::getVertices() const { return &object->vertices.at(vertexOffset); }
+
+vec4 *rfw::SceneMesh::getBaseVertices() { return &object->baseVertices.at(vertexOffset); }
+const vec4 *rfw::SceneMesh::getBaseVertices() const { return &object->baseVertices.at(vertexOffset); }
+
+glm::vec3 *rfw::SceneMesh::getNormals() { return &object->normals.at(vertexOffset); }
+const glm::vec3 *rfw::SceneMesh::getNormals() const { return &object->normals.at(vertexOffset); }
+
+glm::vec3 *rfw::SceneMesh::getBaseNormals() { return &object->baseNormals.at(vertexOffset); }
+const glm::vec3 *rfw::SceneMesh::getBaseNormals() const { return &object->baseNormals.at(vertexOffset); }
+
+void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vector<glm::vec3> &verts, const std::vector<glm::vec3> &nrmls,
+								  const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &pses, const std::vector<glm::uvec4> &jnts,
+								  const std::vector<glm::vec4> &wghts, const int materialIdx)
+{
+	std::vector<int> indices = indces;
+
+	if (flags | INITIAL_PRIM)
+	{
+		flags &= ~INITIAL_PRIM;
+		if (!indices.empty()) // This mesh will be indexed
+		{
+			flags |= HAS_INDICES;
+			faceOffset = object->indices.size();
+		}
+
+		vertexOffset = object->baseVertices.size();
+	}
+
+	vertexCount += verts.size();
+
+	if (flags & HAS_INDICES)
+	{
+		if (indices.empty()) // Generate indices if current mesh already consists of indexed data
+		{
+			for (int i = 0; i < verts.size(); i++)
+				indices.push_back(i);
+		}
+
+		faceCount += indices.size() / 3;
+		object->materialIndices.resize(object->materialIndices.size() + (indices.size() / 3));
+		object->triangles.resize(object->triangles.size() + (indices.size() / 3));
+		object->indices.reserve(object->indices.size() + (indices.size() / 3));
+
+		object->baseVertices.reserve(object->baseVertices.size() + indices.size());
+		object->baseNormals.reserve(object->baseNormals.size() + indices.size());
+		object->texCoords.reserve(object->texCoords.size() + indices.size());
+
+		for (int i = 0; i < indices.size(); i += 3)
+			object->indices.emplace_back(indices[i], indices[i + 1], indices[i + 2]);
+	}
+	else
+	{
+		faceCount += verts.size() / 3;
+		object->materialIndices.resize(object->materialIndices.size() + (verts.size() / 3));
+		object->triangles.resize(object->triangles.size() + (verts.size() / 3));
+
+		object->baseVertices.reserve(object->baseVertices.size() + verts.size());
+		object->baseNormals.reserve(object->baseNormals.size() + verts.size());
+		object->texCoords.reserve(object->texCoords.size() + verts.size());
+	}
+
+	poses.resize(pses.size());
+	for (size_t i = 0; i < poses.size(); i++)
+	{
+		const auto &origPose = pses.at(i);
+		auto &pose = poses.at(i);
+
+		pose.positions = origPose.positions;
+		pose.normals = origPose.normals;
+	}
+
+	if (!jnts.empty())
+	{
+		assert(!wghts.empty());
+		assert(jnts.size() == wghts.size());
+
+		if (flags & HAS_INDICES)
+		{
+			joints.reserve(indices.size());
+			weights.reserve(indices.size());
+
+			for (size_t s = indices.size(), i = 0; i < s; i++)
+			{
+				const auto idx = indices.at(i);
+
+				joints.push_back(jnts.at(idx));
+				weights.push_back(wghts.at(idx));
+			}
+		}
+		else
+		{
+			joints.reserve(verts.size());
+			weights.reserve(verts.size());
+
+			for (size_t s = verts.size(), i = 0; i < s; i++)
+			{
+				joints.push_back(jnts.at(i));
+				weights.push_back(wghts.at(i));
+			}
+		}
+	}
+
+	for (int i = 0, s = static_cast<int>(verts.size()); i < s; i++)
+	{
+		object->baseVertices.emplace_back(verts.at(i), 1);
+		object->baseNormals.push_back(nrmls.at(i));
+		if (!uvs.empty())
+			object->texCoords.push_back(uvs.at(i));
+		else
+			object->texCoords.emplace_back(0.0f);
+	}
+
+	if (flags & HAS_INDICES)
+	{
+		// Add per-face data
+		for (size_t s = indices.size() / 3, triIdx = faceOffset, i = 0; i < s; i++, triIdx++)
+		{
+			const auto idx = object->indices.at(i + faceOffset);
+			auto &tri = object->triangles.at(triIdx);
+			object->materialIndices.at(triIdx) = materialIdx;
+
+			const auto v0 = verts.at(idx.x);
+			const auto v1 = verts.at(idx.y);
+			const auto v2 = verts.at(idx.z);
+
+			const auto &n0 = nrmls.at(idx.x);
+			const auto &n1 = nrmls.at(idx.y);
+			const auto &n2 = nrmls.at(idx.z);
+
+			const vec3 N = normalize(cross(v1 - v0, v2 - v0));
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.vertex0 = v0;
+			tri.vertex1 = v1;
+			tri.vertex2 = v2;
+
+			tri.vN0 = n0;
+			tri.vN1 = n1;
+			tri.vN2 = n2;
+
+			if (!uvs.empty())
+			{
+				tri.u0 = uvs.at(idx.x).x;
+				tri.u1 = uvs.at(idx.y).x;
+				tri.u2 = uvs.at(idx.z).x;
+
+				tri.v0 = uvs.at(idx.x).y;
+				tri.v1 = uvs.at(idx.y).y;
+				tri.v2 = uvs.at(idx.z).y;
+			}
+
+			tri.material = materialIdx;
+		}
+	}
+	else
+	{
+		for (int i = 0, s = static_cast<int>(verts.size()) / 3; i < s; i++)
+		{
+			const auto triIdx = i + faceOffset;
+			auto &tri = object->triangles.at(triIdx);
+			object->materialIndices.at(triIdx) = materialIdx;
+
+			const auto v0 = verts.at(i * 3 + 0);
+			const auto v1 = verts.at(i * 3 + 1);
+			const auto v2 = verts.at(i * 3 + 2);
+
+			const auto &n0 = nrmls.at(i * 3 + 0);
+			const auto &n1 = nrmls.at(i * 3 + 1);
+			const auto &n2 = nrmls.at(i * 3 + 2);
+
+			const vec3 N = normalize(cross(v1 - v0, v2 - v0));
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.vertex0 = v0;
+			tri.vertex1 = v1;
+			tri.vertex2 = v2;
+
+			tri.vN0 = n0;
+			tri.vN1 = n1;
+			tri.vN2 = n2;
+
+			if (!uvs.empty())
+			{
+				tri.u0 = uvs.at(i * 3 + 0).x;
+				tri.u1 = uvs.at(i * 3 + 1).x;
+				tri.u2 = uvs.at(i * 3 + 2).x;
+
+				tri.v0 = uvs.at(i * 3 + 0).y;
+				tri.v1 = uvs.at(i * 3 + 1).y;
+				tri.v2 = uvs.at(i * 3 + 2).y;
+			}
+
+			tri.material = materialIdx;
+		}
+	}
+}
+rfw::SceneMesh::SceneMesh() { flags |= INITIAL_PRIM; }

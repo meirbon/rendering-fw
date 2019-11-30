@@ -43,6 +43,8 @@ template <typename T> class ArrayProxy
 
 	const T &at(size_t index) const { return m_Data[index]; }
 
+	bool has(size_t index) const { return m_Size > index; }
+
 	const T *begin() const { return m_Data; }
 
 	const T *end() const { return m_Data + m_Size; }

@@ -1,17 +1,50 @@
 #include "SceneNode.h"
 
+#include <utility>
+
 #include "SceneObject.h"
 #include "MeshSkin.h"
 
-rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c) : object(obj), name(n)
+rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c, rfw::utils::ArrayProxy<int> meshIds,
+						  rfw::utils::ArrayProxy<int> skinIds, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform)
+	: object(obj), name(std::move(n))
 {
 	childIndices.resize(c.size());
 	memcpy(childIndices.data(), c.data(), c.size() * sizeof(int));
 
-	translation = vec3(0);
-	rotation = glm::identity<glm::quat>();
-	scale = vec3(1);
-	matrix = glm::identity<glm::mat4>();
+	translation = T.translation;
+	rotation = T.rotation;
+	scale = T.scale;
+	matrix = transform;
+
+	for (int i = 0; i < meshIds.size(); i++)
+	{
+		int meshID = meshIds[i];
+		if (meshID > -1)
+		{
+			const auto newIdx = object->meshes.size();
+			object->meshes.emplace_back();
+			auto &m = object->meshes.at(newIdx);
+			m.object = object;
+			for (const auto &prim : meshes.at(meshID))
+				m.addPrimitive(prim.indices, prim.vertices, prim.normals, prim.uvs, prim.poses, prim.joints, prim.weights, prim.matID);
+			meshIDs.push_back(newIdx);
+
+			if (skinIds.has(i))
+				skinIDs.push_back(skinIds[i]);
+			else
+				skinIDs.push_back(-1);
+		}
+	}
+
+	if (!meshIDs.empty())
+	{
+		const auto morphTargets = glm::max(object->meshes.at(meshIDs.at(0)).poses.size(), size_t(1)) - 1;
+		if (morphTargets > 0)
+			weights.resize(morphTargets, 0.0f);
+	}
+
+	calculateTransform();
 }
 
 bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
@@ -49,7 +82,7 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 					auto &jointNode = object->nodes.at(skin.joints.at(j));
 
 					// Create a row major matrix for SIMD accelerated scene updates
-					skin.jointMatrices.at(j) = glm::rowMajor4(combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j));
+					skin.jointMatrices.at(j) = combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j);
 				}
 
 				object->meshes.at(meshID).setPose(skin);

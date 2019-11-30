@@ -13,8 +13,7 @@ inline static float RoughnessToAlpha(float roughness)
 {
 	roughness = fmaxf(roughness, 1e-3f);
 	const float x = logf(roughness);
-	return fminf(1.0f,
-				 (1.62142f + 0.819955f * x + 0.1734f * x * x + 0.0171201f * x * x * x + 0.000640711f * x * x * x * x));
+	return fminf(1.0f, (1.62142f + 0.819955f * x + 0.1734f * x * x + 0.0171201f * x * x * x + 0.000640711f * x * x * x * x));
 }
 
 MaterialList::~MaterialList()
@@ -39,8 +38,8 @@ uint MaterialList::add(const aiMaterial *aiMat, const std::string_view &basedir)
 {
 	HostMaterial mat{};
 
-	aiColor3D ambient, diffuse, specular, emissive, transparent;
-	float opacity, shininess, shininessStrength, eta, reflectivity;
+	aiColor3D ambient = {0, 0, 0}, diffuse = {0, 0, 0}, specular = {0, 0, 0}, emissive = {0, 0, 0}, transparent = {0, 0, 0};
+	float opacity = 0, shininess = 0, shininessStrength = 0, eta = 0, reflectivity = 0;
 
 	aiMat->Get(AI_MATKEY_COLOR_AMBIENT, ambient);
 	aiMat->Get(AI_MATKEY_COLOR_DIFFUSE, diffuse);
@@ -356,7 +355,7 @@ std::pair<Material, MaterialTexIds> HostMaterial::convertToDeviceMaterial(Materi
 				   (nm2 ? (1u << Has3rdNormalMap) : 0) +				 // has 3rd normal map
 				   (t1 ? (1u << Has2ndNormalMap) : 0) +					 // has 2nd diffuse map
 				   (t2 ? (1u << Has3rdDiffuseMap) : 0) +				 // has 3rd diffuse map
-				   ((flags & SMOOTH) ? (1u << HasSmoothNormals) : 0) +   // has smooth normals
+				   ((flags & SMOOTH) ? (1u << HasSmoothNormals) : 0) +	 // has smooth normals
 				   ((flags & HASALPHA) ? (1u << HasAlpha) : 0);			 // has alpha
 	// maps
 	if (t0) // texture layer 0

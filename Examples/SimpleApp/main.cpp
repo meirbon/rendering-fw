@@ -29,7 +29,8 @@ int main(int argc, char *argv[])
 
 	auto rs = RenderSystem();
 
-	auto camera = rfw::Camera::deserialize("camera.bin");
+	// auto camera = rfw::Camera::deserialize("camera.bin");
+	auto camera = rfw::Camera();
 
 	unsigned int mouseX, mouseY;
 
@@ -115,14 +116,14 @@ int main(int argc, char *argv[])
 	auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
-	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), 1.0f, vec3(1));
+	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), vec3(1));
 	auto cesiumMan =
 		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0, 3), 90.0f, vec3(1, 0, 0));
 
 	//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
-//	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
-//	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
+	//	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
+	//	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
 #if PICA
 
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
@@ -134,8 +135,8 @@ int main(int argc, char *argv[])
 	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(-10, 25, 4), 8.0f, 8.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
-	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), 10.0f, vec3(10));
-	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), 20.0f, vec3(0, -1, 0));
+	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), vec3(10));
+	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
 
 #endif
 #endif

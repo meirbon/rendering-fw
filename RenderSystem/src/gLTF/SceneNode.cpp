@@ -77,12 +77,16 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 			{
 				auto &skin = object->skins.at(skinIDs.at(i));
 
-				for (size_t s = skin.joints.size(), j = 0; j < s; j++)
+				for (int s = static_cast<int>(skin.jointNodes.size()), j = 0; j < s; j++)
 				{
-					auto &jointNode = object->nodes.at(skin.joints.at(j));
+					auto &jointNode = object->nodes.at(skin.jointNodes.at(j));
 
-					// Create a row major matrix for SIMD accelerated scene updates
+// Create a row major matrix for SIMD accelerated scene updates
+#if ROW_MAJOR_MESH_SKIN
+					skin.jointMatrices.at(j) = rowMajor4(combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j));
+#else
 					skin.jointMatrices.at(j) = combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j);
+#endif
 				}
 
 				object->meshes.at(meshID).setPose(skin);

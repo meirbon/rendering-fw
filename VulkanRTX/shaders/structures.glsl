@@ -88,12 +88,9 @@ struct DeviceTriangle
 
 struct ShadingData
 {
-	// This structure is filled for an intersection point. It will contain the spatially varying material properties.
 	vec4 color; // w: flags
 	vec4 absorption; // w: area
 	uvec4 parameters;
-	//float area;
-	//int lightTriIdx;
 	/* 16 uchars:   x: roughness, metallic, specTrans, specularTint;
 					y: diffTrans, anisotropic, sheen, sheenTint;
 					z: clearcoat, clearcoatGloss, scatterDistance, relativeIOR;

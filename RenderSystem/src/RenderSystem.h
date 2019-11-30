@@ -204,9 +204,9 @@ class RenderSystem
 	uint addMaterial(const glm::vec3 &color, float roughness = 1.0f);
 	void renderFrame(const Camera &camera, RenderStatus status = Converge);
 
-	LightReference addPointLight(const glm::vec3 &position, float energy, const glm::vec3 &radiance);
-	LightReference addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, float energy, const glm::vec3 &direction);
-	LightReference addDirectionalLight(const glm::vec3 &direction, float energy, const glm::vec3 &radiance);
+	LightReference addPointLight(const glm::vec3 &position, const glm::vec3 &radiance);
+	LightReference addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, const glm::vec3 &direction);
+	LightReference addDirectionalLight(const glm::vec3 &direction, const glm::vec3 &radiance);
 
 	LightReference getAreaLightReference(size_t index);
 	LightReference getPointLightReference(size_t index);

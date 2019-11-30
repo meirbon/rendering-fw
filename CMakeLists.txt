@@ -37,11 +37,11 @@ add_subdirectory(Examples/SimpleApp)
 
 add_dependencies(SimpleApp VkContext VulkanRTX GLRenderer)
 
-if (APPLE)
-	add_subdirectory(Examples/MetalApp)
-else (APPLE)
-	add_subdirectory(Examples/VulkanApp)
-endif (APPLE)
+#if (APPLE)
+#	add_subdirectory(Examples/MetalApp)
+#else (APPLE)
+#	add_subdirectory(Examples/VulkanApp)
+#endif (APPLE)
 
 #if (${CUDA_FOUND})
 #	add_subdirectory(OptiX6Context)

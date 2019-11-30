@@ -516,7 +516,7 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
         // pick a pointlight
         const DevicePointLight light = pointLights[lightIdx - AREALIGHTCOUNT];
         const vec4 pos4 = light.position_energy;// position
-        lightColor = vec3(light.radiance) * pos4.w;// radiance
+        lightColor = vec3(light.radiance);// radiance
         const vec3 L = I - pos4.xyz;// reversed
         const float sqDist = dot(L, L);
         lightPdf = dot(L, N) < 0 ? sqDist : 0;
@@ -537,14 +537,14 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
         const float d = max(0.0f, dot(L, D.xyz) - E.w) / (P.w - E.w);
         const float LNdotL = min(1.0f, d);
         lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (sqDist / LNdotL) : 0;
-        lightColor = E.xyz * D.w;
+        lightColor = E.xyz;
         return pos;
     }
 
     // pick a directional light
     const DeviceDirectionalLight light = directionalLights[lightIdx - (AREALIGHTCOUNT + POINTLIGHTCOUNT + SPOTLIGHTCOUNT)];
     const vec4 L4 = light.direction_energy;// direction
-    lightColor = light.radiance.xyz * L4.w;// radiance
+    lightColor = light.radiance.xyz;// radiance
     const float NdotL = dot(L4.xyz, N);
     lightPdf = NdotL < 0 ? 1 : 0;
     return I - 1000.0f * L4.xyz;

@@ -7,10 +7,6 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 {
 	vertices.resize(baseVertices.size());
 	normals.resize(baseNormals.size());
-	if (indices.empty())
-		triangles.resize(baseVertices.size() / 3);
-	else
-		triangles.resize(indices.size());
 
 	for (auto &anim : animations)
 		anim.setTime(timeInSeconds);
@@ -30,6 +26,8 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 {
 	if (last == 0)
 		last = triangles.size();
+
+	assert(last <= triangles.size());
 
 	if (indices.empty())
 	{

@@ -45,6 +45,7 @@ extern "C"
 #define USE_TINY_GLTF 1
 
 using namespace rfw;
+using namespace utils;
 
 rfw::RenderSystem::RenderSystem() { m_Materials = new MaterialList(); }
 
@@ -518,20 +519,19 @@ void rfw::RenderSystem::renderFrame(const Camera &camera, RenderStatus status)
 	m_ShouldReset = false;
 }
 
-LightReference RenderSystem::addPointLight(const glm::vec3 &position, float energy, const glm::vec3 &radiance)
+LightReference RenderSystem::addPointLight(const glm::vec3 &position, const glm::vec3 &radiance)
 {
 	size_t index = m_PointLights.size();
 	PointLight pl{};
 	pl.position = position;
-	pl.energy = energy;
+	pl.energy = length(radiance);
 	pl.radiance = radiance;
 	m_PointLights.push_back(pl);
 	m_Changed[LIGHTS] = true;
 	return LightReference(index, LightReference::POINT, *this);
 }
 
-LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, float energy,
-										  const glm::vec3 &direction)
+LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, const glm::vec3 &direction)
 {
 	size_t index = m_SpotLights.size();
 	SpotLight sl{};
@@ -540,18 +540,18 @@ LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosIn
 	sl.radiance = radiance;
 	sl.cosOuter = cosOuter;
 	sl.direction = normalize(direction);
-	sl.energy = energy;
+	sl.energy = length(radiance);
 	m_SpotLights.push_back(sl);
 	m_Changed[LIGHTS] = true;
 	return LightReference(index, LightReference::SPOT, *this);
 }
 
-LightReference RenderSystem::addDirectionalLight(const glm::vec3 &direction, float energy, const glm::vec3 &radiance)
+LightReference RenderSystem::addDirectionalLight(const glm::vec3 &direction, const glm::vec3 &radiance)
 {
 	size_t index = m_DirectionalLights.size();
 	DirectionalLight dl{};
 	dl.direction = normalize(direction);
-	dl.energy = energy;
+	dl.energy = length(radiance);
 	dl.radiance = radiance;
 	m_DirectionalLights.push_back(dl);
 	m_Changed[LIGHTS] = true;

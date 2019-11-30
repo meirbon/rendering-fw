@@ -14,9 +14,9 @@ rfw::MeshSkin convertSkin(const tinygltf::Skin &skin, const tinygltf::Model &mod
 {
 	rfw::MeshSkin s = {};
 	s.name = skin.name;
-	s.joints.reserve(skin.joints.size());
+	s.jointNodes.reserve(skin.joints.size());
 	for (auto joint : skin.joints)
-		s.joints.emplace_back(joint);
+		s.jointNodes.emplace_back(joint);
 
 	if (skin.inverseBindMatrices > -1)
 	{
@@ -88,30 +88,25 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 
 	for (const auto &tinyMat : model.materials)
 	{
+		// https://github.com/KhronosGroup/glTF/tree/master/specification/2.0#materials
 		HostMaterial mat = {};
 		mat.name = tinyMat.name;
 		for (const auto &value : tinyMat.values)
 		{
+			if (value.first == "baseColorFactor")
 			{
-				if (value.first == "baseColorFactor")
-				{
-					tinygltf::Parameter p = value.second;
-					mat.color = vec3(p.number_array[0], p.number_array[1], p.number_array[2]);
-				}
+				tinygltf::Parameter p = value.second;
+				mat.color = vec3(p.number_array[0], p.number_array[1], p.number_array[2]);
 			}
 			if (value.first == "metallicFactor")
 			{
 				if (value.second.has_number_value)
-				{
 					mat.metallic = (float)value.second.number_value;
-				}
 			}
 			if (value.first == "roughnessFactor")
 			{
 				if (value.second.has_number_value)
-				{
 					mat.roughness = (float)value.second.number_value;
-				}
 			}
 			if (value.first == "baseColorTexture")
 			{
@@ -119,6 +114,31 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				{
 					if (item.first == "index")
 						mat.map[TEXTURE0].textureID = (int)item.second + baseTextureIdx;
+					if (item.first == "scale")
+						mat.map[TEXTURE0].uvscale = vec2(item.second);
+					if (item.first == "offset")
+						mat.map[TEXTURE0].uvoffset = vec2(item.second);
+				}
+			}
+			if (value.first == "normalTexture")
+			{
+				mat.setFlag(HasNormalMap);
+				for (auto &item : value.second.json_double_value)
+				{
+					if (item.first == "index")
+						mat.map[NORMALMAP0].textureID = (int)item.second + baseTextureIdx;
+					if (item.first == "scale")
+						mat.map[TEXTURE0].uvscale = vec2(item.second);
+					if (item.first == "offset")
+						mat.map[TEXTURE0].uvoffset = vec2(item.second);
+				}
+			}
+			if (value.first == "emissiveFactor")
+			{
+				if (value.second.has_number_value)
+				{
+					tinygltf::Parameter p = value.second;
+					mat.color = vec3(1) + vec3(p.number_array[0], p.number_array[1], p.number_array[2]);
 				}
 			}
 		}
@@ -175,23 +195,43 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 			{
 			case (TINYGLTF_COMPONENT_TYPE_BYTE):
 				for (int k = 0; k < count; k++, a += byteStride)
-					tmpIndices.push_back(*((char *)a));
+				{
+					char value = 0;
+					memcpy(&value, a, sizeof(char));
+					tmpIndices.push_back(value);
+				}
 				break;
 			case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE):
 				for (int k = 0; k < count; k++, a += byteStride)
-					tmpIndices.push_back(*((unsigned char *)a));
+				{
+					unsigned char value = 0;
+					memcpy(&value, a, sizeof(unsigned char));
+					tmpIndices.push_back(value);
+				}
 				break;
 			case (TINYGLTF_COMPONENT_TYPE_SHORT):
 				for (int k = 0; k < count; k++, a += byteStride)
-					tmpIndices.push_back(*((short *)a));
+				{
+					short value = 0;
+					memcpy(&value, a, sizeof(unsigned short));
+					tmpIndices.push_back(value);
+				}
 				break;
 			case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT):
 				for (int k = 0; k < count; k++, a += byteStride)
-					tmpIndices.push_back(*((unsigned short *)a));
+				{
+					unsigned short value = 0;
+					memcpy(&value, a, sizeof(unsigned short));
+					tmpIndices.push_back(value);
+				}
 				break;
 			case (TINYGLTF_COMPONENT_TYPE_INT):
 				for (int k = 0; k < count; k++, a += byteStride)
-					tmpIndices.push_back(*((int *)a));
+				{
+					int value = 0;
+					memcpy(&value, a, sizeof(int));
+					tmpIndices.push_back(value);
+				}
 				break;
 			case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT):
 				for (int k = 0; k < count; k++, a += byteStride)
@@ -456,6 +496,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 
 	scene.transformTo(0.0f);
 
+	scene.updateTriangles();
 	// Update triangle data that only has to be calculated once
 	scene.updateTriangles(matList, scene.texCoords);
 

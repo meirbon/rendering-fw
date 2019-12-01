@@ -12,6 +12,7 @@ class MeshSkin;
 struct SceneMesh
 {
 	SceneMesh();
+	explicit SceneMesh(const SceneObject &object);
 
 	enum Flags
 	{
@@ -37,9 +38,9 @@ struct SceneMesh
 	void setPose(const rfw::MeshSkin &skin);
 	void setPose(const std::vector<float> &weights);
 	void setTransform(const glm::mat4 &transform);
-	void addPrimitive(const std::vector<int> &indices, const std::vector<glm::vec3> &vertices,
-		const std::vector<glm::vec3> &normals, const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &poses,
-		const std::vector<glm::uvec4> &joints, const std::vector<glm::vec4> &weights, const int materialIdx);
+	void addPrimitive(const std::vector<int> &indices, const std::vector<glm::vec3> &vertices, const std::vector<glm::vec3> &normals,
+					  const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &poses, const std::vector<glm::uvec4> &joints,
+					  const std::vector<glm::vec4> &weights, const int materialIdx);
 
 	unsigned int vertexOffset = 0;
 	unsigned int vertexCount = 0;

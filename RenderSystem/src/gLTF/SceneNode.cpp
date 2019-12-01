@@ -3,7 +3,7 @@
 #include <utility>
 
 #include "SceneObject.h"
-#include "MeshSkin.h"
+#include "Skinning.h"
 
 rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c, rfw::utils::ArrayProxy<int> meshIds,
 						  rfw::utils::ArrayProxy<int> skinIds, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform)
@@ -23,9 +23,8 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 		if (meshID > -1)
 		{
 			const auto newIdx = object->meshes.size();
-			object->meshes.emplace_back();
+			object->meshes.emplace_back(*object);
 			auto &m = object->meshes.at(newIdx);
-			m.object = object;
 			for (const auto &prim : meshes.at(meshID))
 				m.addPrimitive(prim.indices, prim.vertices, prim.normals, prim.uvs, prim.poses, prim.joints, prim.weights, prim.matID);
 			meshIDs.push_back(newIdx);

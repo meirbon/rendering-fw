@@ -3,11 +3,14 @@
 
 #include "SceneObject.h"
 
-#include "MeshSkin.h"
+#include "Skinning.h"
 
 #define ALLOW_INDEXED_DATA 1
 
 using namespace glm;
+
+rfw::SceneMesh::SceneMesh() { flags |= INITIAL_PRIM; }
+rfw::SceneMesh::SceneMesh(const rfw::SceneObject &obj) : object(const_cast<rfw::SceneObject *>(&obj)) { flags |= INITIAL_PRIM; }
 
 void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 {
@@ -368,4 +371,3 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 		}
 	}
 }
-rfw::SceneMesh::SceneMesh() { flags |= INITIAL_PRIM; }

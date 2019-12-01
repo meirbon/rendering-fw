@@ -98,7 +98,7 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 	}
 }
 
-void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList, utils::ArrayProxy<glm::vec2> uvs)
+void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 {
 	if (indices.empty())
 	{
@@ -107,16 +107,16 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList, utils::ArrayP
 			const auto idx = i * 3;
 			Triangle &tri = triangles.at(i);
 
-			if (!uvs.empty())
+			if (!texCoords.empty())
 			{
-				tri.u0 = uvs.at(idx + 0).x;
-				tri.v0 = uvs.at(idx + 0).y;
+				tri.u0 = texCoords.at(idx + 0).x;
+				tri.v0 = texCoords.at(idx + 0).y;
 
-				tri.u1 = uvs.at(idx + 1).x;
-				tri.v1 = uvs.at(idx + 1).y;
+				tri.u1 = texCoords.at(idx + 1).x;
+				tri.v1 = texCoords.at(idx + 1).y;
 
-				tri.u2 = uvs.at(idx + 2).x;
-				tri.v2 = uvs.at(idx + 2).y;
+				tri.u2 = texCoords.at(idx + 2).x;
+				tri.v2 = texCoords.at(idx + 2).y;
 			}
 
 			const HostMaterial &mat = matList->get(tri.material);
@@ -139,16 +139,16 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList, utils::ArrayP
 			const auto index = indices.at(i);
 			Triangle &tri = triangles.at(i);
 
-			if (!uvs.empty())
+			if (!texCoords.empty())
 			{
-				tri.u0 = uvs.at(index.x).x;
-				tri.v0 = uvs.at(index.x).y;
+				tri.u0 = texCoords.at(index.x).x;
+				tri.v0 = texCoords.at(index.x).y;
 
-				tri.u1 = uvs.at(index.y).x;
-				tri.v1 = uvs.at(index.y).y;
+				tri.u1 = texCoords.at(index.y).x;
+				tri.v1 = texCoords.at(index.y).y;
 
-				tri.u2 = uvs.at(index.z).x;
-				tri.v2 = uvs.at(index.z).y;
+				tri.u2 = texCoords.at(index.z).x;
+				tri.v2 = texCoords.at(index.z).y;
 			}
 
 			const HostMaterial &mat = matList->get(tri.material);

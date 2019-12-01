@@ -18,6 +18,8 @@
 #include "MaterialList.h"
 #include "SceneTriangles.h"
 
+#include "gLTF/SceneObject.h"
+
 namespace rfw
 {
 class AssimpObject : public SceneTriangles
@@ -157,6 +159,8 @@ class AssimpObject : public SceneTriangles
 	};
 
   public:
+	rfw::SceneObject object;
+
 	struct MeshBoneWeight
 	{
 		unsigned int vertexId;
@@ -182,10 +186,14 @@ class AssimpObject : public SceneTriangles
 		uint materialIdx;
 		uint nodeIndex;
 		std::vector<MeshBone> bones;
+
+		std::vector<uvec4> joints;
+		std::vector<vec4> weights;
 	};
 
-	explicit AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(),
-						  bool normalize = false, int material = -1);
+	AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
+	AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), bool normalize = false,
+				 int material = -1);
 	~AssimpObject() = default;
 
 	void transformTo(float timeInSeconds = 0.0f) override;
@@ -215,6 +223,7 @@ class AssimpObject : public SceneTriangles
 
 	std::vector<std::vector<uint>> m_MeshMapping;
 	std::vector<MeshInfo> m_Meshes;
+
 	// Up to date data if we have animations
 	std::vector<Triangle> m_Triangles;
 	std::vector<glm::vec4> m_CurrentVertices;

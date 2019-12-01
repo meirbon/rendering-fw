@@ -13,7 +13,7 @@
 #include "SceneAnimation.h"
 #include "SceneMesh.h"
 #include "SceneNode.h"
-#include "MeshSkin.h"
+#include "Skinning.h"
 
 namespace rfw
 {

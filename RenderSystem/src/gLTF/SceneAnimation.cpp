@@ -117,16 +117,16 @@ rfw::SceneAnimation::Channel creategLTFChannel(const tinygltf::AnimationChannel 
 {
 	rfw::SceneAnimation::Channel channel = {};
 
-	channel.samplerIdx = gltfChannel.sampler;
+	channel.samplerIDs.push_back(gltfChannel.sampler);
 	channel.nodeIdx = gltfChannel.target_node + nodeBase;
 	if (gltfChannel.target_path == "translation")
-		channel.target = rfw::SceneAnimation::Channel::TRANSLATION;
+		channel.targets.push_back(rfw::SceneAnimation::Channel::TRANSLATION);
 	else if (gltfChannel.target_path == "rotation")
-		channel.target = rfw::SceneAnimation::Channel::ROTATION;
+		channel.targets.push_back(rfw::SceneAnimation::Channel::ROTATION);
 	else if (gltfChannel.target_path == "scale")
-		channel.target = rfw::SceneAnimation::Channel::SCALE;
+		channel.targets.push_back(rfw::SceneAnimation::Channel::SCALE);
 	else if (gltfChannel.target_path == "weights")
-		channel.target = rfw::SceneAnimation::Channel::WEIGHTS;
+		channel.targets.push_back(rfw::SceneAnimation::Channel::WEIGHTS);
 
 	return channel;
 }
@@ -137,11 +137,11 @@ rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation
 
 	rfw::SceneAnimation anim = {};
 
-	for (size_t i = 0; i < gltfAnim.samplers.size(); i++)
-		anim.samplers.push_back(creategLTFSampler(gltfAnim.samplers.at(i), gltfModel));
+	for (const auto &sampler : gltfAnim.samplers)
+		anim.samplers.push_back(creategLTFSampler(sampler, gltfModel));
 
-	for (size_t i = 0; i < gltfAnim.channels.size(); i++)
-		anim.channels.push_back(creategLTFChannel(gltfAnim.channels.at(i), gltfModel, nodeBase));
+	for (const auto &channel : gltfAnim.channels)
+		anim.channels.push_back(creategLTFChannel(channel, gltfModel, nodeBase));
 
 	anim.object = object;
 
@@ -151,7 +151,7 @@ rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation
 void rfw::SceneAnimation::setTime(float currentTime)
 {
 	for (auto &channel : channels)
-		channel.setTime(object, currentTime, samplers.at(channel.samplerIdx));
+		channel.setTime(object, currentTime, samplers);
 }
 
 float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i, int count) const
@@ -254,90 +254,102 @@ glm::quat rfw::SceneAnimation::Sampler::sampleQuat(float currentTime, int k) con
 	return glm::normalize(key);
 }
 
-void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float deltaTime, const Sampler &sampler)
+void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float deltaTime, const std::vector<Sampler> &samplers)
 {
-	// Advance animation timer
-	const int keyCount = (int)sampler.key_frames.size();
-	const float animDuration = sampler.key_frames.at(keyCount - 1);
-	time += deltaTime;
-	if (time > animDuration)
+	for (int i = 0, s = static_cast<int>(samplerIDs.size()); i < s; i++)
 	{
-		key = 0;
-		time = fmod(time, animDuration);
-	}
+		const auto &sampler = samplers[samplerIDs[i]];
+		const auto &target = targets[i];
 
-	while (time > sampler.key_frames.at(key + 1))
-		key++;
+		// Advance animation timer
+		const int keyCount = (int)sampler.key_frames.size();
+		const float animDuration = sampler.key_frames.at(keyCount - 1);
+		time += deltaTime;
+		if (time > animDuration)
+		{
+			key = 0;
+			time = fmod(time, animDuration);
+		}
 
-	// Determine interpolation parameters
-	auto &node = object->nodes.at(nodeIdx);
+		while (time > sampler.key_frames.at(key + 1))
+			key++;
 
-	// Apply animation key
-	if (target == rfw::SceneAnimation::Channel::TRANSLATION) // translation
-	{
-		node.translation = sampler.sampleVec3(time, key);
-		node.transformed = true;
-	}
-	else if (target == rfw::SceneAnimation::Channel::ROTATION) // rotation
-	{
-		node.rotation = sampler.sampleQuat(time, key);
-		node.transformed = true;
-	}
-	else if (target == rfw::SceneAnimation::Channel::SCALE) // scale
-	{
-		node.scale = sampler.sampleVec3(time, key);
-		node.transformed = true;
-	}
-	else if (target == rfw::SceneAnimation::Channel::WEIGHTS) // weight
-	{
-		auto weightCount = node.weights.size();
-		for (int i = 0; i < weightCount; i++)
-			node.weights[i] = sampler.sampleFloat(time, key, i, weightCount);
+		// Determine interpolation parameters
+		auto &node = object->nodes.at(nodeIdx);
 
-		node.morphed = true;
+		// Apply animation key
+		if (target == rfw::SceneAnimation::Channel::TRANSLATION) // translation
+		{
+			node.translation = sampler.sampleVec3(time, key);
+			node.transformed = true;
+		}
+		else if (target == rfw::SceneAnimation::Channel::ROTATION) // rotation
+		{
+			node.rotation = sampler.sampleQuat(time, key);
+			node.transformed = true;
+		}
+		else if (target == rfw::SceneAnimation::Channel::SCALE) // scale
+		{
+			node.scale = sampler.sampleVec3(time, key);
+			node.transformed = true;
+		}
+		else if (target == rfw::SceneAnimation::Channel::WEIGHTS) // weight
+		{
+			auto weightCount = node.weights.size();
+			for (int i = 0; i < weightCount; i++)
+				node.weights[i] = sampler.sampleFloat(time, key, i, weightCount);
+
+			node.morphed = true;
+		}
 	}
 }
 
-void rfw::SceneAnimation::Channel::setTime(rfw::SceneObject *object, float currentTime, const Sampler &sampler)
+void rfw::SceneAnimation::Channel::setTime(rfw::SceneObject *object, float currentTime, const std::vector<Sampler> &samplers)
 {
-	// Advance animation timer
-	const int keyCount = (int)sampler.key_frames.size();
-	const float animDuration = sampler.key_frames.at(keyCount - 1);
-	time = currentTime;
-	if (currentTime > animDuration)
+	for (int i = 0, s = static_cast<int>(samplerIDs.size()); i < s; i++)
 	{
-		key = 0;
-		time = fmod(currentTime, animDuration);
-	}
+		const auto &sampler = samplers[samplerIDs[i]];
+		const auto &target = targets[i];
 
-	while (time > sampler.key_frames.at(key + 1))
-		key++;
+		// Advance animation timer
+		const int keyCount = (int)sampler.key_frames.size();
+		const float animDuration = sampler.key_frames.at(keyCount - 1);
+		time = currentTime;
+		if (currentTime > animDuration)
+		{
+			key = 0;
+			time = fmod(currentTime, animDuration);
+		}
 
-	// Determine interpolation parameters
-	auto &node = object->nodes.at(nodeIdx);
+		while (time > sampler.key_frames.at(key + 1))
+			key++;
 
-	// Apply animation key
-	if (target == rfw::SceneAnimation::Channel::TRANSLATION) // translation
-	{
-		node.translation = sampler.sampleVec3(time, key);
-		node.transformed = true;
-	}
-	else if (target == rfw::SceneAnimation::Channel::ROTATION) // rotation
-	{
-		node.rotation = sampler.sampleQuat(time, key);
-		node.transformed = true;
-	}
-	else if (target == rfw::SceneAnimation::Channel::SCALE) // scale
-	{
-		node.scale = sampler.sampleVec3(time, key);
-		node.transformed = true;
-	}
-	else if (target == rfw::SceneAnimation::Channel::WEIGHTS) // weight
-	{
-		auto weightCount = node.weights.size();
-		for (int i = 0; i < weightCount; i++)
-			node.weights[i] = sampler.sampleFloat(time, key, i, weightCount);
+		// Determine interpolation parameters
+		auto &node = object->nodes.at(nodeIdx);
 
-		node.morphed = true;
+		// Apply animation key
+		if (target == rfw::SceneAnimation::Channel::TRANSLATION) // translation
+		{
+			node.translation = sampler.sampleVec3(time, key);
+			node.transformed = true;
+		}
+		else if (target == rfw::SceneAnimation::Channel::ROTATION) // rotation
+		{
+			node.rotation = sampler.sampleQuat(time, key);
+			node.transformed = true;
+		}
+		else if (target == rfw::SceneAnimation::Channel::SCALE) // scale
+		{
+			node.scale = sampler.sampleVec3(time, key);
+			node.transformed = true;
+		}
+		else if (target == rfw::SceneAnimation::Channel::WEIGHTS) // weight
+		{
+			auto weightCount = node.weights.size();
+			for (int j = 0; j < weightCount; j++)
+				node.weights[j] = sampler.sampleFloat(time, key, j, weightCount);
+
+			node.morphed = true;
+		}
 	}
 }

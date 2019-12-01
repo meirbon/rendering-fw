@@ -9,7 +9,7 @@
 
 #include "SceneMesh.h"
 #include "SceneNode.h"
-#include "MeshSkin.h"
+#include "Skinning.h"
 #include "SceneAnimation.h"
 
 #include "../MaterialList.h"
@@ -37,6 +37,7 @@ class SceneObject
 	std::vector<rfw::SceneMesh> meshes;
 	std::vector<rfw::SceneNode> nodes;
 	std::vector<rfw::MeshSkin> skins;
+	std::vector<rfw::MeshBone> bones;
 	std::vector<rfw::SceneAnimation> animations;
 	std::vector<int> rootNodes;
 
@@ -46,7 +47,7 @@ class SceneObject
 
 	void updateTriangles(uint offset = 0, uint last = 0);
 
-	void updateTriangles(rfw::MaterialList *matList, rfw::utils::ArrayProxy<glm::vec2> uvs);
+	void updateTriangles(rfw::MaterialList *matList);
 };
 
 } // namespace rfw

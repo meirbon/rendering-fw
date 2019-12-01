@@ -498,7 +498,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 
 	scene.updateTriangles();
 	// Update triangle data that only has to be calculated once
-	scene.updateTriangles(matList, scene.texCoords);
+	scene.updateTriangles(matList);
 
 	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(), scene.triangles.size());
 }

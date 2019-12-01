@@ -375,12 +375,12 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 #if USE_TINY_GLTF
 	if (utils::string::ends_with(fileName, {".gltf", ".glb"}))
 	{
-		m_Models.emplace_back(new gLTFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material));
+		m_Models.emplace_back((SceneTriangles *)new gLTFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material));
 	}
 	else
 #endif
 	{
-		m_Models.emplace_back(new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
+		m_Models.emplace_back((SceneTriangles *)new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material));
 	}
 
 	m_ModelChanged.push_back(true);
@@ -393,7 +393,7 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 	}
 	m_ObjectLightIndices.push_back(lightIndices);
 
-	m_ObjectMaterialRange.push_back(std::make_pair(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size())));
+	m_ObjectMaterialRange.emplace_back(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size()));
 
 	// Update flags
 	m_Changed[MODELS] = true;

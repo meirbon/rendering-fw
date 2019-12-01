@@ -23,10 +23,10 @@ class SceneAnimation
 		glm::vec3 sampleVec3(float t, int k) const;
 		glm::quat sampleQuat(float t, int k) const;
 
-		std::vector<float> key_frames;   // key frame times
+		std::vector<float> key_frames;	 // key frame times
 		std::vector<glm::vec3> vec3_key; // vec3 key frames: location or scale
 		std::vector<glm::quat> quat_key; // vec4 key frames: quaternion rotations
-		std::vector<float> float_key;	// float key frames: weights
+		std::vector<float> float_key;	 // float key frames: weights
 		Method method;
 	};
 
@@ -40,14 +40,15 @@ class SceneAnimation
 			WEIGHTS
 		};
 
-		int samplerIdx = -1;
+		std::vector<int> samplerIDs;
+		std::vector<Target> targets;
+
 		int nodeIdx = -1;
 		int key = 0;
 		float time = 0;
-		Target target;
 
-		void update(rfw::SceneObject *object, const float deltaTime, const Sampler &sampler);
-		void setTime(rfw::SceneObject *object, const float currentTime, const Sampler &sampler);
+		void update(rfw::SceneObject *object, const float deltaTime, const std::vector<Sampler> &sampler);
+		void setTime(rfw::SceneObject *object, const float currentTime, const std::vector<Sampler> &sampler);
 	};
 
 	SceneObject *object = nullptr;

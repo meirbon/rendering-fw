@@ -21,4 +21,15 @@ class MeshSkin
 	std::vector<glm::mat4> jointMatrices;
 };
 
+class MeshBone
+{
+  public:
+	std::string name;
+	unsigned int nodeIndex;
+
+	std::vector<unsigned short> vertexIDs;
+	std::vector<float> vertexWeights;
+	glm::mat4 offsetMatrix;
+};
+
 } // namespace rfw

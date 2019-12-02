@@ -194,9 +194,9 @@ class AssimpObject : public SceneTriangles
 	AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
 	AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), bool normalize = false,
 				 int material = -1);
-	~AssimpObject() = default;
+	~AssimpObject() override = default;
 
-	void transformTo(float timeInSeconds = 0.0f) override;
+	void transformTo(float timeInSeconds) override;
 	void updateTriangles();
 	void updateTriangles(const std::vector<glm::vec2> &uvs);
 

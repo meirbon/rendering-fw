@@ -1,4 +1,3 @@
-#define GLM_FORCE_SIMD_AVX2
 #include "SceneObject.h"
 
 using namespace rfw;
@@ -15,8 +14,7 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 
 	for (auto idx : rootNodes)
 	{
-		auto matrix = glm::identity<glm::mat4>();
-		changed |= nodes.at(idx).update(matrix);
+		changed |= nodes.at(idx).update(mat4(1.0f));
 	}
 
 	return changed;
@@ -64,36 +62,77 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 	}
 	else
 	{
-		for (int i = static_cast<int>(offset), s = static_cast<int>(last); i < s; i++)
+		for (const auto &mesh : meshes)
 		{
-			const auto index = indices.at(i);
-			Triangle &tri = triangles.at(i);
-			const vec3 &v0 = vertices.at(index.x);
-			const vec3 &v1 = vertices.at(index.y);
-			const vec3 &v2 = vertices.at(index.z);
+			if (mesh.flags & SceneMesh::HAS_INDICES)
+			{
+				for (int i = 0; i < mesh.faceCount; i++)
+				{
+					const auto index = indices.at(i);
+					Triangle &tri = triangles.at(i);
+					const vec3 &v0 = vertices.at(index.x);
+					const vec3 &v1 = vertices.at(index.y);
+					const vec3 &v2 = vertices.at(index.z);
 
-			const vec3 &n0 = normals.at(index.x);
-			const vec3 &n1 = normals.at(index.y);
-			const vec3 &n2 = normals.at(index.z);
+					const vec3 &n0 = normals.at(index.x);
+					const vec3 &n1 = normals.at(index.y);
+					const vec3 &n2 = normals.at(index.z);
 
-			vec3 N = normalize(cross(v1 - v0, v2 - v0));
+					vec3 N = normalize(cross(v1 - v0, v2 - v0));
 
-			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
-				N *= -1.0f; // flip if not consistent with vertex normals
+					if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+						N *= -1.0f; // flip if not consistent with vertex normals
 
-			tri.vertex0 = v0;
-			tri.vertex1 = v1;
-			tri.vertex2 = v2;
+					tri.vertex0 = v0;
+					tri.vertex1 = v1;
+					tri.vertex2 = v2;
 
-			tri.Nx = N.x;
-			tri.Ny = N.y;
-			tri.Nz = N.z;
+					tri.Nx = N.x;
+					tri.Ny = N.y;
+					tri.Nz = N.z;
 
-			tri.vN0 = n0;
-			tri.vN1 = n1;
-			tri.vN2 = n2;
+					tri.vN0 = n0;
+					tri.vN1 = n1;
+					tri.vN2 = n2;
 
-			tri.material = materialIndices.at(i);
+					tri.material = materialIndices.at(i);
+				}
+			}
+			else
+			{
+				for (int i = 0; i < mesh.faceCount; i++)
+				{
+					const auto idx = i * 3;
+					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
+					Triangle &tri = triangles.at(i);
+					const vec3 &v0 = vertices.at(index.x);
+					const vec3 &v1 = vertices.at(index.y);
+					const vec3 &v2 = vertices.at(index.z);
+
+					const vec3 &n0 = normals.at(index.x);
+					const vec3 &n1 = normals.at(index.y);
+					const vec3 &n2 = normals.at(index.z);
+
+					vec3 N = normalize(cross(v1 - v0, v2 - v0));
+
+					if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+						N *= -1.0f; // flip if not consistent with vertex normals
+
+					tri.vertex0 = v0;
+					tri.vertex1 = v1;
+					tri.vertex2 = v2;
+
+					tri.Nx = N.x;
+					tri.Ny = N.y;
+					tri.Nz = N.z;
+
+					tri.vN0 = n0;
+					tri.vN1 = n1;
+					tri.vN2 = n2;
+
+					tri.material = materialIndices.at(i);
+				}
+			}
 		}
 	}
 }
@@ -134,33 +173,72 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 	}
 	else
 	{
-		for (uint i = 0, s = static_cast<uint>(triangles.size()); i < s; i++)
+		for (const auto &mesh : meshes)
 		{
-			const auto index = indices.at(i);
-			Triangle &tri = triangles.at(i);
-
-			if (!texCoords.empty())
+			if (mesh.flags & SceneMesh::HAS_INDICES)
 			{
-				tri.u0 = texCoords.at(index.x).x;
-				tri.v0 = texCoords.at(index.x).y;
+				for (int i = 0; i < mesh.faceCount; i++)
+				{
+					const auto index = indices.at(i);
+					Triangle &tri = triangles.at(i);
 
-				tri.u1 = texCoords.at(index.y).x;
-				tri.v1 = texCoords.at(index.y).y;
+					if (!texCoords.empty())
+					{
+						tri.u0 = texCoords.at(index.x).x;
+						tri.v0 = texCoords.at(index.x).y;
 
-				tri.u2 = texCoords.at(index.z).x;
-				tri.v2 = texCoords.at(index.z).y;
+						tri.u1 = texCoords.at(index.y).x;
+						tri.v1 = texCoords.at(index.y).y;
+
+						tri.u2 = texCoords.at(index.z).x;
+						tri.v2 = texCoords.at(index.z).y;
+					}
+
+					const HostMaterial &mat = matList->get(tri.material);
+					int texID = mat.map[0].textureID;
+					if (texID > -1)
+					{
+						const Texture &texture = matList->getTextures().at(texID);
+
+						const float Ta = static_cast<float>(texture.width * texture.height) *
+										 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+						const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+						tri.LOD = 0.5f * log2f(Ta / Pa);
+					}
+				}
 			}
-
-			const HostMaterial &mat = matList->get(tri.material);
-			int texID = mat.map[0].textureID;
-			if (texID > -1)
+			else
 			{
-				const Texture &texture = matList->getTextures().at(texID);
+				for (int i = 0; i < mesh.faceCount; i++)
+				{
+					const auto idx = i * 3;
+					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
+					Triangle &tri = triangles.at(i);
 
-				const float Ta =
-					static_cast<float>(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
-				const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-				tri.LOD = 0.5f * log2f(Ta / Pa);
+					if (!texCoords.empty())
+					{
+						tri.u0 = texCoords.at(index.x).x;
+						tri.v0 = texCoords.at(index.x).y;
+
+						tri.u1 = texCoords.at(index.y).x;
+						tri.v1 = texCoords.at(index.y).y;
+
+						tri.u2 = texCoords.at(index.z).x;
+						tri.v2 = texCoords.at(index.z).y;
+					}
+
+					const HostMaterial &mat = matList->get(tri.material);
+					int texID = mat.map[0].textureID;
+					if (texID > -1)
+					{
+						const Texture &texture = matList->getTextures().at(texID);
+
+						const float Ta = static_cast<float>(texture.width * texture.height) *
+										 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+						const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+						tri.LOD = 0.5f * log2f(Ta / Pa);
+					}
+				}
 			}
 		}
 	}

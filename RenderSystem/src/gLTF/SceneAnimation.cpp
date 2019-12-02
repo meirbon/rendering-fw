@@ -2,6 +2,8 @@
 
 #include <tiny_gltf.h>
 
+#include <cmath>
+
 #include "SceneObject.h"
 
 rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler &gltfSampler, const tinygltf::Model &gltfModel)
@@ -268,7 +270,7 @@ void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float 
 		if (time > animDuration)
 		{
 			key = 0;
-			time = fmod(time, animDuration);
+			time = std::fmod(time, animDuration);
 		}
 
 		while (time > sampler.key_frames.at(key + 1))
@@ -318,7 +320,7 @@ void rfw::SceneAnimation::Channel::setTime(rfw::SceneObject *object, float curre
 		if (currentTime > animDuration)
 		{
 			key = 0;
-			time = fmod(currentTime, animDuration);
+			time = std::fmod(currentTime, animDuration);
 		}
 
 		while (time > sampler.key_frames.at(key + 1))

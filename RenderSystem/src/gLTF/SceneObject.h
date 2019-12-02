@@ -20,6 +20,13 @@ namespace rfw
 class SceneObject
 {
   public:
+	enum Flags
+	{
+		ALLOW_INDICES = 1
+	};
+
+	unsigned int flags = ALLOW_INDICES;
+
 	// Render data, stored contiguously in a single vector to allow for
 	//  fast data transfer to render device.
 	std::vector<glm::vec4> vertices;

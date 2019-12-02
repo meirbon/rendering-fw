@@ -10,15 +10,16 @@
 #include <utils/gl/CheckGL.h>
 #include <utils/Timer.h>
 
+#ifdef NDEBUG
+constexpr std::array<const char *, 0> VALIDATION_LAYERS = {};
+#else
 constexpr std::array<const char *, 1> VALIDATION_LAYERS = {"VK_LAYER_LUNARG_standard_validation"};
-const std::vector<const char *> DEVICE_EXTENSIONS = {VK_NV_RAY_TRACING_EXTENSION_NAME,
-													 VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+#endif
+const std::vector<const char *> DEVICE_EXTENSIONS = {VK_NV_RAY_TRACING_EXTENSION_NAME, VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
 													 VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME};
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-													VkDebugUtilsMessageTypeFlagsEXT messageType,
-													const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-													void *pUserData)
+static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType,
+													const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData, void *pUserData)
 {
 	const char *severity = 0, *type = 0;
 	switch (messageSeverity)
@@ -53,11 +54,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 		break;
 	}
 
-	char buffer[4096];
-	snprintf(buffer, sizeof(buffer), "Vulkan Validation Layer: [Severity: %s] [Type: %s] : %s\n", severity, type,
-			 pCallbackData->pMessage);
-	printf("%s", buffer);
-
+#ifndef NDEBUG
+//	rfw::utils::logger::log("Vulkan Validation Layer: [Severity: %s] [Type: %s] : %s\n", severity, type, pCallbackData->pMessage);
+#endif
 	return VK_FALSE;
 }
 
@@ -74,8 +73,7 @@ vkrtx::VkCamera::VkCamera(const rfw::CameraView &view, uint samples, float epsil
 	scrheight = height;
 }
 
-vkrtx::FinalizeParams::FinalizeParams(const int w, const int h, int samplespp, const float brightness,
-									  const float contrast)
+vkrtx::FinalizeParams::FinalizeParams(const int w, const int h, int samplespp, const float brightness, const float contrast)
 {
 	this->scrwidth = w;
 	this->scrheight = h;
@@ -226,8 +224,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 		m_SamplesTaken = 0;
 	}
 
-	const bool record = rtDescriptorSet->isDirty() || shadeDescriptorSet->isDirty() ||
-						finalizeDescriptorSet->isDirty() ||
+	const bool record = rtDescriptorSet->isDirty() || shadeDescriptorSet->isDirty() || finalizeDescriptorSet->isDirty() ||
 						m_First; // Before we render we potentially have to update our command buffers
 	if (record)
 	{
@@ -239,8 +236,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 	}
 
 	// Get queue and command buffer for this frame
-	OneTimeCommandBuffer cmdBuffer =
-		m_Device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::COMPUTE);
+	OneTimeCommandBuffer cmdBuffer = m_Device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::COMPUTE);
 
 	uint pathCount = m_ScrWidth * m_ScrHeight * 1;
 	uint32_t pushConstant[3];
@@ -284,8 +280,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 		shadePipeline->recordDispatchCommand(cmdBuffer, pathCount + (pathCount % 64));
 
 		// Make sure shading finished before copying counters
-		cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer, {},
-								   {}, {}, {});
+		cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {});
 
 		// submit command buffer
 		t.reset();
@@ -381,8 +376,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 	}
 
 	// Initialize params for finalize stage
-	m_UniformFinalizeParams->getData()[0] =
-		FinalizeParams(m_ScrWidth, m_ScrHeight, m_SamplesTaken, cam.brightness, cam.contrast);
+	m_UniformFinalizeParams->getData()[0] = FinalizeParams(m_ScrWidth, m_ScrHeight, m_SamplesTaken, cam.brightness, cam.contrast);
 	m_UniformFinalizeParams->copyToDevice();
 
 	t.reset();
@@ -392,8 +386,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 	cmdBuffer.begin();
 }
 
-void vkrtx::Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials,
-								  const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void vkrtx::Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	delete m_Materials;
 	std::vector<rfw::DeviceMaterial> materialData(materials.size());
@@ -428,9 +421,9 @@ void vkrtx::Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materi
 			mat.amapaddr = m_TexDescriptors[ids.texture[10]].texAddr;
 	}
 
-	m_Materials = new VmaBuffer<rfw::DeviceMaterial>(
-		m_Device, materialData.size(), vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_Materials =
+		new VmaBuffer<rfw::DeviceMaterial>(m_Device, materialData.size(), vk::MemoryPropertyFlagBits::eDeviceLocal,
+										   vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	m_Materials->copyToDevice(materialData.data(), materialData.size() * sizeof(rfw::DeviceMaterial));
 
 	shadeDescriptorSet->bind(cMATERIALS, {m_Materials->getDescriptorBufferInfo()});
@@ -509,12 +502,10 @@ void vkrtx::Context::setTextures(const std::vector<rfw::TextureData> &textures)
 	uintTexelCount = glm::max(uintTexelCount, size_t(1));
 	floatTexelCount = glm::max(floatTexelCount, size_t(1));
 
-	m_RGBA32Buffer = new VmaBuffer<uint>(
-		m_Device, uintTexelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
-	m_RGBA128Buffer = new VmaBuffer<glm::vec4>(
-		m_Device, floatTexelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_RGBA32Buffer = new VmaBuffer<uint>(m_Device, uintTexelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
+										 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_RGBA128Buffer = new VmaBuffer<glm::vec4>(m_Device, floatTexelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	if (!uintTexs.empty())
 		m_RGBA32Buffer->copyToDevice(uintTexs.data(), m_RGBA32Buffer->getSize());
@@ -581,10 +572,9 @@ void vkrtx::Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t wid
 	delete m_SkyboxImage;
 	// Create a Vulkan image that can be sampled
 	m_SkyboxImage =
-		new Image(m_Device, vk::ImageType::e2D, vk::Format::eR32G32B32A32Sfloat,
-				  vk::Extent3D(static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1),
-				  vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst,
-				  vk::MemoryPropertyFlagBits::eDeviceLocal, Image::SKYDOME);
+		new Image(m_Device, vk::ImageType::e2D, vk::Format::eR32G32B32A32Sfloat, vk::Extent3D(static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1),
+				  vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal,
+				  Image::SKYDOME);
 
 	vk::ImageSubresourceRange range{};
 	range.aspectMask = vk::ImageAspectFlagBits::eColor;
@@ -598,50 +588,44 @@ void vkrtx::Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t wid
 	// Create an image view that can be sampled
 	m_SkyboxImage->createImageView(vk::ImageViewType::e2D, vk::Format::eR32G32B32A32Sfloat, range);
 	// Create sampler to be used in shader
-	m_SkyboxImage->createSampler(vk::Filter::eLinear, vk::Filter::eNearest, vk::SamplerMipmapMode::eLinear,
-								 vk::SamplerAddressMode::eClampToEdge);
+	m_SkyboxImage->createSampler(vk::Filter::eLinear, vk::Filter::eNearest, vk::SamplerMipmapMode::eLinear, vk::SamplerAddressMode::eClampToEdge);
 	// Make sure image is usable by shader
 	m_SkyboxImage->transitionToLayout(vk::ImageLayout::eShaderReadOnlyOptimal, vk::AccessFlags());
 	// Update descriptor set
 	shadeDescriptorSet->bind(cSKYBOX, {m_SkyboxImage->getDescriptorImageInfo()});
 }
 
-void vkrtx::Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
-							   const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
-							   const rfw::DeviceDirectionalLight *directionalLights)
+void vkrtx::Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+							   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCounts = lightCount;
 
 	if (m_AreaLightBuffer->getElementCount() < lightCount.areaLightCount)
 	{
 		delete m_AreaLightBuffer;
-		m_AreaLightBuffer = new VmaBuffer<rfw::DeviceAreaLight>(
-			m_Device, m_LightCounts.areaLightCount,
-			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		m_AreaLightBuffer = new VmaBuffer<rfw::DeviceAreaLight>(m_Device, m_LightCounts.areaLightCount,
+																vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+																vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 	if (m_PointLightBuffer->getElementCount() < lightCount.pointLightCount)
 	{
 		delete m_PointLightBuffer;
-		m_PointLightBuffer = new VmaBuffer<rfw::DevicePointLight>(
-			m_Device, m_LightCounts.pointLightCount,
-			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		m_PointLightBuffer = new VmaBuffer<rfw::DevicePointLight>(m_Device, m_LightCounts.pointLightCount,
+																  vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+																  vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 	if (m_SpotLightBuffer->getElementCount() < lightCount.spotLightCount)
 	{
 		delete m_SpotLightBuffer;
-		m_SpotLightBuffer = new VmaBuffer<rfw::DeviceSpotLight>(
-			m_Device, lightCount.spotLightCount,
-			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		m_SpotLightBuffer = new VmaBuffer<rfw::DeviceSpotLight>(m_Device, lightCount.spotLightCount,
+																vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+																vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 	if (m_DirectionalLightBuffer->getElementCount() < lightCount.directionalLightCount)
 	{
 		delete m_DirectionalLightBuffer;
 		m_DirectionalLightBuffer = new VmaBuffer<rfw::DeviceDirectionalLight>(
-			m_Device, lightCount.directionalLightCount,
-			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+			m_Device, lightCount.directionalLightCount, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 
@@ -726,8 +710,7 @@ void vkrtx::Context::update()
 										m_InvTransforms.size() * sizeof(mat4)); // Update inverse transforms
 	shadeDescriptorSet->bind(cINVERSE_TRANSFORMS, {m_InvTransformsBuffer->getDescriptorBufferInfo()});
 
-	if (m_TopLevelAS->getInstanceCount() !=
-		m_Instances.size()) // Recreate top level AS in case our number of instances changed
+	if (m_TopLevelAS->getInstanceCount() != m_Instances.size()) // Recreate top level AS in case our number of instances changed
 	{
 		delete m_TopLevelAS;
 		m_TopLevelAS = new TopLevelAS(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
@@ -856,17 +839,14 @@ void vkrtx::Context::createDebugReportCallback()
 
 #ifndef NDEBUG
 	vk::DebugUtilsMessengerCreateInfoEXT dbgMessengerCreateInfo{};
-	dbgMessengerCreateInfo.setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-											  vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+	dbgMessengerCreateInfo.setMessageSeverity(vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
 											  vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning);
-	dbgMessengerCreateInfo.setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-										  vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
+	dbgMessengerCreateInfo.setMessageType(vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
 										  vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation);
 	dbgMessengerCreateInfo.setPfnUserCallback(debugCallback);
 	dbgMessengerCreateInfo.setPUserData(nullptr);
 
-	m_VkDebugMessenger =
-		m_VkInstance.createDebugUtilsMessengerEXT(dbgMessengerCreateInfo, nullptr, m_Device.getLoader());
+	m_VkDebugMessenger = m_VkInstance.createDebugUtilsMessengerEXT(dbgMessengerCreateInfo, nullptr, m_Device.getLoader());
 	if (!m_VkDebugMessenger)
 		printf("Could not setup Vulkan debug utils messenger.\n");
 #endif
@@ -899,8 +879,7 @@ void vkrtx::Context::createCommandBuffers()
 
 void vkrtx::Context::resizeBuffers()
 {
-	const auto newPixelCount =
-		uint32_t((m_ScrWidth * m_ScrHeight) * 1.3f); // Make buffer bigger than needed to prevent reallocating often
+	const auto newPixelCount = uint32_t((m_ScrWidth * m_ScrHeight) * 1.3f); // Make buffer bigger than needed to prevent reallocating often
 	const auto oldPixelCount = m_AccumulationBuffer->getSize() / sizeof(glm::vec4);
 
 	if (oldPixelCount >= newPixelCount)
@@ -915,48 +894,40 @@ void vkrtx::Context::resizeBuffers()
 
 	// Create 2 path trace state buffers, these buffers are ping-ponged every path iteration
 	const auto combinedAlignedSize = newPixelCount * 4 + ((newPixelCount * 4) % limits.minStorageBufferOffsetAlignment);
-	m_CombinedStateBuffer[0] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
-	m_CombinedStateBuffer[1] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_CombinedStateBuffer[0] = new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+														vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_CombinedStateBuffer[1] = new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+														vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// Accumulation buffer for rendered image
-	m_AccumulationBuffer = new VmaBuffer<glm::vec4>(
-		m_Device, newPixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_AccumulationBuffer = new VmaBuffer<glm::vec4>(m_Device, newPixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
+													vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 	// Shadow ray buffer
-	m_PotentialContributionBuffer = new VmaBuffer<PotentialContribution>(
-		m_Device, MAXPATHLENGTH * newPixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_PotentialContributionBuffer = new VmaBuffer<PotentialContribution>(m_Device, MAXPATHLENGTH * newPixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
+																		 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	const auto unalignedSize = m_ScrWidth * m_ScrHeight * sizeof(float) * 4;
 	const vk::DeviceSize singleSize = unalignedSize + (unalignedSize % (4 * limits.minUniformBufferOffsetAlignment));
 
 	// Buffers got recreated so we need to update our descriptor sets
-	rtDescriptorSet->bind(rtPATH_STATES, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize),
-										  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
+	rtDescriptorSet->bind(rtPATH_STATES,
+						  {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize), m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
 	rtDescriptorSet->bind(rtPATH_ORIGINS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(singleSize, singleSize),
 										   m_CombinedStateBuffer[1]->getDescriptorBufferInfo(singleSize, singleSize)});
-	rtDescriptorSet->bind(rtPATH_DIRECTIONS,
-						  {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
-						   m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
+	rtDescriptorSet->bind(rtPATH_DIRECTIONS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
+											  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
 	rtDescriptorSet->bind(rtACCUMULATION_BUFFER, {m_AccumulationBuffer->getDescriptorBufferInfo()});
 	rtDescriptorSet->bind(rtPOTENTIAL_CONTRIBUTIONS, {m_PotentialContributionBuffer->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(cACCUMULATION_BUFFER, {m_AccumulationBuffer->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(cPOTENTIAL_CONTRIBUTIONS, {m_PotentialContributionBuffer->getDescriptorBufferInfo()});
-	shadeDescriptorSet->bind(cPATH_STATES, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize),
-											m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
-	shadeDescriptorSet->bind(cPATH_ORIGINS,
-							 {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(singleSize, singleSize),
-							  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(singleSize, singleSize)});
-	shadeDescriptorSet->bind(cPATH_DIRECTIONS,
-							 {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
-							  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
-	shadeDescriptorSet->bind(cPATH_THROUGHPUTS,
-							 {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(3 * singleSize, singleSize),
-							  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(3 * singleSize, singleSize)});
+	shadeDescriptorSet->bind(
+		cPATH_STATES, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize), m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
+	shadeDescriptorSet->bind(cPATH_ORIGINS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(singleSize, singleSize),
+											 m_CombinedStateBuffer[1]->getDescriptorBufferInfo(singleSize, singleSize)});
+	shadeDescriptorSet->bind(cPATH_DIRECTIONS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
+												m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
+	shadeDescriptorSet->bind(cPATH_THROUGHPUTS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(3 * singleSize, singleSize),
+												 m_CombinedStateBuffer[1]->getDescriptorBufferInfo(3 * singleSize, singleSize)});
 	finalizeDescriptorSet->bind(fACCUMULATION_BUFFER, {m_AccumulationBuffer->getDescriptorBufferInfo()});
 }
 
@@ -1008,16 +979,11 @@ void vkrtx::Context::createDescriptorSets()
 	rtDescriptorSet->addBinding(rtACCELERATION_STRUCTURE, 1, vk::DescriptorType::eAccelerationStructureNV,
 								vk::ShaderStageFlagBits::eRaygenNV | vk::ShaderStageFlagBits::eClosestHitNV);
 	rtDescriptorSet->addBinding(rtCAMERA, 1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eRaygenNV);
-	rtDescriptorSet->addBinding(rtPATH_STATES, 2, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
-	rtDescriptorSet->addBinding(rtPATH_ORIGINS, 2, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
-	rtDescriptorSet->addBinding(rtPATH_DIRECTIONS, 2, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
-	rtDescriptorSet->addBinding(rtPOTENTIAL_CONTRIBUTIONS, 1, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
-	rtDescriptorSet->addBinding(rtACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
+	rtDescriptorSet->addBinding(rtPATH_STATES, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
+	rtDescriptorSet->addBinding(rtPATH_ORIGINS, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
+	rtDescriptorSet->addBinding(rtPATH_DIRECTIONS, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
+	rtDescriptorSet->addBinding(rtPOTENTIAL_CONTRIBUTIONS, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
+	rtDescriptorSet->addBinding(rtACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
 	rtDescriptorSet->addBinding(rtBLUENOISE, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
 	rtDescriptorSet->finalize();
 
@@ -1025,46 +991,27 @@ void vkrtx::Context::createDescriptorSets()
 	assert(limits.maxDescriptorSetStorageBuffers > MAX_TRIANGLE_BUFFERS);
 	shadeDescriptorSet->addBinding(cCOUNTERS, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
 	shadeDescriptorSet->addBinding(cCAMERA, 1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cPATH_STATES, 2, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cPATH_ORIGINS, 2, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cPATH_DIRECTIONS, 2, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cPATH_THROUGHPUTS, 2, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cPOTENTIAL_CONTRIBUTIONS, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cMATERIALS, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cSKYBOX, 1, vk::DescriptorType::eCombinedImageSampler,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cTRIANGLES, MAX_TRIANGLE_BUFFERS, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cINVERSE_TRANSFORMS, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cTEXTURE_RGBA32, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cTEXTURE_RGBA128, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cAREALIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cPOINTLIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cSPOTLIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cDIRECTIONALLIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
-	shadeDescriptorSet->addBinding(cBLUENOISE, 1, vk::DescriptorType::eStorageBuffer,
-								   vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cPATH_STATES, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cPATH_ORIGINS, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cPATH_DIRECTIONS, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cPATH_THROUGHPUTS, 2, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cPOTENTIAL_CONTRIBUTIONS, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cMATERIALS, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cSKYBOX, 1, vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cTRIANGLES, MAX_TRIANGLE_BUFFERS, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cINVERSE_TRANSFORMS, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cTEXTURE_RGBA32, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cTEXTURE_RGBA128, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cAREALIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cPOINTLIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cSPOTLIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cDIRECTIONALLIGHT_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	shadeDescriptorSet->addBinding(cBLUENOISE, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
 	shadeDescriptorSet->finalize();
 
-	finalizeDescriptorSet->addBinding(fACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-									  vk::ShaderStageFlagBits::eCompute);
-	finalizeDescriptorSet->addBinding(fUNIFORM_CONSTANTS, 1, vk::DescriptorType::eUniformBuffer,
-									  vk::ShaderStageFlagBits::eCompute);
+	finalizeDescriptorSet->addBinding(fACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eCompute);
+	finalizeDescriptorSet->addBinding(fUNIFORM_CONSTANTS, 1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eCompute);
 	finalizeDescriptorSet->addBinding(fOUTPUT, 1, vk::DescriptorType::eStorageImage, vk::ShaderStageFlagBits::eCompute);
 	finalizeDescriptorSet->finalize();
 }
@@ -1079,34 +1026,29 @@ void vkrtx::Context::recordCommandBuffers()
 	const auto subresourceRange = vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1);
 	m_InteropTexture->recordTransitionToVulkan(m_BlitCommandBuffer);
 
-	m_BlitCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader,
-										vk::PipelineStageFlagBits::eComputeShader, vk::DependencyFlags(), 0, nullptr, 0,
-										nullptr, 0, nullptr);
+	m_BlitCommandBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eComputeShader, vk::DependencyFlags(), 0, nullptr,
+										0, nullptr, 0, nullptr);
 
 	// Dispatch finalize image shader
 	finalizePipeline->recordDispatchCommand(m_BlitCommandBuffer, m_ScrWidth, m_ScrHeight);
-	m_InteropTexture->recordTransitionToGL(
-		m_BlitCommandBuffer); // Make sure interop texture is ready to be used by Vulkan
+	m_InteropTexture->recordTransitionToGL(m_BlitCommandBuffer); // Make sure interop texture is ready to be used by Vulkan
 	m_BlitCommandBuffer.end();
 }
 
 void vkrtx::Context::createBuffers()
 {
-	m_ScratchBuffer = new VmaBuffer<uint8_t>(m_Device, 65336, vk::MemoryPropertyFlagBits::eDeviceLocal,
-											 vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_ScratchBuffer =
+		new VmaBuffer<uint8_t>(m_Device, 65336, vk::MemoryPropertyFlagBits::eDeviceLocal, vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	const auto pixelCount = static_cast<vk::DeviceSize>(m_ScrWidth * m_ScrHeight);
-	m_InvTransformsBuffer = new VmaBuffer<mat4>(
-		m_Device, 32, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_InvTransformsBuffer = new VmaBuffer<mat4>(m_Device, 32, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+												vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	m_UniformCamera = new UniformObject<VkCamera>(m_Device);
 	m_UniformFinalizeParams = new UniformObject<FinalizeParams>(m_Device);
 	m_Counters = new VmaBuffer<Counters>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc |
-			vk::BufferUsageFlagBits::eTransferDst,
-		VMA_MEMORY_USAGE_GPU_ONLY);
+		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// bind uniforms
 	rtDescriptorSet->bind(rtCAMERA, {m_UniformCamera->getDescriptorBufferInfo()});
@@ -1114,53 +1056,43 @@ void vkrtx::Context::createBuffers()
 	shadeDescriptorSet->bind(cCOUNTERS, {m_Counters->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(fUNIFORM_CONSTANTS, {m_UniformFinalizeParams->getDescriptorBufferInfo()});
 
-	m_Materials = new VmaBuffer<rfw::DeviceMaterial>(
-		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer);
+	m_Materials = new VmaBuffer<rfw::DeviceMaterial>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+													 vk::BufferUsageFlagBits::eStorageBuffer);
 
 	// Texture buffers
-	m_RGBA32Buffer =
-		new VmaBuffer<uint>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
-							vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
-	m_RGBA128Buffer =
-		new VmaBuffer<glm::vec4>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
+	m_RGBA32Buffer = new VmaBuffer<uint>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
+										 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
+	m_RGBA128Buffer = new VmaBuffer<glm::vec4>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
 
 	// Wavefront buffers
-	m_AccumulationBuffer = new VmaBuffer<glm::vec4>(m_Device, pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-													vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
-	m_PotentialContributionBuffer = new VmaBuffer<PotentialContribution>(
-		m_Device, MAXPATHLENGTH * pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_AccumulationBuffer = new VmaBuffer<glm::vec4>(m_Device, pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal, vk::BufferUsageFlagBits::eStorageBuffer,
+													VMA_MEMORY_USAGE_GPU_ONLY);
+	m_PotentialContributionBuffer = new VmaBuffer<PotentialContribution>(m_Device, MAXPATHLENGTH * pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
+																		 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	const auto limits = m_Device.getPhysicalDevice().getProperties().limits;
 	const auto combinedAlignedSize = pixelCount * 4 + ((pixelCount * 4) % limits.minStorageBufferOffsetAlignment);
-	m_CombinedStateBuffer[0] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
-	m_CombinedStateBuffer[1] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_CombinedStateBuffer[0] = new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+														vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_CombinedStateBuffer[1] = new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+														vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// Light buffers
-	m_AreaLightBuffer = new VmaBuffer<rfw::DeviceAreaLight>(
-		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_PointLightBuffer = new VmaBuffer<rfw::DevicePointLight>(
-		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_SpotLightBuffer = new VmaBuffer<rfw::DeviceSpotLight>(
-		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_DirectionalLightBuffer = new VmaBuffer<rfw::DeviceDirectionalLight>(
-		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_AreaLightBuffer = new VmaBuffer<rfw::DeviceAreaLight>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+															vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_PointLightBuffer = new VmaBuffer<rfw::DevicePointLight>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+															  vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_SpotLightBuffer = new VmaBuffer<rfw::DeviceSpotLight>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+															vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
+	m_DirectionalLightBuffer =
+		new VmaBuffer<rfw::DeviceDirectionalLight>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+												   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	// Blue Noise
 	const auto blueNoise = createBlueNoiseBuffer();
-	m_BlueNoiseBuffer = new VmaBuffer<uint>(
-		m_Device, 65536 * 5, vk::MemoryPropertyFlagBits::eDeviceLocal,
-		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_BlueNoiseBuffer = new VmaBuffer<uint>(m_Device, 65536 * 5, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 	m_BlueNoiseBuffer->copyToDevice(blueNoise.data(), m_BlueNoiseBuffer->getSize());
 }
 
@@ -1171,13 +1103,12 @@ void vkrtx::Context::initializeDescriptorSets()
 	const auto limits = m_Device.getPhysicalDevice().getProperties().limits;
 	const auto unalignedSize = m_ScrWidth * m_ScrHeight * sizeof(glm::vec4);
 	const vk::DeviceSize singleSize = unalignedSize + (unalignedSize % limits.minUniformBufferOffsetAlignment);
-	rtDescriptorSet->bind(rtPATH_STATES, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize),
-										  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
+	rtDescriptorSet->bind(rtPATH_STATES,
+						  {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize), m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
 	rtDescriptorSet->bind(rtPATH_ORIGINS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(singleSize, singleSize),
 										   m_CombinedStateBuffer[1]->getDescriptorBufferInfo(singleSize, singleSize)});
-	rtDescriptorSet->bind(rtPATH_DIRECTIONS,
-						  {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
-						   m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
+	rtDescriptorSet->bind(rtPATH_DIRECTIONS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
+											  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
 	rtDescriptorSet->bind(rtPOTENTIAL_CONTRIBUTIONS, {m_PotentialContributionBuffer->getDescriptorBufferInfo()});
 	rtDescriptorSet->bind(rtACCUMULATION_BUFFER, {m_AccumulationBuffer->getDescriptorBufferInfo()});
 	rtDescriptorSet->bind(rtBLUENOISE, {m_BlueNoiseBuffer->getDescriptorBufferInfo()});
@@ -1205,17 +1136,14 @@ void vkrtx::Context::initializeDescriptorSets()
 
 	shadeDescriptorSet->bind(cCOUNTERS, {m_Counters->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(cCAMERA, {m_UniformCamera->getDescriptorBufferInfo()});
-	shadeDescriptorSet->bind(cPATH_STATES, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize),
-											m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
-	shadeDescriptorSet->bind(cPATH_ORIGINS,
-							 {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(singleSize, singleSize),
-							  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(singleSize, singleSize)});
-	shadeDescriptorSet->bind(cPATH_DIRECTIONS,
-							 {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
-							  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
-	shadeDescriptorSet->bind(cPATH_THROUGHPUTS,
-							 {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(3 * singleSize, singleSize),
-							  m_CombinedStateBuffer[1]->getDescriptorBufferInfo(3 * singleSize, singleSize)});
+	shadeDescriptorSet->bind(
+		cPATH_STATES, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(0, singleSize), m_CombinedStateBuffer[1]->getDescriptorBufferInfo(0, singleSize)});
+	shadeDescriptorSet->bind(cPATH_ORIGINS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(singleSize, singleSize),
+											 m_CombinedStateBuffer[1]->getDescriptorBufferInfo(singleSize, singleSize)});
+	shadeDescriptorSet->bind(cPATH_DIRECTIONS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(2 * singleSize, singleSize),
+												m_CombinedStateBuffer[1]->getDescriptorBufferInfo(2 * singleSize, singleSize)});
+	shadeDescriptorSet->bind(cPATH_THROUGHPUTS, {m_CombinedStateBuffer[0]->getDescriptorBufferInfo(3 * singleSize, singleSize),
+												 m_CombinedStateBuffer[1]->getDescriptorBufferInfo(3 * singleSize, singleSize)});
 	shadeDescriptorSet->bind(cPOTENTIAL_CONTRIBUTIONS, {m_PotentialContributionBuffer->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(cMATERIALS, {m_Materials->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(cSKYBOX, {m_SkyboxImage->getDescriptorImageInfo()});

@@ -358,6 +358,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					continue;
 				else if (attribute.first == "JOINTS_0")
 				{
+					scene.flags &= ~SceneObject::ALLOW_INDICES;
 					if (attribAccessor.type == TINYGLTF_TYPE_VEC4)
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
@@ -472,6 +473,18 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 	scene.nodes.reserve(model.nodes.size() + 1);
 	tinygltf::Scene &gltfScene = model.scenes.at(0);
 
+	if (!scene.animations.empty())
+	{
+		for (auto &mesh : meshes)
+		{
+			for (auto &prim : mesh)
+			{
+				for (auto &v : prim.normals)
+					v *= vec3(1, -1, -1);
+			}
+		}
+	}
+
 	for (size_t s = model.nodes.size(), i = 0; i < s; i++)
 	{
 		const auto &node = model.nodes.at(i);
@@ -546,16 +559,12 @@ std::vector<uint> rfw::gLTFObject::getLightIndices(const std::vector<bool> &matL
 	std::vector<uint> indices;
 	for (const auto &mesh : scene.meshes)
 	{
-		const size_t offset = indices.size();
-
-		//		if (matLightFlags.at(mesh.matID))
-		//		{
-		//			const auto s = mesh.vertexCount / 3;
-		//			const auto o = mesh.vertexOffset / 3;
-		//			indices.resize(offset + s);
-		//			for (uint i = 0; i < s; i++)
-		//				indices.at(offset + i) = o + i;
-		//		}
+		for (int i = 0; i < mesh.faceCount; i++)
+		{
+			const auto &tri = scene.triangles.at(i + mesh.faceOffset);
+			if (matLightFlags[tri.material])
+				indices.push_back(i + mesh.faceOffset);
+		}
 	}
 
 	return indices;

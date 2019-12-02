@@ -6,6 +6,7 @@
 #include "Skinning.h"
 
 #define ALLOW_INDEXED_DATA 1
+#define ALLOW_INDEXED_ANIM_DATA 1
 
 using namespace glm;
 
@@ -72,7 +73,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 		__m128 norm = _mm256_extractf128_ps(combined, 1);
 
 		// normalize normal
-		norm = _mm_mul_ps(_mm_mul_ps(norm, _mm_set_ps(0.0f, -1.0f, -1.0f, 1.0f)), _mm_rsqrt_ps(_mm_dp_ps(norm, norm, 0x77)));
+		norm = _mm_mul_ps(norm, _mm_rsqrt_ps(_mm_dp_ps(norm, norm, 0x77)));
 
 		// store for reuse
 		_mm_store_ps(value_ptr(object->vertices[i]), vtx);
@@ -85,7 +86,6 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 		const mat4 my = skin.jointMatrices.at(j4.y) * w4.y;
 		const mat4 mz = skin.jointMatrices.at(j4.z) * w4.z;
 		const mat4 mw = skin.jointMatrices.at(j4.w) * w4.w;
-
 		const mat4 skinMatrix = mx + my + mz + mw;
 
 		vertices[i] = skinMatrix * baseVertices[i];
@@ -208,7 +208,7 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 {
 	std::vector<int> indices = indces;
 
-	if (jnts.empty())
+	if (!jnts.empty() && (object->flags & SceneObject::ALLOW_INDICES))
 	{
 		if (flags | INITIAL_PRIM)
 		{
@@ -309,7 +309,7 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 				object->texCoords.emplace_back(0.0f);
 		}
 	}
-	else
+	else if (!indices.empty())
 	{
 		if (flags | INITIAL_PRIM)
 			vertexOffset = object->baseVertices.size();
@@ -370,4 +370,59 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 				object->texCoords.emplace_back(0.0f);
 		}
 	}
+	else
+	{
+		if (flags | INITIAL_PRIM)
+			vertexOffset = object->baseVertices.size();
+
+		faceCount += verts.size() / 3;
+		vertexCount += verts.size();
+
+		// Allocate data
+		const auto triangleOffset = object->triangles.size();
+
+		object->materialIndices.resize(object->materialIndices.size() + (verts.size() / 3), materialIdx);
+		object->triangles.resize(object->triangles.size() + (verts.size() / 3));
+
+		object->baseVertices.reserve(object->baseVertices.size() + verts.size());
+		object->baseNormals.reserve(object->baseNormals.size() + verts.size());
+		object->texCoords.reserve(object->texCoords.size() + verts.size());
+
+		poses.resize(poses.size());
+		for (size_t i = 0; i < poses.size(); i++)
+		{
+			const auto &origPose = pses.at(i);
+			auto &pose = poses.at(i);
+
+			pose.positions = origPose.positions;
+			pose.normals = origPose.normals;
+		}
+
+		if (!jnts.empty())
+		{
+			joints.reserve(verts.size());
+			weights.reserve(verts.size());
+
+			for (int s = static_cast<int>(verts.size()), i = 0; i < s; i++)
+			{
+				joints.push_back(jnts.at(i));
+				weights.push_back(wghts.at(i));
+			}
+		}
+
+		// Add per-vertex data
+		for (int s = static_cast<int>(verts.size()), i = 0; i < s; i++)
+		{
+			const auto idx = verts.at(i);
+
+			object->baseVertices.emplace_back(verts.at(i), 1.0f);
+			object->baseNormals.push_back(nrmls.at(i));
+			if (!uvs.empty())
+				object->texCoords.push_back(uvs.at(i));
+			else
+				object->texCoords.emplace_back(0.0f);
+		}
+	}
+
+	flags &= ~INITIAL_PRIM;
 }

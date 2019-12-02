@@ -1,4 +1,3 @@
-#define GLM_FORCE_SIMD_AVX2
 #include "AssimpObject.h"
 
 #include <MathIncludes.h>
@@ -58,13 +57,16 @@ int calculateNodeCount(const aiNode *node)
 	return count;
 }
 
-int traverseNodeTree(NodeWithIndex* storage, const aiNode *node, int &counter)
+int traverseNodeTree(NodeWithIndex *storage, const aiNode *node, int &counter)
 {
 	const int index = counter++;
 
 	storage[index].name = node->mName.C_Str();
 	storage[index].node = node;
 	storage[index].index = index;
+
+	for (int i = 0; i < node->mNumMeshes; i++)
+		storage[index].meshIDs.push_back(node->mMeshes[i]);
 
 	mat4 T;
 	memcpy(value_ptr(T), &node->mTransformation, 16 * sizeof(float));
@@ -245,6 +247,12 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			object.nodes.push_back(rfw::SceneNode(&object, node.name, node.childIndices, node.meshIDs, {}, meshes, {}, node.transform));
 	}
 
+	if (scene->HasAnimations())
+	{
+		meshSkin.jointMatrices.resize(meshSkin.inverseBindMatrices.size(), glm::mat4(1.0f));
+		object.skins.push_back(meshSkin);
+	}
+
 	for (int i = 0; i < scene->mNumAnimations; i++)
 	{
 		const auto anim = scene->mAnimations[i];
@@ -318,14 +326,28 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		object.animations.emplace_back(animation);
 	}
 
+	for (auto &node : object.nodes)
+	{
+		if (animNodeMeshes.find(node.name) != animNodeMeshes.end())
+		{
+			for (int i = 0; i < node.meshIDs.size(); i++)
+				node.skinIDs.at(i) = 0;
+		}
+	}
+
 	object.vertices.resize(object.baseVertices.size(), vec4(0, 0, 0, 1));
 	object.normals.resize(object.baseNormals.size(), vec3(0.0f));
 
+	object.nodes.at(0).update(mat4(1.0f));
+
 	object.transformTo(0.0f);
+
 	object.updateTriangles();
 
 	// Update triangle data that only has to be calculated once
 	object.updateTriangles(matList);
+
+	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), object.vertices.size(), object.triangles.size());
 }
 
 AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const mat4 &matrix, bool normalize, int material)
@@ -523,9 +545,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	for (const auto &nodeIdx : m_NodesWithMeshes)
 	{
 		const auto &node = m_SceneGraph.at(nodeIdx);
-		for (uint i = 0; i < node.meshes.size(); i++)
+		for (unsigned int meshIdx : node.meshes)
 		{
-			const auto meshIdx = node.meshes.at(i);
 			m_MeshMapping.at(meshIdx).push_back(meshIndex);
 
 			MeshInfo &m = m_Meshes.at(meshIndex);
@@ -593,9 +614,9 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 					MeshBone &bone = m.bones.at(boneIdx);
 					bone.name = std::string(aiBone->mName.C_Str());
 
-					const aiNode *node = scene->mRootNode->FindNode(aiBone->mName);
-					bone.nodeIndex = m_NodeNameMapping[std::string(node->mName.C_Str())];
-					bone.nodeName = std::string(node->mName.C_Str());
+					const aiNode *boneNode = scene->mRootNode->FindNode(aiBone->mName);
+					bone.nodeIndex = m_NodeNameMapping[std::string(boneNode->mName.C_Str())];
+					bone.nodeName = std::string(boneNode->mName.C_Str());
 
 					// Store bone weights
 					bone.vertexIDs.resize(aiBone->mNumWeights);
@@ -663,12 +684,18 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	}
 
 	char buffer[1024];
-	sprintf(buffer, "Loaded \"%s\" with triangle count: %zu", filename.data(), m_Triangles.size());
+	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), m_CurrentVertices.size(), m_Triangles.size());
 	DEBUG(buffer);
 }
 
 void AssimpObject::transformTo(const float timeInSeconds)
 {
+	if (!object.vertices.empty())
+	{
+		object.transformTo(timeInSeconds);
+		return;
+	}
+
 	if (!m_IsAnimated && m_HasUpdated)
 		return;
 	m_HasUpdated = true;
@@ -682,7 +709,7 @@ void AssimpObject::transformTo(const float timeInSeconds)
 	if (m_IsAnimated)
 	{
 		const float timeInTicks = timeInSeconds * static_cast<float>(m_Animations[0].ticksPerSecond);
-		const float animationTime = fmod(timeInTicks, static_cast<float>(m_Animations[0].duration));
+		const float animationTime = std::fmod(timeInTicks, static_cast<float>(m_Animations[0].duration));
 
 #if ANIMATION_ENABLED
 		// TODO: Implement mesh animations and mesh morph animations
@@ -720,52 +747,28 @@ void AssimpObject::transformTo(const float timeInSeconds)
 			 * Meshes that are affected by animations can be placed in a node with a parent hierarchy
 			 * in which one of the parent nodes can be influenced by an animations.
 			 */
-			const aligned_mat4 transform = rowMajor4(m_SceneGraph.at(mesh.nodeIndex).combinedTransform);
-			const aligned_mat3 transform3x3 = glm::mat3(transform);
 
+			const mat4 &transform = m_SceneGraph.at(mesh.nodeIndex).combinedTransform;
 			for (uint i = 0, vIdx = mesh.vertexOffset; i < mesh.vertexCount; i++, vIdx++)
 			{
-				const glm::aligned_vec4 baseVertex = m_BaseVertices.at(vIdx);
-				const glm::aligned_vec3 baseNormal = m_BaseNormals.at(vIdx);
-
-				m_CurrentVertices.at(vIdx) = transform * baseVertex;
-				m_CurrentNormals.at(vIdx) = transform3x3 * baseNormal;
+				m_CurrentVertices[vIdx] = transform * m_BaseVertices[vIdx];
+				m_CurrentNormals[vIdx] = transform * vec4(m_BaseNormals[vIdx], 0);
 			}
 			continue;
 		}
 
-#if 1
 		for (const auto &bone : mesh.bones)
 		{
 			const glm::mat4 &skin4x4 = m_SceneGraph.at(bone.nodeIndex).combinedTransform * bone.offsetMatrix;
-			const glm::mat3 skin3x3 = mat3(skin4x4);
 
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
 			{
 				const uint vIdx = mesh.vertexOffset + bone.vertexIDs.at(i);
-				m_CurrentVertices.at(vIdx) += skin4x4 * m_BaseVertices.at(vIdx) * bone.weights.at(i);
-				m_CurrentNormals.at(vIdx) += skin3x3 * m_BaseNormals.at(vIdx) * bone.weights.at(i);
+
+				m_CurrentVertices.at(vIdx) += skin4x4 * m_BaseVertices.at(vIdx) * bone.weights[i];
+				m_CurrentNormals.at(vIdx) += vec3(skin4x4 * vec4(m_BaseNormals.at(vIdx), 0)) * bone.weights[i];
 			}
 		}
-#else
-		std::vector<mat4> skinMatrices;
-
-		for (int i = 0, s = mesh.vertexCount; i < s; i++)
-		{
-			const uvec4 &j4 = mesh.joints.at(i);
-			const vec4 &w4 = mesh.weights.at(i);
-
-			const mat4 mx = skinMatrices.at(j4.x) * w4.x;
-			const mat4 my = skinMatrices.at(j4.y) * w4.y;
-			const mat4 mz = skinMatrices.at(j4.z) * w4.z;
-			const mat4 mw = skinMatrices.at(j4.w) * w4.w;
-
-			const mat4 skinMatrix = mx + my + mz + mw;
-
-			m_CurrentVertices[i + mesh.vertexOffset] = skinMatrix * m_BaseVertices[i + mesh.vertexOffset];
-			m_CurrentNormals[i + mesh.vertexOffset] = skinMatrix * vec4(m_BaseNormals[i + mesh.vertexOffset], 0);
-		}
-#endif
 	}
 
 	updateTriangles();
@@ -901,17 +904,19 @@ void AssimpObject::setCurrentAnimation(uint index)
 
 rfw::Mesh rfw::AssimpObject::getMesh() const
 {
-#if 0
-	rfw::Mesh mesh{};
-	mesh.vertices = m_CurrentVertices.data();
-	mesh.normals = m_CurrentNormals.data();
-	mesh.triangles = m_Triangles.data();
-	mesh.vertexCount = m_CurrentVertices.size();
-	mesh.triangleCount = m_Indices.size();
-	mesh.indices = m_Indices.data();
-	mesh.texCoords = m_TexCoords.data();
-	return mesh;
-#else
+	if (!m_CurrentVertices.empty())
+	{
+		rfw::Mesh mesh{};
+		mesh.vertices = m_CurrentVertices.data();
+		mesh.normals = m_CurrentNormals.data();
+		mesh.triangles = m_Triangles.data();
+		mesh.vertexCount = m_CurrentVertices.size();
+		mesh.triangleCount = m_Indices.size();
+		mesh.indices = m_Indices.data();
+		mesh.texCoords = m_TexCoords.data();
+		return mesh;
+	}
+
 	auto mesh = rfw::Mesh();
 	mesh.vertices = object.vertices.data();
 	mesh.normals = object.normals.data();
@@ -929,7 +934,6 @@ rfw::Mesh rfw::AssimpObject::getMesh() const
 	mesh.vertexCount = object.vertices.size();
 	mesh.texCoords = object.texCoords.data();
 	return mesh;
-#endif
 }
 
 std::vector<uint> AssimpObject::getLightIndices(const std::vector<bool> &matLightFlags) const

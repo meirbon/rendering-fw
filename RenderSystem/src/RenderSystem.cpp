@@ -380,7 +380,7 @@ GeometryReference RenderSystem::addObject(std::string_view fileName, bool normal
 	else
 #endif
 	{
-		m_Models.emplace_back((SceneTriangles *)new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material));
+		m_Models.emplace_back((SceneTriangles *)new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material));
 	}
 
 	m_ModelChanged.push_back(true);
@@ -415,7 +415,7 @@ rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3
 	m_Models.emplace_back(new Quad(N, pos, width, height, material));
 	m_ModelChanged.push_back(true);
 	m_ObjectLightIndices.push_back(m_Models.at(idx)->getLightIndices(m_Materials->getMaterialLightFlags()));
-	m_ObjectMaterialRange.push_back(std::make_pair(material, material + 1));
+	m_ObjectMaterialRange.emplace_back(material, material + 1);
 
 	// Update flags
 	m_Changed[MODELS] = true;
@@ -524,7 +524,7 @@ LightReference RenderSystem::addPointLight(const glm::vec3 &position, const glm:
 	size_t index = m_PointLights.size();
 	PointLight pl{};
 	pl.position = position;
-	pl.energy = length(radiance);
+	pl.energy = sqrt(dot(radiance, radiance));
 	pl.radiance = radiance;
 	m_PointLights.push_back(pl);
 	m_Changed[LIGHTS] = true;
@@ -540,7 +540,7 @@ LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosIn
 	sl.radiance = radiance;
 	sl.cosOuter = cosOuter;
 	sl.direction = normalize(direction);
-	sl.energy = length(radiance);
+	sl.energy = sqrt(dot(radiance, radiance));
 	m_SpotLights.push_back(sl);
 	m_Changed[LIGHTS] = true;
 	return LightReference(index, LightReference::SPOT, *this);
@@ -551,7 +551,7 @@ LightReference RenderSystem::addDirectionalLight(const glm::vec3 &direction, con
 	size_t index = m_DirectionalLights.size();
 	DirectionalLight dl{};
 	dl.direction = normalize(direction);
-	dl.energy = length(radiance);
+	dl.energy = sqrt(dot(radiance, radiance));
 	dl.radiance = radiance;
 	m_DirectionalLights.push_back(dl);
 	m_Changed[LIGHTS] = true;
@@ -753,7 +753,7 @@ void RenderSystem::updateAreaLights()
 			light.vertex1 = vec3(lv1);
 			light.vertex2 = vec3(lv2);
 			light.position = (light.vertex0 + light.vertex1 + light.vertex2) * (1.0f / 3.0f);
-			light.energy = 1.0f;
+			light.energy = sqrt(dot(material.color, material.color));
 			light.radiance = material.color;
 			light.normal = lN;
 			light.triIdx = index;

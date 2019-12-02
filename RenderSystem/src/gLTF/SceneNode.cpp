@@ -1,3 +1,4 @@
+#define GLM_FORCE_INTRINSICS
 #include "SceneNode.h"
 
 #include <utility>
@@ -52,7 +53,7 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 	if (transformed)
 		calculateTransform();
 
-	combinedTransform = accumulatedTransform * localTransform;
+	glm_mat4_mul((__m128 *)value_ptr(accumulatedTransform), (__m128 *)value_ptr(localTransform), (__m128 *)value_ptr(combinedTransform));
 
 	for (size_t s = childIndices.size(), i = 0; i < s; i++)
 	{

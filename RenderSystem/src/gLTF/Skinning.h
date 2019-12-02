@@ -7,10 +7,11 @@
 
 #include <glm/gtx/matrix_major_storage.hpp>
 
-#define ROW_MAJOR_MESH_SKIN 1
+#define ROW_MAJOR_MESH_SKIN 0
 
 namespace rfw
 {
+
 class MeshSkin
 {
   public:

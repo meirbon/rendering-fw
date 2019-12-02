@@ -80,6 +80,9 @@ layout(set = 0, binding = cBLUENOISE) buffer   blueNoiseBuffer { int blueNoise[]
 #define SPOTLIGHTCOUNT        lightCounts.z
 #define DIRECTIONALLIGHTCOUNT lightCounts.w
 
+#define VARIANCE_REDUCTION 1
+#define BLUENOISE 1
+
 vec3 RandomBarycentrics(const float r0);
 float PotentialAreaLightContribution(const int idx, const vec3 O, const vec3 N, const vec3 I, const vec3 bary);
 float PotentialPointLightContribution(const int idx, const vec3 I, const vec3 N);
@@ -95,7 +98,7 @@ void main()
     const uint currentIndex = gl_GlobalInvocationID.x;
     if (currentIndex >= path_count) return;
 
-    const uint shadeBufferIndex = (path_length & 1);   // Buffers used to shade current rays
+    const uint shadeBufferIndex = (path_length % 2);   // Buffers used to shade current rays
 	const uint nextBufferIndex = 1 - shadeBufferIndex; // Buffers used for next extension stage
 
     const vec4 O4 = origins[shadeBufferIndex].data[currentIndex];
@@ -116,11 +119,10 @@ void main()
     {
         const vec2 uv = vec2(0.5f * (1.0f + atan(D4.x, -D4.z) * INVPI), acos(D4.y) * INVPI);
         vec3 contribution = throughput * texture(skybox, uv).rgb * (1.0f / bsdfPdf);
-        if (!any(isnan(contribution)))
-		{
-			CLAMPINTENSITY(contribution, clampValue);
-			acPixels[pixelIdx] += vec4(contribution, 0.0);
-		}
+        if (any(isnan(contribution)))
+			contribution = vec3(0);
+		CLAMPINTENSITY(contribution, clampValue);
+		acPixels[pixelIdx] += vec4(contribution, 0.0);
         return;
     }
 
@@ -142,6 +144,7 @@ void main()
     vec3 N, iN, T, B;
     GetShadingData(D, HIT_U, HIT_V, camera.right_spreadAngle.w * HIT_T, tri,
 				   shadingData, N, iN, T, B, mat3(invTransforms[instance_id]));
+
     if ((floatBitsToUint(shadingData.color.w) & 1u) == 1u)// Check if object hit was translucent
     {
         if (pathLength < MAXPATHLENGTH)// Create extension ray
@@ -157,12 +160,14 @@ void main()
     // Terminate path on light
     if (any(greaterThan(shadingData.color.xyz, vec3(1.0)))) /* r, g or b exceeds 1 */
     {
+
+#if VARIANCE_REDUCTION
         const float DdotNL = -dot(D, N);
         vec3 contribution = vec3(0);
         if (DdotNL > 0)
         {
 			if (pathLength == 1 || (FLAGS & S_VIASPECULAR) != 0)
-				contribution = throughput * shadingData.color.xyz;
+				contribution = throughput * shadingData.color.xyz * 1.0f / bsdfPdf;
             else
             {
                 // Last vertex was not specular: apply MIS
@@ -175,23 +180,30 @@ void main()
                 contribution = throughput * shadingData.color.xyz * (1.0f / (bsdfPdf + lightPdf * pickProb));
             }
         }
+#else
+		vec3 contribution = throughput * shadingData.color.xyz * 1.0f / bsdfPdf;
+#endif
 
 
-		if (any(isnan(throughput)))
-			throughput = vec3(0.0f);
+		if (any(isnan(contribution)))
+			contribution = vec3(0.0f);
 
         CLAMPINTENSITY(contribution, clampValue);
-        acPixels[pixelIdx] += vec4(throughput, 0);
+        acPixels[pixelIdx] += vec4(contribution, 0);
         return;
     }
 
-    uint seed = WangHash(pathIdx * 16789 + camera.samplesTaken * 1791 + pathLength * 720898027);
-    const float flip = (dot(D, N) > 0) ? -1.0f : 1.0f;
+    const float flip = -sign(dot(D, N));
 
     N *= flip;// Fix geometric normal
     iN *= flip;// Fix interpolated normal (consistent normal interpolation)
     throughput *= 1.0f / bsdfPdf;// Apply postponed bsdf pdf
+	if (ROUGHNESS <= 0.001f || TRANSMISSION > 0.999f)
+		FLAGS |= S_SPECULAR;
+	else FLAGS &= ~S_SPECULAR;
+    uint seed = WangHash(pathIdx * 16789 + camera.samplesTaken * 1791 + pathLength * 720898027);
 
+#if VARIANCE_REDUCTION
 	// Only cast shadow rays for non-specular objects
     if (ROUGHNESS >= 0.01f && any(greaterThan(lightCounts, uvec4(0))))
     {
@@ -242,12 +254,9 @@ void main()
             }
         }
     }
-	else
-	{
-		FLAGS |= S_SPECULAR;// Object was specular
-	}
 
 	if ((FLAGS & S_BOUNCED) > 0) return;
+#endif
 
     // Depth cap
     if (pathLength > MAXPATHLENGTH) // Early out in case we reached maximum path length
@@ -273,21 +282,22 @@ void main()
     r4 = RandomFloat(seed);
 #endif
 
-	bool specular;
+	bool specular = false;
     const vec3 bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, HIT_T, flip < 0, r3, r4, R, newBsdfPdf, specular);
-	if (newBsdfPdf < 1e-6f || isnan(newBsdfPdf))
+	if (newBsdfPdf < EPSILON || isnan(newBsdfPdf))
 		return;
 
-	throughput = throughput *
-			//1.0f / SurvivalProbability(throughput) *
-			bsdf * abs(dot(iN, R));
+	if (specular)
+		FLAGS |= S_SPECULAR;
+
+	throughput = throughput * bsdf * abs(dot(iN, R));
 	if (any(isnan(throughput)))
 		throughput = vec3(0);
 
+    const uint extensionRayIdx = atomicAdd(extensionRays, 1);// Get compacted index for extension ray
+
 	if ((FLAGS & S_SPECULAR) == 0) FLAGS |= S_BOUNCED;
 	else FLAGS |= S_VIASPECULAR;
-
-    const uint extensionRayIdx = atomicAdd(extensionRays, 1);// Get compacted index for extension ray
 
     origins[nextBufferIndex].data[extensionRayIdx] = vec4(I, uintBitsToFloat(FLAGS));
     directions[nextBufferIndex].data[extensionRayIdx] = vec4(R, uintBitsToFloat(PackNormal(iN)));
@@ -339,7 +349,7 @@ const int idx, const vec3 I, const vec3 N)
     const float d = (-dot(L, direction4.xyz) - radiance4.w) / (position4.w - radiance4.w);
     const float NdotL = dot(N, L);
     const float LNdotL = clamp(d, 0.0f, 1.0f);
-    return (radiance4.x + radiance4.y + radiance4.z) * LNdotL * NdotL * att * direction4.w;
+    return LNdotL * NdotL * att * direction4.w;
 }
 
 float PotentialDirectionalLightContribution(const int idx, const vec3 I, const vec3 N)

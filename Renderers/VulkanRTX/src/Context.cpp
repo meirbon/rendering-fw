@@ -557,6 +557,8 @@ void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &trans
 	};
 
 	// Update matrix
+
+	
 	m_InvTransforms[index] = glm::inverse(transform);
 
 	// Update acceleration structure handle

@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
 	auto rs = RenderSystem();
 
-	 auto camera = rfw::Camera::deserialize("camera.bin");
+	auto camera = rfw::Camera::deserialize("camera.bin");
 
 	unsigned int mouseX, mouseY;
 
@@ -97,9 +97,9 @@ int main(int argc, char *argv[])
 	if (!rs.hasContext())
 	{
 		// Pick default renderer
-//		rs.loadRenderAPI("GLRenderer");
+		//		rs.loadRenderAPI("GLRenderer");
 		// rs.loadRenderAPI("OptiX6Context");
-		 rs.loadRenderAPI("VulkanRTX");
+		rs.loadRenderAPI("VulkanRTX");
 		// rs.loadRenderAPI("VkContext");
 	}
 
@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
 	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), vec3(100));
-	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(100), cos(radians(45.0f)), vec3(0, -1, 0));
+	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(1000), cos(radians(45.0f)), vec3(0, -1, 0));
 
 #endif
 #endif

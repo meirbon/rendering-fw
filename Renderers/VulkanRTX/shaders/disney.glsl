@@ -250,12 +250,14 @@ void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const
 			if (r2 < SUBSURFACE)
 			{
 				const float r5 = r2 / SUBSURFACE;
-				d = DiffuseReflectionUniform(r1, r5), type = BSDF_TYPE_TRANSMITTED, d.z *= -1.0f;
+				d = DiffuseReflectionUniform(r1, r5);
+				type = BSDF_TYPE_TRANSMITTED, d.z *= -1.0f;
 			}
 			else
 			{
 				const float r5 = (r2 - SUBSURFACE) / (1 - SUBSURFACE);
-				d = DiffuseReflectionCosWeighted(r1, r5), type = BSDF_TYPE_REFLECTED;
+				d = DiffuseReflectionCosWeighted(r1, r5);
+				type = BSDF_TYPE_REFLECTED;
 			}
 			wi = T * d.x + B * d.y + N * d.z;
 		}
@@ -277,8 +279,6 @@ void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const
 	pdf = BSDFPdf(shadingData, N, wo, wi);
 }
 
-// ----------------------------------------------------------------
-
 BSDF_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo, const vec3 wi, REFERENCE_OF(float) pdf)
 {
 	const vec3 bsdf = BSDFEval(shadingData, iN, wo, wi, 0.0f, false);
@@ -291,6 +291,7 @@ BSDF_FUNC vec3 SampleBSDF(const ShadingData shadingData, vec3 iN, const vec3 N, 
 {
 	int type;
 	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, r3, r4);
+	specular = type != BSDF_TYPE_REFLECTED;
 	return BSDFEval(shadingData, iN, wo, wi, t, backfacing);
 }
 

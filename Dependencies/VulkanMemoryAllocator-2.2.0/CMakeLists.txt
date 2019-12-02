@@ -5,7 +5,11 @@ file(GLOB_RECURSE SOURCES ./src/*.cpp ./src/*.h ./src/*.hpp)
 
 find_package(Vulkan REQUIRED)
 
-add_library(${PROJECT_NAME} SHARED ${SOURCES})
+if (WIN32)
+	add_library(${PROJECT_NAME} STATIC ${SOURCES})
+else(WIN32)
+	add_library(${PROJECT_NAME} SHARED ${SOURCES})
+endif(WIN32)
 target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/include Vulkan::Vulkan)

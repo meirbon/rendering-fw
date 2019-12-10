@@ -13,9 +13,19 @@
 #include "utils/Logger.h"
 #include "utils/Timer.h"
 
+#include "RenderSystem.h"
+
+#ifdef _WIN32
+#include <Windows.h>
+#include <ppl.h>
+
+#define USE_PARALLEL_FOR 1
+#else
+#define USE_PARALLEL_FOR 0
+#endif
+
 namespace rfw
 {
-
 static_assert(sizeof(DeviceTriangle) == sizeof(Triangle));
 static_assert(sizeof(Material) == sizeof(DeviceMaterial));
 static_assert(sizeof(rfw::DeviceMaterial) == sizeof(rfw::Material));
@@ -381,7 +391,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 																  aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
 																  aiProcess_RemoveRedundantMaterials);
 
-	if (!scene)
+	if (!scene || scene->mNumMeshes == 0)
 	{
 		const std::string error = "Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
 		WARNING(error.c_str());
@@ -511,150 +521,199 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			matMapping.at(i) = material;
 	}
 
-	size_t meshCount = 0;
-	size_t vertexCount = 0;
-	size_t faceCount = 0;
-	for (const auto &nodeIdx : m_NodesWithMeshes)
+	if (m_NodesWithMeshes.empty())
 	{
-		const auto &node = m_SceneGraph.at(nodeIdx);
-		meshCount += node.meshes.size();
-		for (const auto m : node.meshes)
+		m_RfwMeshes.resize(scene->mNumMeshes);
+		m_Meshes.resize(scene->mNumMeshes);
+		m_SceneGraph.resize(scene->mNumMeshes);
+		for (int i = 0; i < scene->mNumMeshes; i++)
 		{
-			vertexCount += scene->mMeshes[m]->mNumVertices;
-			faceCount += scene->mMeshes[m]->mNumFaces;
+			m_SceneGraph[i].localTransform = glm::mat4(1.0f);
+			m_SceneGraph[i].combinedTransform = glm::mat4(1.0f);
+			m_SceneGraph[i].meshes.push_back(i);
+		}
+
+		for (int i = 0; i < scene->mNumMeshes; i++)
+		{
+			auto *aiMesh = scene->mMeshes[i];
+
+			m_BaseVertices.reserve(m_BaseVertices.size() + aiMesh->mNumVertices);
+			m_BaseNormals.reserve(m_BaseVertices.size() + aiMesh->mNumVertices);
+			m_TexCoords.reserve(m_BaseVertices.size() + aiMesh->mNumVertices);
+
+			m_Indices.resize(m_Indices.size() + aiMesh->mNumFaces);
+			m_MaterialIndices.resize(m_MaterialIndices.size() + aiMesh->mNumFaces);
+
+			auto &mesh = m_Meshes[i];
+			mesh.nodeIndex = i;
+			mesh.materialIdx = matMapping[aiMesh->mMaterialIndex];
+			mesh.vertexCount = aiMesh->mNumVertices;
+			mesh.vertexOffset = static_cast<uint>(m_BaseVertices.size());
+			mesh.faceCount = aiMesh->mNumFaces;
+			mesh.faceOffset = static_cast<uint>(m_Indices.size());
+
+			for (int i = 0, s = static_cast<int>(aiMesh->mNumVertices); i < s; i++)
+			{
+				m_BaseVertices.emplace_back(aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z, 1.0f);
+				m_BaseNormals.emplace_back(aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z);
+
+				if (aiMesh->HasTextureCoords(0))
+					m_TexCoords.emplace_back(aiMesh->mTextureCoords[0][i].x, aiMesh->mTextureCoords[0][i].y);
+				else
+					m_TexCoords.emplace_back(0.0f);
+			}
+
+			for (int i = 0, s = static_cast<int>(aiMesh->mNumFaces); i < s; i++)
+			{
+				m_MaterialIndices.emplace_back(matMapping[aiMesh->mMaterialIndex]);
+				m_Indices.emplace_back(aiMesh->mFaces[i].mIndices[0], aiMesh->mFaces[i].mIndices[1], aiMesh->mFaces[i].mIndices[2]);
+			}
 		}
 	}
-
-	m_Meshes.resize(meshCount);
-	m_MeshMapping.resize(meshCount);
-
-	m_CurrentVertices.resize(vertexCount);
-	m_CurrentNormals.resize(vertexCount);
-
-	m_BaseVertices.resize(vertexCount);
-	m_BaseNormals.resize(vertexCount);
-
-	m_TexCoords.resize(vertexCount);
-
-	m_Indices.resize(faceCount);
-	m_MaterialIndices.resize(faceCount);
-
-	uint vertexOffset = 0;
-	uint faceOffset = 0;
-	uint meshIndex = 0;
-	for (const auto &nodeIdx : m_NodesWithMeshes)
+	else
 	{
-		const auto &node = m_SceneGraph.at(nodeIdx);
-		for (unsigned int meshIdx : node.meshes)
+		size_t meshCount = 0;
+		size_t vertexCount = 0;
+		size_t faceCount = 0;
+		for (const auto &nodeIdx : m_NodesWithMeshes)
 		{
-			m_MeshMapping.at(meshIdx).push_back(meshIndex);
-
-			MeshInfo &m = m_Meshes.at(meshIndex);
-			const aiMesh *curMesh = scene->mMeshes[meshIdx];
-			const uint matIndex = matMapping[curMesh->mMaterialIndex];
-
-			for (uint v = 0; v < curMesh->mNumVertices; v++)
+			const auto &node = m_SceneGraph.at(nodeIdx);
+			meshCount += node.meshes.size();
+			for (const auto m : node.meshes)
 			{
-				const auto vIdx = vertexOffset + v;
+				vertexCount += scene->mMeshes[m]->mNumVertices;
+				faceCount += scene->mMeshes[m]->mNumFaces;
+			}
+		}
 
-				vec4 vertex = vec4(glm::make_vec3(&curMesh->mVertices[v].x), 1.0f);
-				vec3 normal = glm::make_vec3(&curMesh->mNormals[v].x);
+		m_Meshes.resize(meshCount);
+		m_MeshMapping.resize(meshCount);
 
-				if (hasTransform)
+		m_CurrentVertices.resize(vertexCount);
+		m_CurrentNormals.resize(vertexCount);
+
+		m_BaseVertices.resize(vertexCount);
+		m_BaseNormals.resize(vertexCount);
+
+		m_TexCoords.resize(vertexCount);
+
+		m_Indices.resize(faceCount);
+		m_MaterialIndices.resize(faceCount);
+
+		uint vertexOffset = 0;
+		uint faceOffset = 0;
+		uint meshIndex = 0;
+		for (const auto &nodeIdx : m_NodesWithMeshes)
+		{
+			const auto &node = m_SceneGraph.at(nodeIdx);
+			for (unsigned int meshIdx : node.meshes)
+			{
+				m_MeshMapping.at(meshIdx).push_back(meshIndex);
+
+				MeshInfo &m = m_Meshes.at(meshIndex);
+				const aiMesh *curMesh = scene->mMeshes[meshIdx];
+				const uint matIndex = matMapping[curMesh->mMaterialIndex];
+
+				for (uint v = 0; v < curMesh->mNumVertices; v++)
 				{
-					vertex = matrix * vertex;
-					normal = matrix3x3 * normal;
+					const auto vIdx = vertexOffset + v;
+
+					const vec4 vertex = vec4(glm::make_vec3(&curMesh->mVertices[v].x), 1.0f);
+					const vec3 normal = glm::make_vec3(&curMesh->mNormals[v].x);
+
+					m_BaseVertices.at(vIdx) = vertex;
+					m_BaseNormals.at(vIdx) = normal;
+					if (curMesh->HasTextureCoords(0))
+						m_TexCoords.at(vIdx) = vec2(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
+					else
+						m_TexCoords.at(vIdx) = vec2(0.0f);
 				}
 
-				m_BaseVertices.at(vIdx) = vertex;
-				m_BaseNormals.at(vIdx) = normal;
-				if (curMesh->HasTextureCoords(0))
-					m_TexCoords.at(vIdx) = vec2(curMesh->mTextureCoords[0][v].x, curMesh->mTextureCoords[0][v].y);
-				else
-					m_TexCoords.at(vIdx) = vec2(0.0f);
-			}
-
-			for (uint f = 0; f < curMesh->mNumFaces; f++)
-			{
-				const aiFace &face = curMesh->mFaces[f];
-				assert(face.mNumIndices == 3);
-				const auto f0 = face.mIndices[0];
-				const auto f1 = face.mIndices[1];
-				const auto f2 = face.mIndices[2];
-
-				assert(f0 < curMesh->mNumVertices);
-				assert(f1 < curMesh->mNumVertices);
-				assert(f2 < curMesh->mNumVertices);
-
-				const vec3 v0 = glm::make_vec3(&curMesh->mVertices[f0].x);
-				const vec3 v1 = glm::make_vec3(&curMesh->mVertices[f1].x);
-				const vec3 v2 = glm::make_vec3(&curMesh->mVertices[f2].x);
-
-				const vec3 vn0 = glm::make_vec3(&curMesh->mNormals[f0].x);
-				const vec3 vn1 = glm::make_vec3(&curMesh->mNormals[f1].x);
-				const vec3 vn2 = glm::make_vec3(&curMesh->mNormals[f2].x);
-
-				vec3 N = glm::normalize(glm::cross(v1 - v0, v2 - v0));
-				if (dot(N, vn0) < 0 && dot(N, vn1) < 0 && dot(N, vn2) < 0)
-					N *= -1.0f; // flip if not consistent with vertex normals
-
-				const auto fIdx = faceOffset + f;
-				m_MaterialIndices.at(fIdx) = matIndex;
-				m_Indices.at(fIdx) = uvec3(f0, f1, f2) + vertexOffset;
-			}
-
-			if (curMesh->HasBones())
-			{
-				m.bones.resize(curMesh->mNumBones);
-
-				for (uint boneIdx = 0; boneIdx < curMesh->mNumBones; boneIdx++)
+				for (uint f = 0; f < curMesh->mNumFaces; f++)
 				{
-					const aiBone *aiBone = curMesh->mBones[boneIdx];
-					// Store bone name
-					MeshBone &bone = m.bones.at(boneIdx);
-					bone.name = std::string(aiBone->mName.C_Str());
+					const aiFace &face = curMesh->mFaces[f];
+					assert(face.mNumIndices == 3);
+					const auto f0 = face.mIndices[0];
+					const auto f1 = face.mIndices[1];
+					const auto f2 = face.mIndices[2];
 
-					const aiNode *boneNode = scene->mRootNode->FindNode(aiBone->mName);
-					bone.nodeIndex = m_NodeNameMapping[std::string(boneNode->mName.C_Str())];
-					bone.nodeName = std::string(boneNode->mName.C_Str());
+					assert(f0 < curMesh->mNumVertices);
+					assert(f1 < curMesh->mNumVertices);
+					assert(f2 < curMesh->mNumVertices);
 
-					// Store bone weights
-					bone.vertexIDs.resize(aiBone->mNumWeights);
-					bone.weights.resize(aiBone->mNumWeights);
-					for (uint w = 0; w < aiBone->mNumWeights; w++)
+					const vec3 v0 = glm::make_vec3(&curMesh->mVertices[f0].x);
+					const vec3 v1 = glm::make_vec3(&curMesh->mVertices[f1].x);
+					const vec3 v2 = glm::make_vec3(&curMesh->mVertices[f2].x);
+
+					const vec3 vn0 = glm::make_vec3(&curMesh->mNormals[f0].x);
+					const vec3 vn1 = glm::make_vec3(&curMesh->mNormals[f1].x);
+					const vec3 vn2 = glm::make_vec3(&curMesh->mNormals[f2].x);
+
+					vec3 N = glm::normalize(glm::cross(v1 - v0, v2 - v0));
+					if (dot(N, vn0) < 0 && dot(N, vn1) < 0 && dot(N, vn2) < 0)
+						N *= -1.0f; // flip if not consistent with vertex normals
+
+					const auto fIdx = faceOffset + f;
+					m_MaterialIndices.at(fIdx) = matIndex;
+					m_Indices.at(fIdx) = uvec3(f0, f1, f2);
+				}
+
+				if (curMesh->HasBones())
+				{
+					m.bones.resize(curMesh->mNumBones);
+
+					for (uint boneIdx = 0; boneIdx < curMesh->mNumBones; boneIdx++)
 					{
-						bone.vertexIDs.at(w) = aiBone->mWeights[w].mVertexId;
-						bone.weights.at(w) = aiBone->mWeights[w].mWeight;
+						const aiBone *aiBone = curMesh->mBones[boneIdx];
+						// Store bone name
+						MeshBone &bone = m.bones.at(boneIdx);
+						bone.name = std::string(aiBone->mName.C_Str());
+
+						const aiNode *boneNode = scene->mRootNode->FindNode(aiBone->mName);
+						bone.nodeIndex = m_NodeNameMapping[std::string(boneNode->mName.C_Str())];
+						bone.nodeName = std::string(boneNode->mName.C_Str());
+
+						// Store bone weights
+						bone.vertexIDs.resize(aiBone->mNumWeights);
+						bone.weights.resize(aiBone->mNumWeights);
+						for (uint w = 0; w < aiBone->mNumWeights; w++)
+						{
+							bone.vertexIDs.at(w) = aiBone->mWeights[w].mVertexId;
+							bone.weights.at(w) = aiBone->mWeights[w].mWeight;
+						}
+
+						bone.offsetMatrix = glm::make_mat4(&aiBone->mOffsetMatrix[0][0]);
+						bone.offsetMatrix.matrix = rowMajor4(bone.offsetMatrix.matrix);
 					}
 
-					bone.offsetMatrix = glm::make_mat4(&aiBone->mOffsetMatrix[0][0]);
-					bone.offsetMatrix = rowMajor4(bone.offsetMatrix);
+					m.weights.resize(curMesh->mNumVertices);
+					m.joints.resize(curMesh->mNumVertices);
 				}
 
-				m.weights.resize(curMesh->mNumVertices);
-				m.joints.resize(curMesh->mNumVertices);
+				m.nodeIndex = static_cast<uint>(nodeIdx);
+				m.vertexOffset = vertexOffset;
+				m.vertexCount = curMesh->mNumVertices;
+				m.faceOffset = faceOffset;
+				m.faceCount = curMesh->mNumFaces;
+				m.materialIdx = matMapping.at(curMesh->mMaterialIndex);
+
+				vertexOffset = vertexOffset + curMesh->mNumVertices;
+				faceOffset = faceOffset + curMesh->mNumFaces;
+				meshIndex++;
 			}
-
-			m.nodeIndex = static_cast<uint>(nodeIdx);
-			m.vertexOffset = vertexOffset;
-			m.vertexCount = curMesh->mNumVertices;
-			m.faceOffset = faceOffset;
-			m.faceCount = curMesh->mNumFaces;
-			m.materialIdx = matMapping.at(curMesh->mMaterialIndex);
-
-			vertexOffset = vertexOffset + curMesh->mNumVertices;
-			faceOffset = faceOffset + curMesh->mNumFaces;
-			meshIndex++;
 		}
 	}
 
 	m_CurrentVertices = m_BaseVertices;
 	m_CurrentNormals = m_BaseNormals;
 
-	updateTriangles(m_TexCoords);
+	if (hasTransform)
+		m_SceneGraph[0].localTransform = matrix * m_SceneGraph[0].localTransform.matrix;
 
 	// Transform meshes according to node transformations in scene graph
 	AssimpObject::transformTo(0.0f);
+
+	updateTriangles(m_TexCoords);
 
 	// Update triangle data that only has to be calculated once
 	for (auto &tri : m_Triangles)
@@ -669,13 +728,18 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			const float Ta =
 				static_cast<float>(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 			const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			tri.LOD = 0.5f * log2f(Ta / Pa);
+			tri.LOD = max(1.f, 0.5f * log2f(Ta / Pa));
 		}
 	}
 
+	m_MeshTransforms.resize(m_Meshes.size(), glm::mat4(1.0f));
+
 	std::vector<int> skinNodes;
-	for (const auto &mesh : m_Meshes)
+	for (int meshID = 0, s = static_cast<int>(m_Meshes.size()); meshID < s; meshID++)
 	{
+		const auto &mesh = m_Meshes[meshID];
+		//	m_MeshTransforms[meshID] = this->m_SceneGraph[mesh.nodeIndex].combinedTransform;
+
 		if (mesh.bones.empty())
 			continue;
 
@@ -683,9 +747,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			skinNodes.push_back(bone.nodeIndex);
 	}
 
-	char buffer[1024];
-	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), m_CurrentVertices.size(), m_Triangles.size());
-	DEBUG(buffer);
+	DEBUG("Loaded file: %s with %u vertices and %u triangles", filename.data(), m_CurrentVertices.size(), m_Triangles.size());
 }
 
 void AssimpObject::transformTo(const float timeInSeconds)
@@ -698,13 +760,23 @@ void AssimpObject::transformTo(const float timeInSeconds)
 
 	if (!m_IsAnimated && m_HasUpdated)
 		return;
-	m_HasUpdated = true;
 
-	// Start of with clean base data
-	m_CurrentVertices.resize(m_BaseVertices.size());
-	m_CurrentNormals.resize(m_BaseNormals.size());
-	memset(m_CurrentVertices.data(), 0, m_CurrentVertices.size() * sizeof(vec4));
-	memset(m_CurrentNormals.data(), 0, m_CurrentNormals.size() * sizeof(vec3));
+	if (!m_IsAnimated)
+	{
+		m_CurrentVertices = std::move(m_BaseVertices);
+		m_CurrentNormals = std::move(m_BaseNormals);
+		m_BaseVertices.clear();
+		m_BaseNormals.clear();
+
+		// Start of with clean base data
+		m_MeshTransforms.resize(m_Meshes.size(), glm::mat4(1.0f));
+		m_HasUpdated = true;
+
+		m_SceneGraph[0].update(m_SceneGraph, glm::mat4(1.0f));
+		for (int meshID = 0, s = static_cast<int>(m_Meshes.size()); meshID < s; meshID++)
+			m_MeshTransforms[meshID] = m_SceneGraph[m_Meshes[meshID].nodeIndex].combinedTransform.matrix;
+		return;
+	}
 
 	if (m_IsAnimated)
 	{
@@ -717,9 +789,7 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		for (const auto &animation : m_Animations)
 		{
 			for (const auto &channel : animation.channels)
-			{
-				m_SceneGraph.at(channel.nodeIndex).localTransform = channel.getInterpolatedTRS(animationTime);
-			}
+				m_SceneGraph[channel.nodeIndex].localTransform = channel.getInterpolatedTRS(animationTime);
 
 			for (const auto &channel : animation.meshChannels)
 			{
@@ -732,44 +802,98 @@ void AssimpObject::transformTo(const float timeInSeconds)
 			}
 		}
 
-		m_SceneGraph.at(0).update(m_SceneGraph, glm::mat4(1.0f));
-
+		m_SceneGraph[0].update(m_SceneGraph, glm::mat4(1.0f));
 #endif
 	}
 
-	for (const auto &mesh : m_Meshes)
+	m_ChangedMeshTransforms.resize(m_Meshes.size(), false);
+	m_MeshTransforms.resize(m_Meshes.size());
+
+#if USE_PARALLEL_FOR
+	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
 	{
-		// Set current data for this mesh to base data
+		m_ChangedMeshTransforms[i] = true;
+		auto &mesh = m_Meshes[i];
+
+		m_MeshTransforms[i] = m_SceneGraph[mesh.nodeIndex].combinedTransform.matrix;
 		if (mesh.bones.empty())
-		{
-			/*
-			 * Unfortunately, this part of the loop cannot be done on initialization.
-			 * Meshes that are affected by animations can be placed in a node with a parent hierarchy
-			 * in which one of the parent nodes can be influenced by an animations.
-			 */
-
-			const mat4 &transform = m_SceneGraph.at(mesh.nodeIndex).combinedTransform;
-			for (uint i = 0, vIdx = mesh.vertexOffset; i < mesh.vertexCount; i++, vIdx++)
-			{
-				m_CurrentVertices[vIdx] = transform * m_BaseVertices[vIdx];
-				m_CurrentNormals[vIdx] = transform * vec4(m_BaseNormals[vIdx], 0);
-			}
 			continue;
-		}
 
+		// m_MeshTransforms[i] = glm::mat4(1.0f);
+		memset(m_CurrentVertices.data() + mesh.vertexOffset, 0, mesh.vertexCount * sizeof(vec4));
+		memset(m_CurrentNormals.data() + mesh.vertexOffset, 0, mesh.vertexCount * sizeof(vec3));
+
+		// Set current data for this mesh to base data
 		for (const auto &bone : mesh.bones)
 		{
-			const glm::mat4 &skin4x4 = m_SceneGraph.at(bone.nodeIndex).combinedTransform * bone.offsetMatrix;
+			const SIMDMat4 skin =
+				m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() * m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
+			const SIMDMat4 normalMatrix = skin.inversed().transposed();
 
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
 			{
-				const uint vIdx = mesh.vertexOffset + bone.vertexIDs.at(i);
+				const uint vIdx = mesh.vertexOffset + bone.vertexIDs[i];
 
-				m_CurrentVertices.at(vIdx) += skin4x4 * m_BaseVertices.at(vIdx) * bone.weights[i];
-				m_CurrentNormals.at(vIdx) += vec3(skin4x4 * vec4(m_BaseNormals.at(vIdx), 0)) * bone.weights[i];
+				const __m128 vertex = _mm_load_ps(value_ptr(m_BaseVertices[vIdx]));
+				const __m128 curVertex = _mm_load_ps(value_ptr(m_CurrentVertices[vIdx]));
+				const __m128 weight4 = _mm_set1_ps(bone.weights[i]);
+
+				__m128 result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(skin.cols, vertex));
+
+				_mm_store_ps(value_ptr(m_CurrentVertices[vIdx]), _mm_add_ps(result, curVertex));
+
+				const __m128 normal = _mm_maskload_ps(value_ptr(m_BaseNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0));
+				result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(normalMatrix.cols, normal));
+				_mm_maskstore_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0),
+								 _mm_add_ps(result, _mm_maskload_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0))));
 			}
 		}
+
+		mesh.dirty = true;
 	}
+#else
+	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
+	{
+		m_ChangedMeshTransforms[i] = true;
+		auto &mesh = m_Meshes[i];
+
+		m_MeshTransforms[i] = m_SceneGraph[mesh.nodeIndex].combinedTransform.matrix;
+		if (mesh.bones.empty())
+			continue;
+
+		// m_MeshTransforms[i] = glm::mat4(1.0f);
+		memset(m_CurrentVertices.data() + mesh.vertexOffset, 0, mesh.vertexCount * sizeof(vec4));
+		memset(m_CurrentNormals.data() + mesh.vertexOffset, 0, mesh.vertexCount * sizeof(vec3));
+
+		// Set current data for this mesh to base data
+		for (const auto &bone : mesh.bones)
+		{
+			const SIMDMat4 skin =
+				m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() * m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
+			const SIMDMat4 normalMatrix = skin.inversed().transposed();
+
+			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
+			{
+				const uint vIdx = mesh.vertexOffset + bone.vertexIDs[i];
+
+				const __m128 vertex = _mm_load_ps(value_ptr(m_BaseVertices[vIdx]));
+				const __m128 curVertex = _mm_load_ps(value_ptr(m_CurrentVertices[vIdx]));
+				const __m128 weight4 = _mm_set1_ps(bone.weights[i]);
+
+				__m128 result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(skin.cols, vertex));
+
+				_mm_store_ps(value_ptr(m_CurrentVertices[vIdx]), _mm_add_ps(result, curVertex));
+
+				const __m128 normal = _mm_maskload_ps(value_ptr(m_BaseNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0));
+				result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(normalMatrix.cols, normal));
+				_mm_maskstore_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0),
+								 _mm_add_ps(result, _mm_maskload_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0))));
+			}
+		}
+
+		mesh.dirty = true;
+	}
+#endif
 
 	updateTriangles();
 }
@@ -777,69 +901,104 @@ void AssimpObject::transformTo(const float timeInSeconds)
 void AssimpObject::updateTriangles()
 {
 	m_Triangles.resize(m_Indices.size());
-	for (size_t i = 0, s = m_Triangles.size(); i < s; i++)
+
+#if USE_PARALLEL_FOR
+	concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
+		const auto &mesh = m_Meshes[i];
+
+		for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
+		{
+			const auto triIdx = i + mesh.faceOffset;
+
+			Triangle &tri = m_Triangles.at(triIdx);
+			const glm::uvec3 &indices = m_Indices.at(triIdx) + mesh.vertexOffset;
+
+			tri.vN0 = m_CurrentNormals.at(indices.x);
+			tri.vN1 = m_CurrentNormals.at(indices.y);
+			tri.vN2 = m_CurrentNormals.at(indices.z);
+
+			tri.vertex0 = m_CurrentVertices.at(indices.x);
+			tri.vertex1 = m_CurrentVertices.at(indices.y);
+			tri.vertex2 = m_CurrentVertices.at(indices.z);
+
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+		}
+	});
+#else
+	for (const auto &mesh : m_Meshes)
 	{
-		Triangle &tri = m_Triangles.at(i);
-		const glm::uvec3 &indices = m_Indices.at(i);
-		const vec3 &n0 = m_CurrentNormals.at(indices.x);
-		const vec3 &n1 = m_CurrentNormals.at(indices.y);
-		const vec3 &n2 = m_CurrentNormals.at(indices.z);
+		for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
+		{
+			const auto triIdx = i + mesh.faceOffset;
 
-		tri.vertex0 = m_CurrentVertices.at(indices.x);
-		tri.vertex1 = m_CurrentVertices.at(indices.y);
-		tri.vertex2 = m_CurrentVertices.at(indices.z);
+			Triangle &tri = m_Triangles.at(triIdx);
+			const glm::uvec3 &indices = m_Indices.at(triIdx) + mesh.vertexOffset;
 
-		vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-		if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n2) < 0.0f)
-			N *= -1.0f; // flip if not consistent with vertex normals
+			tri.vN0 = m_CurrentNormals.at(indices.x);
+			tri.vN1 = m_CurrentNormals.at(indices.y);
+			tri.vN2 = m_CurrentNormals.at(indices.z);
 
-		tri.Nx = N.x;
-		tri.Ny = N.y;
-		tri.Nz = N.z;
+			tri.vertex0 = m_CurrentVertices.at(indices.x);
+			tri.vertex1 = m_CurrentVertices.at(indices.y);
+			tri.vertex2 = m_CurrentVertices.at(indices.z);
 
-		tri.vN0 = n0;
-		tri.vN1 = n1;
-		tri.vN2 = n2;
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+		}
 	}
+#endif
 }
 
 void rfw::AssimpObject::updateTriangles(const std::vector<glm::vec2> &uvs)
 {
 	m_Triangles.resize(m_Indices.size());
-	for (size_t i = 0, s = m_Triangles.size(); i < s; i++)
-	{
-		Triangle &tri = m_Triangles.at(i);
-		const glm::uvec3 &indices = m_Indices.at(i);
 
-		const vec3 &n0 = m_CurrentNormals.at(indices.x);
-		const vec3 &n1 = m_CurrentNormals.at(indices.y);
-		const vec3 &n2 = m_CurrentNormals.at(indices.z);
+	concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
+		const auto &mesh = m_Meshes[i];
+		for (size_t i = 0, s = mesh.faceCount; i < s; i++)
+		{
+			const glm::uvec3 &indices = m_Indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
+			Triangle &tri = m_Triangles[i + mesh.faceOffset];
 
-		tri.vertex0 = m_CurrentVertices.at(indices.x);
-		tri.vertex1 = m_CurrentVertices.at(indices.y);
-		tri.vertex2 = m_CurrentVertices.at(indices.z);
+			tri.vN0 = m_CurrentNormals[indices.x];
+			tri.vN1 = m_CurrentNormals[indices.y];
+			tri.vN2 = m_CurrentNormals[indices.z];
 
-		const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			tri.vertex0 = m_CurrentVertices[indices.x];
+			tri.vertex1 = m_CurrentVertices[indices.y];
+			tri.vertex2 = m_CurrentVertices[indices.z];
 
-		tri.u0 = uvs.at(indices.x).x;
-		tri.v0 = uvs.at(indices.x).y;
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
 
-		tri.u1 = uvs.at(indices.y).x;
-		tri.v1 = uvs.at(indices.y).y;
+			tri.u0 = uvs[indices.x].x;
+			tri.v0 = uvs[indices.x].y;
 
-		tri.u2 = uvs.at(indices.z).x;
-		tri.v2 = uvs.at(indices.z).y;
+			tri.u1 = uvs[indices.y].x;
+			tri.v1 = uvs[indices.y].y;
 
-		tri.Nx = N.x;
-		tri.Ny = N.y;
-		tri.Nz = N.z;
+			tri.u2 = uvs[indices.z].x;
+			tri.v2 = uvs[indices.z].y;
 
-		tri.vN0 = n0;
-		tri.vN1 = n1;
-		tri.vN2 = n2;
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
 
-		tri.material = m_MaterialIndices.at(i);
-	}
+			tri.material = m_MaterialIndices[i + mesh.faceOffset];
+		}
+	});
 }
 
 size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::map<std::string, uint> *nodeNameMapping)
@@ -865,8 +1024,8 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 		m_NodesWithMeshes.push_back(currentNodeIndex);
 	}
 
-	memcpy(value_ptr(n.localTransform), &node->mTransformation[0][0], sizeof(mat4));
-	n.localTransform = rowMajor4(n.localTransform);
+	memcpy(value_ptr(n.localTransform.matrix), &node->mTransformation[0][0], sizeof(mat4));
+	n.localTransform = rowMajor4(n.localTransform.matrix);
 	storage->push_back(n);
 
 	// Iterate and initialize children
@@ -881,76 +1040,78 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 	return currentNodeIndex;
 }
 
-uint AssimpObject::getAnimationCount() const { return static_cast<uint>(m_Animations.size()); }
-
-void AssimpObject::setAnimation(uint index) { m_CurrentAnimation = clamp(index, 0u, static_cast<uint>(m_Animations.size())); }
-
-uint AssimpObject::getMaterialForPrim(uint primitiveIdx) const
+const std::vector<std::vector<int>> &rfw::AssimpObject::getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize)
 {
-	for (const auto &mesh : m_Meshes)
+	// TODO: rewrite to initialize per mesh
+	if (reinitialize)
 	{
-		if (mesh.faceOffset < primitiveIdx && (mesh.faceOffset + mesh.faceCount) > primitiveIdx)
-			return mesh.materialIdx;
-	}
+		m_LightIndices.clear();
+		m_LightIndices.resize(m_Meshes.size());
 
-	return 0;
-}
-
-void AssimpObject::setCurrentAnimation(uint index)
-{
-	assert(index < getAnimationCount());
-	m_CurrentAnimation = index;
-}
-
-rfw::Mesh rfw::AssimpObject::getMesh() const
-{
-	if (!m_CurrentVertices.empty())
-	{
-		rfw::Mesh mesh{};
-		mesh.vertices = m_CurrentVertices.data();
-		mesh.normals = m_CurrentNormals.data();
-		mesh.triangles = m_Triangles.data();
-		mesh.vertexCount = m_CurrentVertices.size();
-		mesh.triangleCount = m_Indices.size();
-		mesh.indices = m_Indices.data();
-		mesh.texCoords = m_TexCoords.data();
-		return mesh;
-	}
-
-	auto mesh = rfw::Mesh();
-	mesh.vertices = object.vertices.data();
-	mesh.normals = object.normals.data();
-	mesh.triangles = object.triangles.data();
-	if (object.indices.empty())
-	{
-		mesh.indices = nullptr;
-		mesh.triangleCount = object.vertices.size() / 3;
-	}
-	else
-	{
-		mesh.indices = object.indices.data();
-		mesh.triangleCount = object.indices.size();
-	}
-	mesh.vertexCount = object.vertices.size();
-	mesh.texCoords = object.texCoords.data();
-	return mesh;
-}
-
-std::vector<uint> AssimpObject::getLightIndices(const std::vector<bool> &matLightFlags) const
-{
-	std::vector<uint> indices;
-	for (const auto &mesh : m_Meshes)
-	{
-		const size_t offset = indices.size();
-		if (matLightFlags.at(mesh.materialIdx))
+		for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
 		{
-			indices.resize(offset + mesh.faceCount);
-			for (uint i = 0; i < mesh.faceCount; i++)
-				indices.at(offset + i) = mesh.faceOffset + i;
+			const auto &mesh = m_Meshes[i];
+			std::vector<int> &indices = m_LightIndices[i];
+
+			const size_t offset = indices.size();
+			if (matLightFlags.at(mesh.materialIdx))
+			{
+				indices.reserve(offset + mesh.faceCount);
+				for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
+					indices.push_back(static_cast<int>(mesh.faceOffset) + i);
+			}
 		}
 	}
 
-	return indices;
+	return m_LightIndices;
+}
+
+const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::AssimpObject::getMeshes() const { return m_RfwMeshes; }
+
+const std::vector<glm::mat4> &rfw::AssimpObject::getMeshTransforms() const { return m_MeshTransforms; }
+
+std::vector<bool> rfw::AssimpObject::getChangedMeshes()
+{
+	assert(m_Meshes.size() == m_RfwMeshes.size());
+
+	auto changed = std::vector<bool>(m_Meshes.size(), false);
+	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
+	{
+		if (m_Meshes[i].dirty)
+		{
+			changed[i] = true;
+			m_Meshes[i].dirty = false;
+		}
+	}
+
+	return changed;
+}
+
+std::vector<bool> rfw::AssimpObject::getChangedMeshMatrices()
+{
+	auto values = std::move(m_ChangedMeshTransforms);
+	m_ChangedMeshTransforms.resize(m_Meshes.size(), false);
+	return values;
+}
+
+void rfw::AssimpObject::prepareMeshes(RenderSystem &rs)
+{
+	m_RfwMeshes.reserve(m_Meshes.size());
+	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
+	{
+		const auto &mesh = m_Meshes[i];
+		auto &rfwMesh = rfw::Mesh();
+
+		rfwMesh.vertices = &m_CurrentVertices[mesh.vertexOffset];
+		rfwMesh.normals = &m_CurrentNormals[mesh.vertexOffset];
+		rfwMesh.triangles = &m_Triangles[mesh.faceOffset];
+		rfwMesh.indices = &m_Indices[mesh.faceOffset];
+		rfwMesh.texCoords = &m_TexCoords[mesh.vertexOffset];
+
+		rfwMesh.vertexCount = mesh.vertexCount;
+		rfwMesh.triangleCount = mesh.faceCount;
+		m_RfwMeshes.emplace_back(rs.requestMeshIndex(), rfwMesh);
+	}
 }
 
 glm::mat4 rfw::AssimpObject::AnimationChannel::getInterpolatedTRS(float time) const
@@ -1014,8 +1175,8 @@ glm::mat4 rfw::AssimpObject::AnimationChannel::getInterpolatedTRS(float time) co
 
 void AssimpObject::AssimpNode::update(std::vector<AssimpNode> &nodes, const glm::mat4 &T)
 {
-	combinedTransform = T * localTransform;
+	combinedTransform = T * localTransform.matrix;
 
 	for (const auto child : children)
-		nodes.at(child).update(nodes, combinedTransform);
+		nodes.at(child).update(nodes, combinedTransform.matrix);
 }

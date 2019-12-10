@@ -1,5 +1,7 @@
 #include "Quad.h"
 
+#include "RenderSystem.h"
+
 rfw::Quad::Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, const uint material) : m_MatID(material)
 {
 	const vec3 normal = normalize(N); // let's not assume the normal is normalized.
@@ -39,11 +41,31 @@ rfw::Quad::Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float hei
 	tri2.vertex2 = vec3(m_Vertices[5]);
 	m_Triangles.at(0) = tri1;
 	m_Triangles.at(1) = tri2;
+
+	m_MeshTransforms.resize(1, glm::mat4(1.0f));
 }
 
 void rfw::Quad::transformTo(float timeInSeconds) {}
 
-rfw::Mesh rfw::Quad::getMesh() const
+const std::vector<std::vector<int>> &rfw::Quad::getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize)
+{
+	if (reinitialize)
+	{
+		m_LightIndices.resize(1);
+		if (matLightFlags.at(m_MatID))
+			m_LightIndices[0] = {0, 1};
+		else
+			m_LightIndices[0] = {};
+	}
+
+	return m_LightIndices;
+}
+
+const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::Quad::getMeshes() const { return m_Meshes; }
+
+const std::vector<glm::mat4> &rfw::Quad::getMeshTransforms() const { return m_MeshTransforms; }
+
+void rfw::Quad::prepareMeshes(RenderSystem &rs)
 {
 	rfw::Mesh mesh;
 	mesh.vertexCount = m_Vertices.size();
@@ -51,15 +73,5 @@ rfw::Mesh rfw::Quad::getMesh() const
 	mesh.normals = m_Normals.data();
 	mesh.triangles = m_Triangles.data();
 	mesh.triangleCount = m_Triangles.size();
-	return mesh;
+	m_Meshes.emplace_back(rs.requestMeshIndex(), mesh);
 }
-
-std::vector<uint> rfw::Quad::getLightIndices(const std::vector<bool> &matLightFlags) const
-{
-	if (matLightFlags.at(m_MatID))
-		return std::vector<uint>({0, 1});
-
-	return {};
-}
-
-uint rfw::Quad::getMaterialForPrim(uint primitiveIdx) const { return m_MatID; }

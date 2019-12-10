@@ -14,17 +14,25 @@ class Quad : public SceneTriangles
 	Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, uint material);
 
 	void transformTo(float timeInSeconds) override;
-	[[nodiscard]] rfw::Mesh getMesh() const override;
 
 	[[nodiscard]] unsigned int getMatID() const { return m_MatID; }
-	[[nodiscard]] std::vector<uint> getLightIndices(const std::vector<bool> &matLightFlags) const override;
+	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
 
 	Triangle *getTriangles() override { return m_Triangles.data(); }
 	glm::vec4 *getVertices() override { return m_Vertices.data(); }
-	[[nodiscard]] uint getMaterialForPrim(unsigned int primitiveIdx) const override;
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
+	[[nodiscard]] const std::vector<glm::mat4> &getMeshTransforms() const override;
+	[[nodiscard]] std::vector<bool> getChangedMeshes() override { return std::vector<bool>(m_Meshes.size(), false); }
+	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override { return std::vector<bool>(m_Meshes.size(), false); }
+
+  protected:
+	void prepareMeshes(RenderSystem &rs) override;
 
   private:
-	std::vector<uint> m_Indices;
+	std::vector<std::pair<size_t, rfw::Mesh>> m_Meshes;
+	std::vector<std::vector<int>> m_LightIndices;
+	std::vector<glm::mat4> m_MeshTransforms;
+
 	std::vector<glm::vec4> m_Vertices;
 	std::vector<glm::vec3> m_Normals;
 	std::vector<Triangle> m_Triangles;

@@ -19,6 +19,7 @@
 #include "SceneTriangles.h"
 
 #include "gLTF/SceneObject.h"
+#include "gLTF/Skinning.h"
 
 namespace rfw
 {
@@ -151,8 +152,8 @@ class AssimpObject : public SceneTriangles
 	{
 		void update(std::vector<AssimpNode> &nodes, const glm::mat4 &T);
 
-		glm::mat4 localTransform = glm::mat4(1.0f);
-		glm::mat4 combinedTransform = glm::mat4(1.0f);
+		SIMDMat4 localTransform = glm::mat4(1.0f);
+		SIMDMat4 combinedTransform = glm::mat4(1.0f);
 
 		std::vector<uint> children;
 		std::vector<uint> meshes;
@@ -174,7 +175,7 @@ class AssimpObject : public SceneTriangles
 		unsigned int nodeIndex;
 		std::vector<int> vertexIDs;
 		std::vector<float> weights;
-		glm::mat4 offsetMatrix;
+		SIMDMat4 offsetMatrix;
 	};
 
 	struct MeshInfo
@@ -185,10 +186,12 @@ class AssimpObject : public SceneTriangles
 		uint faceCount;
 		uint materialIdx;
 		uint nodeIndex;
-		std::vector<MeshBone> bones;
 
+		std::vector<MeshBone> bones;
 		std::vector<uvec4> joints;
 		std::vector<vec4> weights;
+
+		bool dirty = true;
 	};
 
 	AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
@@ -205,18 +208,23 @@ class AssimpObject : public SceneTriangles
 	Triangle *getTriangles() override { return m_Triangles.data(); }
 	glm::vec4 *getVertices() override { return m_CurrentVertices.data(); }
 
-	void setCurrentAnimation(uint index);
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
+	[[nodiscard]] const std::vector<glm::mat4> &getMeshTransforms() const override;
+	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
+	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
 
-	[[nodiscard]] rfw::Mesh getMesh() const override;
+	[[nodiscard]] bool isAnimated() const override { return !m_Animations.empty(); }
+	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
 
-	bool isAnimated() const override { return !m_Animations.empty(); }
-	uint getAnimationCount() const override;
-	void setAnimation(uint index) override;
-	uint getMaterialForPrim(uint primitiveIdx) const override;
-
-	[[nodiscard]] std::vector<uint> getLightIndices(const std::vector<bool> &matLightFlags) const override;
+  protected:
+	void prepareMeshes(RenderSystem &rs) override;
 
   private:
+	std::vector<std::vector<int>> m_LightIndices;
+	std::vector<std::pair<size_t, rfw::Mesh>> m_RfwMeshes;
+	std::vector<glm::mat4> m_MeshTransforms;
+	std::vector<bool> m_ChangedMeshTransforms;
+
 	std::vector<size_t> m_NodesWithMeshes;
 	std::vector<AssimpNode> m_SceneGraph;
 	std::map<std::string, uint> m_NodeNameMapping;
@@ -239,7 +247,6 @@ class AssimpObject : public SceneTriangles
 	std::vector<MeshAnimation> m_Animations;
 
 	std::string m_File;
-	unsigned int m_CurrentAnimation = 0;
 	int m_ID = -1;
 	bool m_IsAnimated = false, m_HasUpdated = false;
 };

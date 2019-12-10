@@ -5,6 +5,23 @@
 
 #include "Skinning.h"
 
+#include <glm/simd/geometric.h>
+
+#include <algorithm>
+#include <functional>
+#include <execution>
+#include <thread>
+#include <future>
+
+#ifdef _WIN32
+#include <Windows.h>
+#include <ppl.h>
+
+#define USE_PARALLEL_FOR 1
+#else
+#define USE_PARALLEL_FOR 0
+#endif
+
 #define ALLOW_INDEXED_DATA 1
 #define ALLOW_INDEXED_ANIM_DATA 1
 
@@ -21,83 +38,157 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	const auto baseVertices = getBaseVertices();
 	auto normals = getNormals();
 	const auto baseNormals = getBaseNormals();
-
-	for (int i = 0, s = static_cast<int>(vertexCount); i < s; i++)
-	{
-#if ROW_MAJOR_MESH_SKIN
-		// the 4 joint indices
-		const uvec4 &j4 = joints[i];
-		// the 4 weights of each joint
-		__m128 w4 = _mm_load_ps(value_ptr(weights[i]));
-
-		// create scalars for matrix scaling, use same shuffle value to help with uOP cache
-		__m256 w4x = _mm256_broadcastss_ps(w4); // w4.x component shuffled to all elements
-		w4 = _mm_shuffle_ps(w4, w4, 0b111001);
-		__m256 w4y = _mm256_broadcastss_ps(w4); // w4.y component shuffled to all elements
-		w4 = _mm_shuffle_ps(w4, w4, 0b111001);
-		__m256 w4z = _mm256_broadcastss_ps(w4); // w4.z component shuffled to all elements
-		w4 = _mm_shuffle_ps(w4, w4, 0b111001);
-		__m256 w4w = _mm256_broadcastss_ps(w4); // w4.w component shuffled to all elements
-
-		// top half of weighted skin matrix
-		__m256 skinM_T = _mm256_mul_ps(w4x, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.x])));
-		skinM_T = _mm256_fmadd_ps(w4y, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.y])), skinM_T);
-		skinM_T = _mm256_fmadd_ps(w4z, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.z])), skinM_T);
-		skinM_T = _mm256_fmadd_ps(w4w, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.w])), skinM_T);
-
-		// bottom half of weighted skin matrix
-		__m256 skinM_L = _mm256_mul_ps(w4x, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.x]) + 8));
-		skinM_L = _mm256_fmadd_ps(w4y, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.y]) + 8), skinM_L);
-		skinM_L = _mm256_fmadd_ps(w4z, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.z]) + 8), skinM_L);
-		skinM_L = _mm256_fmadd_ps(w4w, _mm256_load_ps(value_ptr(skin.jointMatrices[j4.w]) + 8), skinM_L);
-
-		// double each row so we can do two matrix multiplication at once
-		const __m256 skinM0 = _mm256_permute2f128_ps(skinM_T, skinM_T, 0x00);
-		const __m256 skinM1 = _mm256_permute2f128_ps(skinM_T, skinM_T, 0x11);
-		const __m256 skinM2 = _mm256_permute2f128_ps(skinM_L, skinM_L, 0x00);
-		const __m256 skinM3 = _mm256_permute2f128_ps(skinM_L, skinM_L, 0x11);
-
-		// load vertices and normal
-		__m128 vtxOrig = _mm_load_ps(value_ptr(object->baseVertices[i]));
-		__m128 normOrig = _mm_maskload_ps(value_ptr(object->baseNormals[i]), _mm_set_epi32(0, ~0, ~0, ~0));
-
-		// combine vectors to use AVX2 instead of SSE
-		__m256 combined = _mm256_set_m128(normOrig, vtxOrig);
-
-		// multiply vertex with skin matrix, multiply normal with skin matrix
-		// using HADD and MUL is faster than OR and DP
-		combined = _mm256_hadd_ps(_mm256_hadd_ps(_mm256_mul_ps(combined, skinM0), _mm256_mul_ps(combined, skinM1)),
-								  _mm256_hadd_ps(_mm256_mul_ps(combined, skinM2), _mm256_mul_ps(combined, skinM3)));
-		// extract vertex and normal from combined vector
-		__m128 vtx = _mm256_castps256_ps128(combined);
-		__m128 norm = _mm256_extractf128_ps(combined, 1);
-
-		// normalize normal
-		norm = _mm_mul_ps(norm, _mm_rsqrt_ps(_mm_dp_ps(norm, norm, 0x77)));
-
-		// store for reuse
-		_mm_store_ps(value_ptr(object->vertices[i]), vtx);
-		_mm_maskstore_ps(value_ptr(object->normals[i]), _mm_set_epi32(0, -1, -1, -1), norm);
-#else
-		const uvec4 &j4 = joints.at(i);
-		const vec4 &w4 = weights.at(i);
-
-		const mat4 mx = skin.jointMatrices.at(j4.x) * w4.x;
-		const mat4 my = skin.jointMatrices.at(j4.y) * w4.y;
-		const mat4 mz = skin.jointMatrices.at(j4.z) * w4.z;
-		const mat4 mw = skin.jointMatrices.at(j4.w) * w4.w;
-		const mat4 skinMatrix = mx + my + mz + mw;
-
-		vertices[i] = skinMatrix * baseVertices[i];
-		normals[i] = skinMatrix * vec4(baseNormals[i], 0);
-#endif
-	}
+	auto triangles = getTriangles();
 
 	if (flags & HAS_INDICES)
-		object->updateTriangles(faceOffset, faceOffset + faceCount);
+	{
+#if USE_PARALLEL_FOR
+		concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int vIndex) {
+			const uvec4 j4 = joints.at(vIndex);
+			const vec4 w4 = weights.at(vIndex);
+
+			SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
+			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+			_mm_store_ps(value_ptr(vertices[vIndex]), result);
+
+			const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
+
+			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+
+			result = glm_mat4_mul_vec4(normalMatrix.cols, normal);
+			result = glm_vec4_normalize(result);
+			_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+		});
+#else
+		for (int vIndex = 0, s = static_cast<int>(vertexCount); vIndex < s; vIndex++)
+		{
+			const uvec4 j4 = joints.at(vIndex);
+			const vec4 w4 = weights.at(vIndex);
+
+			SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
+			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+			_mm_store_ps(value_ptr(vertices[vIndex]), result);
+
+			const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
+			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+			result = glm_mat4_mul_vec4(normalMatrix.cols, normal);
+			result = glm_vec4_normalize(result);
+			_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+		}
+#endif
+		dirty = true;
+	}
 	else
-		object->updateTriangles(vertexOffset / 3, vertexOffset / 3 + vertexCount / 3);
-	object->dirty = true;
+	{
+#if USE_PARALLEL_FOR
+		concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int t) {
+			const auto i3 = t * 3;
+			auto &tri = triangles[t];
+
+			int vIndex = i3;
+			{
+				const uvec4 j4 = joints.at(vIndex);
+				const vec4 w4 = weights.at(vIndex);
+
+				SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
+				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+				_mm_store_ps(value_ptr(vertices[vIndex]), result);
+
+				const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
+				const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+				result = glm_mat4_mul_vec4(normalMatrix.cols, normal);
+				result = glm_vec4_normalize(result);
+				_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+
+				tri.vertex0 = vertices[vIndex];
+				tri.vN0 = normals[vIndex];
+			}
+
+			vIndex = i3 + 1;
+			{
+				const uvec4 j4 = joints.at(vIndex);
+				const vec4 w4 = weights.at(vIndex);
+
+				SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
+				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+				_mm_store_ps(value_ptr(vertices[vIndex]), result);
+
+				const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
+				const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+				result = glm_mat4_mul_vec4(normalMatrix.cols, normal);
+				result = glm_vec4_normalize(result);
+				_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+
+				tri.vertex1 = vertices[vIndex];
+				tri.vN1 = normals[vIndex];
+			}
+
+			vIndex = i3 + 2;
+			{
+				const uvec4 j4 = joints.at(vIndex);
+				const vec4 w4 = weights.at(vIndex);
+
+				SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
+				skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
+				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+				_mm_store_ps(value_ptr(vertices[vIndex]), result);
+
+				const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
+				const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+				result = glm_mat4_mul_vec4(normalMatrix.cols, normal);
+				result = glm_vec4_normalize(result);
+				_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+
+				tri.vertex2 = vertices[vIndex];
+				tri.vN2 = normals[vIndex];
+			}
+
+			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+		});
+#else
+		for (int i = 0, s = static_cast<int>(vertexCount); i < s; i++)
+		{
+			const uvec4 &j4 = joints[i];
+			const vec4 &w4 = weights[i];
+
+			SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
+			skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
+#if 0
+		vertices[i] = skinMatrix.matrix * baseVertices[i];
+		normals[i] = skinMatrix.matrix * vec4(baseNormals[i], 0);
+#else
+			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[i]));
+			_mm_store_ps(value_ptr(vertices[i]), result);
+
+			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[i]), _mm_set_epi32(0, ~0, ~0, ~0));
+			result = glm_mat4_mul_vec4(skinMatrix.cols, normal);
+			_mm_maskstore_ps(value_ptr(normals[i]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+#endif
+		}
+#endif
+
+		updateTriangles();
+		dirty = true;
+	}
 }
 
 void rfw::SceneMesh::setPose(const std::vector<float> &wghts)
@@ -108,28 +199,25 @@ void rfw::SceneMesh::setPose(const std::vector<float> &wghts)
 	for (int s = static_cast<int>(vertexCount), i = 0; i < s; i++)
 	{
 		const auto idx = i + vertexOffset;
-		object->vertices.at(idx) = vec4(poses.at(0).positions.at(i), 1.0f);
-		object->normals.at(idx) = poses.at(0).normals.at(i);
+		object->vertices.at(idx) = vec4(poses.at(0).positions[i], 1.0f);
+		object->normals.at(idx) = poses.at(0).normals[i];
 
 		for (int j = 1; j <= weightCount; j++)
 		{
 			const auto &pose = poses.at(j);
 
-			object->vertices.at(idx) += wghts.at(j - 1) * vec4(pose.positions.at(i), 0);
-			object->normals.at(idx) += wghts.at(j - 1) * pose.normals.at(i);
+			object->vertices[idx] += wghts[j - 1] * vec4(pose.positions[i], 0);
+			object->normals[idx] += wghts[j - 1] * pose.normals[i];
 		}
-
-		object->normals.at(idx).y *= -1.0f;
-		object->normals.at(idx).z *= -1.0f;
 	}
 
-	object->updateTriangles(vertexOffset / 3, vertexCount / 3);
-	object->dirty = true;
+	updateTriangles();
+	dirty = true;
 }
 
 void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 {
-	const auto matrix3x3 = mat3(transform);
+	const auto matrix3x3 = transpose(inverse(mat3(transform)));
 
 	auto vertices = getVertices();
 	const auto baseVertices = getBaseVertices();
@@ -142,65 +230,43 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 		normals[i] = matrix3x3 * baseNormals[i];
 	}
 
-	if (flags & HAS_INDICES)
-	{
-		const auto offset = vertexOffset / 3;
-		for (uint s = (vertexCount / 3), i = 0, triIdx = offset; i < s; i++, triIdx++)
-		{
-			const auto idx = i * 3;
-			auto &tri = object->triangles.at(triIdx);
-			tri.vertex0 = vec3(vertices[idx + 0]);
-			tri.vertex1 = vec3(vertices[idx + 1]);
-			tri.vertex2 = vec3(vertices[idx + 2]);
-
-			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-
-			tri.vN0 = normals[idx + 0];
-			tri.vN1 = normals[idx + 1];
-			tri.vN2 = normals[idx + 2];
-
-			tri.Nx = N.x;
-			tri.Ny = N.y;
-			tri.Nz = N.z;
-		}
-	}
-	else
-	{
-		const auto offset = vertexOffset / 3;
-		for (uint s = (vertexCount / 3), i = 0, triIdx = offset; i < s; i++, triIdx++)
-		{
-			const auto idx = i * 3;
-			auto &tri = object->triangles.at(triIdx);
-			tri.vertex0 = vec3(vertices[idx + 0]);
-			tri.vertex1 = vec3(vertices[idx + 1]);
-			tri.vertex2 = vec3(vertices[idx + 2]);
-
-			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-
-			tri.vN0 = normals[idx + 0];
-			tri.vN1 = normals[idx + 1];
-			tri.vN2 = normals[idx + 2];
-
-			tri.Nx = N.x;
-			tri.Ny = N.y;
-			tri.Nz = N.z;
-		}
-	}
-
-	object->dirty = true;
+	updateTriangles();
+	dirty = true;
 }
 
-vec4 *rfw::SceneMesh::getVertices() { return &object->vertices.at(vertexOffset); }
-const vec4 *rfw::SceneMesh::getVertices() const { return &object->vertices.at(vertexOffset); }
+vec4 *rfw::SceneMesh::getVertices() { return &object->vertices[vertexOffset]; }
+const vec4 *rfw::SceneMesh::getVertices() const { return &object->vertices[vertexOffset]; }
 
-vec4 *rfw::SceneMesh::getBaseVertices() { return &object->baseVertices.at(vertexOffset); }
-const vec4 *rfw::SceneMesh::getBaseVertices() const { return &object->baseVertices.at(vertexOffset); }
+vec4 *rfw::SceneMesh::getBaseVertices() { return &object->baseVertices[vertexOffset]; }
+const vec4 *rfw::SceneMesh::getBaseVertices() const { return &object->baseVertices[vertexOffset]; }
 
-glm::vec3 *rfw::SceneMesh::getNormals() { return &object->normals.at(vertexOffset); }
-const glm::vec3 *rfw::SceneMesh::getNormals() const { return &object->normals.at(vertexOffset); }
+rfw::Triangle *rfw::SceneMesh::getTriangles() { return &object->triangles[triangleOffset]; }
 
-glm::vec3 *rfw::SceneMesh::getBaseNormals() { return &object->baseNormals.at(vertexOffset); }
-const glm::vec3 *rfw::SceneMesh::getBaseNormals() const { return &object->baseNormals.at(vertexOffset); }
+const rfw::Triangle *rfw::SceneMesh::getTriangles() const { return &object->triangles[triangleOffset]; }
+
+glm::uvec3 *rfw::SceneMesh::getIndices()
+{
+	if (flags & HAS_INDICES)
+		return &object->indices[faceOffset];
+	return nullptr;
+}
+
+const glm::uvec3 *rfw::SceneMesh::getIndices() const
+{
+	if (flags & HAS_INDICES)
+		return &object->indices[faceOffset];
+	return nullptr;
+}
+
+glm::vec2 *rfw::SceneMesh::getTexCoords() { return &object->texCoords[vertexOffset]; }
+
+const glm::vec2 *rfw::SceneMesh::getTexCoords() const { return &object->texCoords[vertexOffset]; }
+
+glm::vec3 *rfw::SceneMesh::getNormals() { return &object->normals[vertexOffset]; }
+const glm::vec3 *rfw::SceneMesh::getNormals() const { return &object->normals[vertexOffset]; }
+
+glm::vec3 *rfw::SceneMesh::getBaseNormals() { return &object->baseNormals[vertexOffset]; }
+const glm::vec3 *rfw::SceneMesh::getBaseNormals() const { return &object->baseNormals[vertexOffset]; }
 
 void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vector<glm::vec3> &verts, const std::vector<glm::vec3> &nrmls,
 								  const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &pses, const std::vector<glm::uvec4> &jnts,
@@ -208,61 +274,45 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 {
 	std::vector<int> indices = indces;
 
-	if (!jnts.empty() && (object->flags & SceneObject::ALLOW_INDICES))
+	if ((flags & HAS_INDICES) && indices.empty())
 	{
-		if (flags | INITIAL_PRIM)
+		indices.resize(verts.size());
+		for (int i = 0, s = static_cast<int>(verts.size()); i < s; i++)
+			indices[i] = i;
+	}
+
+	if (!indices.empty()) // Indexed mesh stored as non-indexed
+	{
+#if 1
+		if (flags & INITIAL_PRIM)
 		{
 			flags &= ~INITIAL_PRIM;
-			if (!indices.empty()) // This mesh will be indexed
-			{
-				flags |= HAS_INDICES;
-				faceOffset = object->indices.size();
-			}
-
-			vertexOffset = object->baseVertices.size();
+			flags |= HAS_INDICES;
+			faceOffset = static_cast<uint>(object->indices.size());
+			vertexOffset = static_cast<uint>(object->baseVertices.size());
+			triangleOffset = static_cast<uint>(object->triangles.size());
 		}
 
+		const uint primIndexOffset = vertexCount;
+
+		faceCount += indices.size() / 3;
 		vertexCount += verts.size();
 
-		if (flags & HAS_INDICES)
-		{
-			if (indices.empty()) // Generate indices if current mesh already consists of indexed data
-			{
-				for (int i = 0; i < verts.size(); i++)
-					indices.push_back(i);
-			}
+		// Allocate data
+		const auto triangleOffset = object->triangles.size();
 
-			faceCount += indices.size() / 3;
-			object->triangles.resize(object->triangles.size() + faceCount);
-			object->materialIndices.resize(object->materialIndices.size() + faceCount, materialIdx);
-			object->indices.reserve(object->indices.size() + faceCount);
+		object->materialIndices.resize(object->materialIndices.size() + (indices.size() / 3), materialIdx);
+		object->triangles.resize(object->triangles.size() + (indices.size() / 3));
 
-			object->baseVertices.reserve(object->baseVertices.size() + indices.size());
-			object->baseNormals.reserve(object->baseNormals.size() + indices.size());
-			object->texCoords.reserve(object->texCoords.size() + indices.size());
-
-			for (int i = 0; i < indices.size(); i += 3)
-			{
-				const uvec3 index = uvec3(indices[i], indices[i + 1], indices[i + 2]) + vertexOffset;
-				object->indices.emplace_back(index);
-			}
-		}
-		else
-		{
-			faceCount += verts.size() / 3;
-			object->materialIndices.resize(object->materialIndices.size() + (verts.size() / 3), materialIdx);
-			object->triangles.resize(object->triangles.size() + (verts.size() / 3));
-
-			object->baseVertices.reserve(object->baseVertices.size() + verts.size());
-			object->baseNormals.reserve(object->baseNormals.size() + verts.size());
-			object->texCoords.reserve(object->texCoords.size() + verts.size());
-		}
+		object->baseVertices.reserve(object->baseVertices.size() + verts.size());
+		object->baseNormals.reserve(object->baseNormals.size() + nrmls.size());
+		object->texCoords.reserve(object->texCoords.size() + uvs.size());
 
 		poses.resize(pses.size());
 		for (size_t i = 0; i < poses.size(); i++)
 		{
-			const auto &origPose = pses.at(i);
-			auto &pose = poses.at(i);
+			const auto &origPose = pses[i];
+			auto &pose = poses[i];
 
 			pose.positions = origPose.positions;
 			pose.normals = origPose.normals;
@@ -270,49 +320,40 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 
 		if (!jnts.empty())
 		{
-			assert(!wghts.empty());
-			assert(jnts.size() == wghts.size());
+			joints.reserve(joints.size() + jnts.size());
+			weights.reserve(weights.size() + wghts.size());
 
-			if (flags & HAS_INDICES)
+			for (int s = static_cast<int>(wghts.size()), i = 0; i < s; i++)
 			{
-				joints.reserve(indices.size());
-				weights.reserve(indices.size());
-
-				for (size_t s = indices.size(), i = 0; i < s; i++)
-				{
-					const auto idx = indices.at(i);
-
-					joints.push_back(jnts.at(idx));
-					weights.push_back(wghts.at(idx));
-				}
-			}
-			else
-			{
-				joints.reserve(verts.size());
-				weights.reserve(verts.size());
-
-				for (size_t s = verts.size(), i = 0; i < s; i++)
-				{
-					joints.push_back(jnts.at(i));
-					weights.push_back(wghts.at(i));
-				}
+				joints.push_back(jnts[i]);
+				weights.push_back(wghts[i]);
 			}
 		}
 
-		for (int i = 0, s = static_cast<int>(verts.size()); i < s; i++)
+		// Add per-vertex data
+		for (int s = static_cast<int>(verts.size()), i = 0; i < s; i++)
 		{
-			object->baseVertices.emplace_back(verts.at(i), 1);
-			object->baseNormals.push_back(nrmls.at(i));
+			object->baseVertices.emplace_back(verts[i], 1.0f);
+			if (!jnts.empty())
+				object->baseNormals.push_back(nrmls[i]);
+			else
+				object->baseNormals.push_back(nrmls[i]);
 			if (!uvs.empty())
-				object->texCoords.push_back(uvs.at(i));
+				object->texCoords.push_back(uvs[i]);
 			else
 				object->texCoords.emplace_back(0.0f);
 		}
-	}
-	else if (!indices.empty())
-	{
-		if (flags | INITIAL_PRIM)
-			vertexOffset = object->baseVertices.size();
+
+		object->indices.reserve(object->indices.size() + (indices.size() / 3));
+		for (int i = 0, s = static_cast<int>(indices.size()); i < s; i += 3)
+			object->indices.push_back(uvec3(indices[i], indices[i + 1], indices[i + 2]) + primIndexOffset);
+#else
+		if (flags & INITIAL_PRIM)
+		{
+			flags &= ~INITIAL_PRIM;
+			vertexOffset = static_cast<uint>(object->baseVertices.size());
+			faceOffset = static_cast<uint>(object->indices.size());
+		}
 
 		faceCount += indices.size() / 3;
 		vertexCount += indices.size();
@@ -330,13 +371,13 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 		poses.resize(poses.size());
 		for (size_t i = 0; i < poses.size(); i++)
 		{
-			const auto &origPose = pses.at(i);
-			auto &pose = poses.at(i);
+			const auto &origPose = pses[i];
+			auto &pose = poses[i];
 
 			pose.positions.reserve(indices.size());
 			pose.normals.reserve(indices.size());
 
-			for (int idx : indices)
+			for (const int idx : indices)
 			{
 				pose.positions.push_back(origPose.positions.at(idx));
 				pose.normals.emplace_back(origPose.normals.at(idx));
@@ -350,30 +391,36 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 
 			for (int s = static_cast<int>(indices.size()), i = 0; i < s; i++)
 			{
-				const auto idx = indices.at(i);
+				const auto idx = indices[i];
 
-				joints.push_back(jnts.at(idx));
-				weights.push_back(wghts.at(idx));
+				joints.push_back(jnts[idx]);
+				weights.push_back(wghts[idx]);
 			}
 		}
 
 		// Add per-vertex data
 		for (int s = static_cast<int>(indices.size()), i = 0; i < s; i++)
 		{
-			const auto idx = indices.at(i);
+			const auto idx = indices[i];
 
-			object->baseVertices.emplace_back(verts.at(idx), 1.0f);
-			object->baseNormals.push_back(nrmls.at(idx));
+			object->baseVertices.emplace_back(verts[idx], 1.0f);
+			object->baseNormals.push_back(nrmls[idx]);
 			if (!uvs.empty())
-				object->texCoords.push_back(uvs.at(idx));
+				object->texCoords.push_back(uvs[idx]);
 			else
 				object->texCoords.emplace_back(0.0f);
 		}
+#endif
 	}
-	else
+	else // Non-indexed mesh
 	{
-		if (flags | INITIAL_PRIM)
-			vertexOffset = object->baseVertices.size();
+		if (flags & INITIAL_PRIM)
+		{
+			flags &= ~INITIAL_PRIM;
+			triangleOffset = static_cast<uint>(object->triangles.size());
+			faceOffset = static_cast<uint>(object->triangles.size());
+			vertexOffset = static_cast<uint>(object->baseVertices.size());
+		}
 
 		faceCount += verts.size() / 3;
 		vertexCount += verts.size();
@@ -391,8 +438,8 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 		poses.resize(poses.size());
 		for (size_t i = 0; i < poses.size(); i++)
 		{
-			const auto &origPose = pses.at(i);
-			auto &pose = poses.at(i);
+			const auto &origPose = pses[i];
+			auto &pose = poses[i];
 
 			pose.positions = origPose.positions;
 			pose.normals = origPose.normals;
@@ -405,24 +452,164 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 
 			for (int s = static_cast<int>(verts.size()), i = 0; i < s; i++)
 			{
-				joints.push_back(jnts.at(i));
-				weights.push_back(wghts.at(i));
+				joints.push_back(jnts[i]);
+				weights.push_back(wghts[i]);
 			}
 		}
 
 		// Add per-vertex data
 		for (int s = static_cast<int>(verts.size()), i = 0; i < s; i++)
 		{
-			const auto idx = verts.at(i);
+			object->baseVertices.emplace_back(verts[i], 1.0f);
 
-			object->baseVertices.emplace_back(verts.at(i), 1.0f);
-			object->baseNormals.push_back(nrmls.at(i));
+			if (!jnts.empty())
+				object->baseNormals.push_back(nrmls[i]);
+			else
+				object->baseNormals.push_back(nrmls[i]);
 			if (!uvs.empty())
-				object->texCoords.push_back(uvs.at(i));
+				object->texCoords.push_back(uvs[i]);
 			else
 				object->texCoords.emplace_back(0.0f);
 		}
 	}
 
+	const auto count = object->baseVertices.size() - object->vertices.size();
+
+	object->vertices.resize(object->baseVertices.size());
+	object->normals.resize(object->baseNormals.size());
+
+	memcpy(object->vertices.data() + vertexOffset, object->baseVertices.data() + vertexOffset, count * sizeof(glm::vec4));
+	memcpy(object->normals.data() + vertexOffset, object->baseNormals.data() + vertexOffset, count * sizeof(glm::vec3));
+
 	flags &= ~INITIAL_PRIM;
+}
+
+void rfw::SceneMesh::updateTriangles() const
+{
+	if (flags & SceneMesh::HAS_INDICES)
+	{
+#if USE_PARALLEL_FOR
+		concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
+			const auto index = object->indices.at(i + faceOffset) + vertexOffset;
+			Triangle &tri = object->triangles.at(i + triangleOffset);
+
+			tri.vertex0 = object->vertices.at(index.x);
+			tri.vertex1 = object->vertices.at(index.y);
+			tri.vertex2 = object->vertices.at(index.z);
+
+			tri.vN0 = object->normals.at(index.x);
+			tri.vN1 = object->normals.at(index.y);
+			tri.vN2 = object->normals.at(index.z);
+
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.material = object->materialIndices.at(i + triangleOffset);
+		});
+#else
+		for (int i = 0; i < faceCount; i++)
+		{
+			const auto index = object->indices.at(i + faceOffset) + vertexOffset;
+			Triangle &tri = object->triangles.at(i + triangleOffset);
+
+			tri.vertex0 = object->vertices.at(index.x);
+			tri.vertex1 = object->vertices.at(index.y);
+			tri.vertex2 = object->vertices.at(index.z);
+
+			tri.vN0 = object->normals.at(index.x);
+			tri.vN1 = object->normals.at(index.y);
+			tri.vN2 = object->normals.at(index.z);
+
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.vN0 = n0;
+			tri.vN1 = n1;
+			tri.vN2 = n2;
+
+			tri.material = object->materialIndices.at(i + triangleOffset);
+		}
+#endif
+	}
+	else
+	{
+#if USE_PARALLEL_FOR
+		concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
+			const auto idx = i * 3;
+			const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + vertexOffset;
+			Triangle &tri = object->triangles.at(i + triangleOffset);
+
+			const vec3 &v0 = object->vertices.at(index.x);
+			const vec3 &v1 = object->vertices.at(index.y);
+			const vec3 &v2 = object->vertices.at(index.z);
+
+			const vec3 &n0 = object->normals.at(index.x);
+			const vec3 &n1 = object->normals.at(index.y);
+			const vec3 &n2 = object->normals.at(index.z);
+
+			vec3 N = normalize(cross(v1 - v0, v2 - v0));
+
+			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.vertex0 = v0;
+			tri.vertex1 = v1;
+			tri.vertex2 = v2;
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.vN0 = n0;
+			tri.vN1 = n1;
+			tri.vN2 = n2;
+
+			tri.material = object->materialIndices.at(i + triangleOffset);
+		});
+#else
+		for (int i = 0; i < faceCount; i++)
+		{
+			const auto idx = i * 3;
+			const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + vertexOffset;
+			Triangle &tri = object->triangles.at(i + triangleOffset);
+
+			const vec3 &v0 = object->vertices.at(index.x);
+			const vec3 &v1 = object->vertices.at(index.y);
+			const vec3 &v2 = object->vertices.at(index.z);
+
+			const vec3 &n0 = object->normals.at(index.x);
+			const vec3 &n1 = object->normals.at(index.y);
+			const vec3 &n2 = object->normals.at(index.z);
+
+			vec3 N = normalize(cross(v1 - v0, v2 - v0));
+
+			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.vertex0 = v0;
+			tri.vertex1 = v1;
+			tri.vertex2 = v2;
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.vN0 = n0;
+			tri.vN1 = n1;
+			tri.vN2 = n2;
+
+			tri.material = object->materialIndices.at(i + triangleOffset);
+		}
+#endif
+	}
 }

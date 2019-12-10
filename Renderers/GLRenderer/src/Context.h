@@ -59,6 +59,8 @@ class Context : public RenderContext
 
 	std::vector<int> m_InstanceGeometry;
 	std::vector<glm::mat4> m_InstanceMatrices;
+	std::vector<glm::mat4> m_InverseInstanceMatrices;
+
 	std::vector<utils::GLTexture> m_Textures;
 	std::vector<GLint> m_TextureBindings;
 	std::vector<DeviceMaterial> m_Materials;

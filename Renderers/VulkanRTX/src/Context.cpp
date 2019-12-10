@@ -537,7 +537,12 @@ void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &trans
 		m_InvTransforms.emplace_back(1.0f);
 
 		if (m_InvTransformsBuffer->getElementCount() < m_Instances.size())
-			m_InvTransformsBuffer->reallocate(m_Instances.size() + (m_Instances.size() % 32));
+		{
+			delete m_InvTransformsBuffer;
+			m_InvTransformsBuffer = new VmaBuffer<mat4>(
+				m_Device, m_Instances.size() + (m_Instances.size() % 32), vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+				vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
+		}
 	}
 
 	m_InstanceMeshIndices.at(index) = meshIdx;
@@ -548,18 +553,11 @@ void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &trans
 	curInstance.instanceOffset = 0;
 	curInstance.flags = static_cast<uint32_t>(vk::GeometryInstanceFlagBitsNV::eTriangleCullDisable);
 
-	const auto row0 = glm::row(transform, 0);
-	const auto row1 = glm::row(transform, 1);
-	const auto row2 = glm::row(transform, 2);
-
-	curInstance.transform = {
-		row0.x, row0.y, row0.z, row0.w, row1.x, row1.y, row1.z, row1.w, row2.x, row2.y, row2.z, row2.w,
-	};
-
 	// Update matrix
+	const auto tmpTransform = transpose(transform);
+	memcpy(curInstance.transform, value_ptr(tmpTransform), sizeof(curInstance.transform));
 
-	
-	m_InvTransforms[index] = glm::inverse(transform);
+	m_InvTransforms[index] = mat4(transpose(inverse(mat3(transform))));
 
 	// Update acceleration structure handle
 	curInstance.accelerationStructureHandle = m_Meshes.at(meshIdx)->accelerationStructure->getHandle();
@@ -707,6 +705,8 @@ void vkrtx::Context::update()
 	// Update triangle buffers
 	if (triangleBuffersDirty)
 		shadeDescriptorSet->bind(cTRIANGLES, m_TriangleBufferInfos);
+
+	assert(m_InvTransformsBuffer->getElementCount() >= m_InvTransforms.size());
 
 	m_InvTransformsBuffer->copyToDevice(m_InvTransforms.data(),
 										m_InvTransforms.size() * sizeof(mat4)); // Update inverse transforms

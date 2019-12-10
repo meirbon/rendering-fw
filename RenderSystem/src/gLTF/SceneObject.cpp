@@ -1,5 +1,14 @@
 #include "SceneObject.h"
 
+#ifdef _WIN32
+#include <Windows.h>
+#include <ppl.h>
+
+#define USE_PARALLEL_FOR 1
+#else
+#define USE_PARALLEL_FOR 0
+#endif
+
 using namespace rfw;
 
 bool rfw::SceneObject::transformTo(float timeInSeconds)
@@ -12,10 +21,10 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 
 	bool changed = false;
 
+	changedMeshNodeTransforms.resize(meshes.size());
+
 	for (auto idx : rootNodes)
-	{
 		changed |= nodes.at(idx).update(mat4(1.0f));
-	}
 
 	return changed;
 }
@@ -29,6 +38,38 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 
 	if (indices.empty())
 	{
+
+#if USE_PARALLEL_FOR
+		concurrency::parallel_for<int>(offset, static_cast<int>(last), [&](int i) {
+			const auto idx = i * 3;
+			Triangle &tri = triangles.at(i);
+			const vec3 &v0 = vertices.at(idx + 0);
+			const vec3 &v1 = vertices.at(idx + 1);
+			const vec3 &v2 = vertices.at(idx + 2);
+
+			tri.vertex0 = v0;
+			tri.vertex1 = v1;
+			tri.vertex2 = v2;
+
+			const vec3 &n0 = normals.at(idx + 0);
+			const vec3 &n1 = normals.at(idx + 1);
+			const vec3 &n2 = normals.at(idx + 2);
+
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
+
+			tri.Nx = N.x;
+			tri.Ny = N.y;
+			tri.Nz = N.z;
+
+			tri.vN0 = n0;
+			tri.vN1 = n1;
+			tri.vN2 = n2;
+
+			tri.material = materialIndices.at(i);
+		});
+#else
 		for (int i = static_cast<int>(offset), s = static_cast<int>(last); i < s; i++)
 		{
 			const auto idx = i * 3;
@@ -59,17 +100,22 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 
 			tri.material = materialIndices.at(i);
 		}
+#endif
 	}
 	else
 	{
-		for (const auto &mesh : meshes)
-		{
+
+#if USE_PARALLEL_FOR
+		concurrency::parallel_for<int>(0, static_cast<int>(meshes.size()), [&](int meshID) {
+			const auto &mesh = meshes[meshID];
+
 			if (mesh.flags & SceneMesh::HAS_INDICES)
 			{
 				for (int i = 0; i < mesh.faceCount; i++)
 				{
-					const auto index = indices.at(i);
-					Triangle &tri = triangles.at(i);
+					const auto index = indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
+					Triangle &tri = triangles.at(i + mesh.triangleOffset);
+
 					const vec3 &v0 = vertices.at(index.x);
 					const vec3 &v1 = vertices.at(index.y);
 					const vec3 &v2 = vertices.at(index.z);
@@ -95,7 +141,7 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 					tri.vN1 = n1;
 					tri.vN2 = n2;
 
-					tri.material = materialIndices.at(i);
+					tri.material = materialIndices.at(i + mesh.triangleOffset);
 				}
 			}
 			else
@@ -104,7 +150,8 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 				{
 					const auto idx = i * 3;
 					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
-					Triangle &tri = triangles.at(i);
+					Triangle &tri = triangles.at(i + mesh.triangleOffset);
+
 					const vec3 &v0 = vertices.at(index.x);
 					const vec3 &v1 = vertices.at(index.y);
 					const vec3 &v2 = vertices.at(index.z);
@@ -130,10 +177,89 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 					tri.vN1 = n1;
 					tri.vN2 = n2;
 
-					tri.material = materialIndices.at(i);
+					tri.material = materialIndices.at(i + mesh.triangleOffset);
+				}
+			}
+		});
+#else
+
+		for (int meshID = 0, sm = static_cast<int>(meshes.size()); meshID < sm; meshID++)
+		{
+			const auto &mesh = meshes[meshID];
+
+			if (mesh.flags & SceneMesh::HAS_INDICES)
+			{
+				for (int i = 0; i < mesh.faceCount; i++)
+				{
+					const auto index = indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
+					Triangle &tri = triangles.at(i + mesh.triangleOffset);
+
+					const vec3 &v0 = vertices.at(index.x);
+					const vec3 &v1 = vertices.at(index.y);
+					const vec3 &v2 = vertices.at(index.z);
+
+					const vec3 &n0 = normals.at(index.x);
+					const vec3 &n1 = normals.at(index.y);
+					const vec3 &n2 = normals.at(index.z);
+
+					vec3 N = normalize(cross(v1 - v0, v2 - v0));
+
+					if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+						N *= -1.0f; // flip if not consistent with vertex normals
+
+					tri.vertex0 = v0;
+					tri.vertex1 = v1;
+					tri.vertex2 = v2;
+
+					tri.Nx = N.x;
+					tri.Ny = N.y;
+					tri.Nz = N.z;
+
+					tri.vN0 = n0;
+					tri.vN1 = n1;
+					tri.vN2 = n2;
+
+					tri.material = materialIndices.at(i + mesh.triangleOffset);
+				}
+			}
+			else
+			{
+				for (int i = 0; i < mesh.faceCount; i++)
+				{
+					const auto idx = i * 3;
+					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
+					Triangle &tri = triangles.at(i + mesh.triangleOffset);
+
+					const vec3 &v0 = vertices.at(index.x);
+					const vec3 &v1 = vertices.at(index.y);
+					const vec3 &v2 = vertices.at(index.z);
+
+					const vec3 &n0 = normals.at(index.x);
+					const vec3 &n1 = normals.at(index.y);
+					const vec3 &n2 = normals.at(index.z);
+
+					vec3 N = normalize(cross(v1 - v0, v2 - v0));
+
+					if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+						N *= -1.0f; // flip if not consistent with vertex normals
+
+					tri.vertex0 = v0;
+					tri.vertex1 = v1;
+					tri.vertex2 = v2;
+
+					tri.Nx = N.x;
+					tri.Ny = N.y;
+					tri.Nz = N.z;
+
+					tri.vN0 = n0;
+					tri.vN1 = n1;
+					tri.vN2 = n2;
+
+					tri.material = materialIndices.at(i + mesh.triangleOffset);
 				}
 			}
 		}
+#endif
 	}
 }
 
@@ -177,10 +303,11 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 		{
 			if (mesh.flags & SceneMesh::HAS_INDICES)
 			{
-				for (int i = 0; i < mesh.faceCount; i++)
+				for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
 				{
-					const auto index = indices.at(i);
-					Triangle &tri = triangles.at(i);
+					const auto triIdx = mesh.triangleOffset + i;
+					const auto index = indices[i + mesh.faceOffset] + mesh.vertexOffset;
+					Triangle &tri = triangles.at(triIdx);
 
 					if (!texCoords.empty())
 					{
@@ -193,6 +320,8 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 						tri.u2 = texCoords.at(index.z).x;
 						tri.v2 = texCoords.at(index.z).y;
 					}
+
+					tri.material = this->materialIndices[triIdx];
 
 					const HostMaterial &mat = matList->get(tri.material);
 					int texID = mat.map[0].textureID;
@@ -209,11 +338,12 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 			}
 			else
 			{
-				for (int i = 0; i < mesh.faceCount; i++)
+				for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
 				{
+					const auto triIdx = mesh.triangleOffset + i;
 					const auto idx = i * 3;
 					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
-					Triangle &tri = triangles.at(i);
+					Triangle &tri = triangles.at(triIdx);
 
 					if (!texCoords.empty())
 					{
@@ -226,6 +356,8 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 						tri.u2 = texCoords.at(index.z).x;
 						tri.v2 = texCoords.at(index.z).y;
 					}
+
+					tri.material = this->materialIndices[triIdx];
 
 					const HostMaterial &mat = matList->get(tri.material);
 					int texID = mat.map[0].textureID;

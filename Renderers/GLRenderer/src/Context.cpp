@@ -105,6 +105,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	const auto matrix3x3 = mat3(matrix);
 	m_SimpleShader->setUniform("CamMatrix", matrix);
 	m_SimpleShader->setUniform("CamMatrix3x3", matrix3x3);
+	m_SimpleShader->setUniform("CamDir", camera.direction);
 	m_SimpleShader->setUniform("ambient", m_Ambient);
 	m_SimpleShader->setUniform("forward", -camera.direction);
 
@@ -120,8 +121,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
 	{
 		const GLMesh *mesh = m_Meshes.at(i);
-		const std::vector<glm::mat4> &instance = m_Instances.at(i);
-		const std::vector<glm::mat4> &inverseInstance = m_InverseInstances.at(i);
+		const std::vector<glm::mat4> &instance = m_Instances[i];
+		const std::vector<glm::mat4> &inverseInstance = m_InverseInstances[i];
 
 		if (instance.empty())
 			continue;
@@ -207,14 +208,20 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 
 void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform)
 {
+	const auto inverseTransform = transpose(inverse(transform));
+
 	if (m_InstanceGeometry.size() <= i)
 	{
 		m_InstanceGeometry.push_back(int(meshIdx));
 		m_InstanceMatrices.push_back(transform);
+		m_InverseInstanceMatrices.push_back(inverseTransform);
 	}
-
-	m_InstanceGeometry.at(i) = int(meshIdx);
-	m_InstanceMatrices.at(i) = transform;
+	else
+	{
+		m_InstanceGeometry[i] = int(meshIdx);
+		m_InstanceMatrices[i] = transform;
+		m_InverseInstanceMatrices[i] = inverseTransform;
+	}
 }
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
@@ -260,10 +267,13 @@ void Context::update()
 
 	for (int i = 0, s = static_cast<int>(m_InstanceGeometry.size()); i < s; i++)
 	{
-		const auto geoIdx = m_InstanceGeometry.at(i);
+		const auto geoIdx = m_InstanceGeometry[i];
 
-		m_Instances.at(geoIdx).push_back(m_InstanceMatrices.at(i));
-		m_InverseInstances.at(geoIdx).push_back(inverse(m_InstanceMatrices.at(i)));
+		const auto &matrix = m_InstanceMatrices[i];
+		const auto &inverseMatrix = m_InstanceMatrices[i];
+
+		m_Instances[geoIdx].push_back(matrix);
+		m_InverseInstances[geoIdx].push_back(inverseMatrix);
 	}
 }
 

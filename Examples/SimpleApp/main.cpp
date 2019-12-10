@@ -97,10 +97,13 @@ int main(int argc, char *argv[])
 	if (!rs.hasContext())
 	{
 		// Pick default renderer
-		//		rs.loadRenderAPI("GLRenderer");
-		// rs.loadRenderAPI("OptiX6Context");
-		rs.loadRenderAPI("VulkanRTX");
-		// rs.loadRenderAPI("VkContext");
+		// rs.loadRenderAPI("GLRenderer"); // OpenGL PBR Renderer
+
+		// rs.loadRenderAPI("OptiX6Context"); // OptiX 6.5 Path tracer
+
+		rs.loadRenderAPI("VulkanRTX"); // Vulkan RTX Path tracer
+
+		// rs.loadRenderAPI("VkContext"); // WIP Vulkan PBR Renderer
 	}
 
 	rs.setSkybox("Envmaps/sky_15.hdr");
@@ -116,27 +119,25 @@ int main(int argc, char *argv[])
 #endif
 
 	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), vec3(1));
-	auto cesiumMan =
-		rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0, 3), 90.0f, vec3(1, 0, 0));
+	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0.2f, 3));
 
-	//	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
-	//	auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(1), vec3(0, 10, 0));
-	//	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(40), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
-	//	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(40), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
+	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
+	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(-1, 1, -1), vec3(0, 10, 0));
+	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(1, -1, -1), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
+	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(1), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
+
 #if PICA
-
+	auto lightMaterial = rs.addMaterial(vec3(100), 1);
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);
 	staticInstanceRef.rotate(180.0f, vec3(0, 1, 0));
 	staticInstanceRef.update();
 
-	auto lightMaterial = rs.addMaterial(vec3(100), 1);
-	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(-10, 25, 4), 8.0f, 8.0f, lightMaterial);
+	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
 	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), vec3(100));
-	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(1000), cos(radians(45.0f)), vec3(0, -1, 0));
-
+	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(100), cos(radians(45.0f)), vec3(0, -1, 0));
 #endif
 #endif
 
@@ -144,7 +145,7 @@ int main(int argc, char *argv[])
 	camera.aperture = 0.001f;
 	camera.focalDistance = 15.0f;
 	auto lightMaterial = rs.addMaterial(vec3(30), 1);
-	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(0, 200, 0), 30.0f, 120.0f, lightMaterial);
+	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(0, 10, 0), 30.0f, 120.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 	auto staticRef = rs.addObject("Models/sponza/sponza.obj", false);
 	auto staticInstanceRef = rs.addInstance(staticRef, vec3(0.1f), vec3(0.0f), 180.0f, vec3(0, 1, 0));
@@ -162,6 +163,24 @@ int main(int argc, char *argv[])
 	auto dragon = rs.addObject("Models/dragon.obj", static_cast<int>(dragonMaterialIdx));
 	auto dragonInstance = rs.addInstance(dragon, vec3(10), vec3(-20, 4.0f, 0), 0.0f, vec3(1));
 #endif
+
+	// auto dragonMaterialIdx = rs.addMaterial(vec3(1, 1, 1), 0.5f);
+	// auto dragonMaterial = rs.getMaterial(dragonMaterialIdx);
+	// dragonMaterial.roughness = 0.6f;
+	// dragonMaterial.transmission = 0.95f;
+	// dragonMaterial.absorption = vec3(0.0f, 0.2f, 0.2f);
+	// dragonMaterial.color = vec3(1, 0, 0);
+	// dragonMaterial.eta = 1.4f;
+	// rs.setMaterial(dragonMaterialIdx, dragonMaterial);
+	// auto dragon = rs.addObject("Models/dragon.obj", static_cast<int>(dragonMaterialIdx));
+
+	// for (int x = -20; x <= 20; x++)
+	//{
+	//	for (int z = -20; z <= 20; z++)
+	//	{
+	//		auto dragonInstance = rs.addInstance(dragon, vec3(10), vec3(10 * x, 0.0f, 10 * z));
+	//	}
+	//}
 
 	std::future<void> prepareNextFrame, synchronize;
 
@@ -189,6 +208,8 @@ int main(int argc, char *argv[])
 	rfw::HostMaterial hostMaterial = {};
 	rfw::RenderStats stats = {};
 	float distance = 0;
+	float speedModifier = 0.2f;
+
 	size_t instanceIdx = 0;
 	size_t materialIdx = 0;
 
@@ -211,8 +232,6 @@ int main(int argc, char *argv[])
 
 		auto translation = vec3(0.0f);
 		auto target = vec3(0.0f);
-
-		float speedModifier = 0.2f;
 
 		if (window->pressed(KEY_EQUAL))
 		{
@@ -242,8 +261,6 @@ int main(int argc, char *argv[])
 		// Key handling
 		if (window->pressed(Keycode::KEY_ESCAPE))
 			window->close();
-		if (window->pressed(Keycode::KEY_LEFT_SHIFT))
-			speedModifier = 1.0f;
 		if (window->pressed(Keycode::KEY_W))
 			translation.z += 1.0f;
 		if (window->pressed(Keycode::KEY_S))
@@ -265,7 +282,7 @@ int main(int argc, char *argv[])
 		if (window->pressed(Keycode::KEY_LEFT))
 			target.x -= 0.001f;
 
-		translation *= elapsed * speedModifier * 0.01f;
+		translation *= elapsed * speedModifier * 0.01f * (window->pressed(Keycode::KEY_LEFT_SHIFT) ? 5.0f : 1.0f);
 		target *= elapsed;
 
 		// Update camera
@@ -343,6 +360,8 @@ int main(int argc, char *argv[])
 		camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");
 		camChanged |= ImGui::DragFloat("Focal dist", &camera.focalDistance, 0.0001f, 0.00001f, 1e10f, "%.7f");
 		camChanged |= ImGui::DragFloat("FOV", &camera.FOV, 0.1f, 20.0f, 120.0f);
+		ImGui::DragFloat("Speed", &speedModifier, 0.1f, 0.001f, 10000.0f);
+		ImGui::Text("Cam Dir: %.2f, %.2f, %.2f", camera.direction.x, camera.direction.y, camera.direction.z);
 		ImGui::EndGroup();
 
 		ImGui::Separator();
@@ -367,7 +386,7 @@ int main(int argc, char *argv[])
 
 			auto instanceTranslation = instanceObject.getTranslation();
 			auto instanceScaling = instanceObject.getScaling();
-			auto instanceRotation = glm::eulerAngles(instanceObject.getRotation());
+			auto instanceRotation = instanceObject.getRotation();
 
 			ImGui::Text("Instance");
 			if (ImGui::DragFloat3("Translation", value_ptr(instanceTranslation), 0.1f, -1e20f, 1e20f))
@@ -382,12 +401,13 @@ int main(int argc, char *argv[])
 			}
 			if (ImGui::DragFloat3("Rotation", value_ptr(instanceRotation), 0.01f, -1e20f, 1e20f))
 			{
-				instanceObject.setRotation(glm::quat(instanceRotation));
+				instanceObject.setRotation(instanceRotation);
 				instanceObject.update();
 			}
 		}
 		catch (const std::exception &e)
 		{
+			DEBUG(e.what());
 		}
 
 		ImGui::EndGroup();

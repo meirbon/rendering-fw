@@ -29,23 +29,27 @@ class gLTFObject : public SceneTriangles
 	Triangle *getTriangles() override;
 	glm::vec4 *getVertices() override;
 
-	[[nodiscard]] rfw::Mesh getMesh() const override;
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
+	[[nodiscard]] const std::vector<glm::mat4> &getMeshTransforms() const override;
+	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
+	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
 
 	bool isAnimated() const override;
-	uint getAnimationCount() const override;
-	void setAnimation(uint index) override;
-	uint getMaterialForPrim(uint primitiveIdx) const override;
-
-	std::vector<uint> getLightIndices(const std::vector<bool> &matLightFlags) const override;
-
+	const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
 	const std::string file;
 
 	SceneObject scene;
 
+  protected:
+	void prepareMeshes(RenderSystem &rs) override;
+
   private:
+	std::vector<std::vector<int>> m_LightIndices;
+	std::vector<std::pair<size_t, rfw::Mesh>> m_Meshes;
+
 	unsigned int m_BaseMaterialIdx;
 	int m_ID = -1;
-	bool m_IsAnimated = false, m_HasUpdated = false;
+	bool m_HasUpdated = false;
 };
 
 } // namespace rfw

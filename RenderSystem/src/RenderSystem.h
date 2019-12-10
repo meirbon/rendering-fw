@@ -14,6 +14,7 @@
 #include "Settings.h"
 #include "Skybox.h"
 #include "utils/Window.h"
+#include "utils/String.h"
 
 #include "MaterialList.h"
 #include "SceneTriangles.h"
@@ -30,6 +31,25 @@ class HostMaterial;
 class AssimpObject;
 class RenderSystem;
 
+class RfwException : public std::exception
+{
+  public:
+	explicit RfwException(const char *format, ...)
+	{
+		std::vector<char> buffer(1024, 0);
+		va_list arg;
+		va_start(arg, format);
+		utils::string::format(buffer, format, arg);
+		va_end(arg);
+		m_Message = std::string(buffer.data());
+	}
+
+	[[nodiscard]] const char *what() const noexcept override { return m_Message.c_str(); }
+
+  private:
+	std::string m_Message;
+};
+
 // Use lightweight object as a geometry reference for now, we might want to expand in the future
 class GeometryReference
 {
@@ -43,8 +63,14 @@ class GeometryReference
 	operator size_t() const { return m_Index; }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 
+	bool isAnimated() const;
 	void setAnimationTime(float time) const;
-	rfw::Mesh getMesh() const;
+	const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const;
+	const std::vector<glm::mat4> &getMeshMatrices() const;
+	const std::vector<std::vector<int>> &getLightIndices() const;
+
+  protected:
+	SceneTriangles *getObject() const;
 
   private:
 	size_t m_Index; // Loaded geometry index
@@ -85,51 +111,44 @@ class InstanceReference
 
   public:
 	InstanceReference() = default;
-	InstanceReference(size_t index, GeometryReference reference, rfw::RenderSystem &system)
-	{
-		m_Members = std::make_shared<Members>(reference);
-		m_Members->m_Index = index;
-		m_Members->m_Reference = reference;
-		m_Members->m_System = &system;
-		assert(m_Members->m_System);
-		m_Members->m_Translation = glm::vec3(0.0f);
-		m_Members->m_Rotation = glm::identity<glm::quat>();
-		m_Members->m_Scaling = glm::vec3(1.0f);
-	}
+	InstanceReference(size_t index, GeometryReference reference, rfw::RenderSystem &system);
 
-	operator uint() const { return static_cast<uint>(m_Members->m_Index); }
-	operator size_t() const { return m_Members->m_Index; }
+	operator size_t() const { return m_Members->index; }
 
-	[[nodiscard]] const GeometryReference &getReference() const { return m_Members->m_Reference; }
+	[[nodiscard]] const GeometryReference &getGeometryReference() const { return m_Members->geomReference; }
 
 	void setTranslation(glm::vec3 value);
 	void setRotation(float degrees, glm::vec3 axis);
 	void setRotation(const glm::quat &q);
+	void setRotation(const glm::vec3 &euler);
 	void setScaling(glm::vec3 value);
 
 	void translate(glm::vec3 offset);
 	void rotate(float degrees, glm::vec3 axis);
 	void scale(glm::vec3 offset);
 	void update() const;
-	[[nodiscard]] size_t getIndex() const { return m_Members->m_Index; }
+
+	[[nodiscard]] size_t getIndex() const { return m_Members->index; }
+	[[nodiscard]] const std::vector<size_t> &getIndices() const { return m_Members->instanceIDs; }
 
 	[[nodiscard]] glm::mat4 getMatrix() const;
 	[[nodiscard]] glm::mat3 getInverseMatrix() const;
 
-	[[nodiscard]] glm::vec3 getScaling() const { return m_Members->m_Scaling; }
-	[[nodiscard]] glm::quat getRotation() const { return m_Members->m_Rotation; }
-	[[nodiscard]] glm::vec3 getTranslation() const { return m_Members->m_Translation; }
+	[[nodiscard]] glm::vec3 getScaling() const { return m_Members->scaling; }
+	[[nodiscard]] glm::vec3 getRotation() const { return glm::eulerAngles(m_Members->rotation); }
+	[[nodiscard]] glm::vec3 getTranslation() const { return m_Members->translation; }
 
   private:
 	struct Members
 	{
 		explicit Members(const GeometryReference &ref);
-		glm::vec3 m_Translation = glm::vec3(0);
-		glm::quat m_Rotation = glm::identity<glm::quat>();
-		glm::vec3 m_Scaling = glm::vec3(1);
-		size_t m_Index = 0;
-		GeometryReference m_Reference;
-		rfw::RenderSystem *m_System = nullptr;
+		glm::vec3 translation = glm::vec3(0);
+		glm::quat rotation = glm::identity<glm::quat>();
+		glm::vec3 scaling = glm::vec3(1);
+		size_t index;
+		std::vector<size_t> instanceIDs;
+		GeometryReference geomReference;
+		rfw::RenderSystem *rSystem = nullptr;
 	};
 	std::shared_ptr<Members> m_Members;
 };
@@ -154,6 +173,10 @@ class RenderSystem
 {
 	friend class GeometryReference;
 	friend class InstanceReference;
+	friend class SceneTriangles;
+	friend class AssimpObject;
+	friend class gLTFObject;
+	friend class Quad;
 
   public:
 	class ProbeResult
@@ -167,11 +190,14 @@ class RenderSystem
 
 	  private:
 		ProbeResult() = default;
-		ProbeResult(const rfw::InstanceReference &reference, size_t primIdx, size_t material, float dist)
-			: object(reference), distance(dist), primitiveIndex(primIdx), materialIdx(material)
+		ProbeResult(const rfw::InstanceReference &reference, int meshIdx, int primIdx, Triangle *t, size_t material, float dist)
+			: object(reference), distance(dist), meshID(meshIdx), primID(primIdx), triangle(t), materialIdx(material)
 		{
 		}
-		size_t primitiveIndex;
+
+		int meshID;
+		int primID;
+		Triangle *triangle;
 	};
 
 	RenderSystem();
@@ -235,8 +261,18 @@ class RenderSystem
 	bool hasContext() const { return m_Context != nullptr; }
 	bool hasRenderer() const { return m_Context != nullptr; }
 
+  protected:
+	size_t requestMeshIndex();
+	size_t requestInstanceIndex();
+
   private:
 	void updateAreaLights();
+
+	size_t m_EmptyMeshSlots = 0;
+	size_t m_EmptyInstanceSlots = 0;
+
+	std::vector<bool> m_MeshSlots;
+	std::vector<bool> m_InstanceSlots;
 
 	bool m_ShouldReset = true, m_UninitializedMeshes = true;
 	enum Changed
@@ -246,7 +282,8 @@ class RenderSystem
 		MATERIALS = 2,
 		SKYBOX = 3,
 		LIGHTS = 4,
-		AREA_LIGHTS = 5
+		AREA_LIGHTS = 5,
+		ANIMATED = 6
 	};
 
 	glm::uvec2 m_ProbeIndex = glm::uvec2(0, 0);
@@ -264,10 +301,13 @@ class RenderSystem
 	std::vector<SceneTriangles *> m_Models;
 	std::mutex m_SetMeshMutex;
 
+	// A vector containg the index of (instance, object, mesh) for probe retrieval
+	std::vector<std::tuple<int, int, int>> m_InverseInstanceMapping;
+
 	std::vector<InstanceReference> m_Instances;
 	std::vector<glm::mat4> m_InstanceMatrices;
 
-	std::vector<std::vector<uint>> m_ObjectLightIndices;
+	std::vector<std::vector<std::vector<int>>> m_ObjectLightIndices;
 	std::vector<float> m_AreaLightEnergy;
 	std::vector<std::pair<uint, uint>> m_ObjectMaterialRange;
 

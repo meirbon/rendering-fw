@@ -8,6 +8,8 @@
 
 #include "../utils/File.h"
 
+#include "../RenderSystem.h"
+
 rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel, int nodeBase);
 
 rfw::MeshSkin convertSkin(const tinygltf::Skin &skin, const tinygltf::Model &model)
@@ -213,7 +215,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				for (int k = 0; k < count; k++, a += byteStride)
 				{
 					short value = 0;
-					memcpy(&value, a, sizeof(unsigned short));
+					memcpy(&value, a, sizeof(short));
 					tmpIndices.push_back(value);
 				}
 				break;
@@ -308,7 +310,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						{
 							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpNormals.push_back(*((glm::vec3 *)a));
+								glm::vec3 value;
+								memcpy(value_ptr(value), a, sizeof(glm::vec3));
+								tmpNormals.push_back(value);
 							}
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
@@ -316,7 +320,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							// WARNING("%s", "Double precision positions are not supported (yet).");
 							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpNormals.emplace_back(*((glm::dvec3 *)a));
+								glm::dvec3 value;
+								memcpy(value_ptr(value), a, sizeof(glm::dvec3));
+								tmpNormals.push_back(value);
 							}
 						}
 					}
@@ -358,7 +364,6 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 					continue;
 				else if (attribute.first == "JOINTS_0")
 				{
-					scene.flags &= ~SceneObject::ALLOW_INDICES;
 					if (attribAccessor.type == TINYGLTF_TYPE_VEC4)
 					{
 						if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT)
@@ -510,10 +515,10 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 	scene.transformTo(0.0f);
 
 	scene.updateTriangles();
-	// Update triangle data that only has to be calculated once
+	//// Update triangle data that only has to be calculated once
 	scene.updateTriangles(matList);
 
-	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(), scene.triangles.size());
+	DEBUG("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(), scene.triangles.size());
 }
 
 void rfw::gLTFObject::transformTo(float timeInSeconds) { scene.transformTo(timeInSeconds); }
@@ -522,9 +527,76 @@ rfw::Triangle *rfw::gLTFObject::getTriangles() { return scene.triangles.data(); 
 
 glm::vec4 *rfw::gLTFObject::getVertices() { return scene.vertices.data(); }
 
-rfw::Mesh rfw::gLTFObject::getMesh() const
+const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::gLTFObject::getMeshes() const { return m_Meshes; }
+
+const std::vector<glm::mat4> &rfw::gLTFObject::getMeshTransforms() const { return scene.meshTranforms; }
+
+std::vector<bool> rfw::gLTFObject::getChangedMeshes()
 {
-	auto mesh = rfw::Mesh();
+	auto changed = std::vector<bool>(m_Meshes.size(), false);
+	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
+	{
+		if (scene.meshes[i].dirty)
+		{
+			changed[i] = true;
+			scene.meshes[i].dirty = false;
+		}
+	}
+
+	return changed;
+}
+
+std::vector<bool> rfw::gLTFObject::getChangedMeshMatrices()
+{
+	auto values = std::move(scene.changedMeshNodeTransforms);
+	scene.changedMeshNodeTransforms.resize(m_Meshes.size(), false);
+	return values;
+}
+
+bool rfw::gLTFObject::isAnimated() const { return !scene.animations.empty(); }
+
+const std::vector<std::vector<int>> &rfw::gLTFObject::getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize)
+{
+	if (reinitialize)
+	{
+		m_LightIndices.clear();
+		m_LightIndices.resize(scene.meshes.size());
+
+		for (size_t i = 0, s = scene.meshes.size(); i < s; i++)
+		{
+			auto &currentLightVector = m_LightIndices[i];
+
+			const auto &mesh = scene.meshes[i];
+			const Triangle *triangles = scene.meshes[i].getTriangles();
+
+			for (int t = 0, st = static_cast<int>(mesh.faceCount); t < st; t++)
+			{
+				if (matLightFlags[triangles[t].material])
+					currentLightVector.push_back(t);
+			}
+		}
+	}
+
+	return m_LightIndices;
+}
+
+void rfw::gLTFObject::prepareMeshes(RenderSystem &rs)
+{
+	m_Meshes.clear();
+#if 1
+	for (const auto &mesh : scene.meshes)
+	{
+		auto m = rfw::Mesh();
+		m.vertices = mesh.getVertices();
+		m.normals = mesh.getNormals();
+		m.vertexCount = mesh.vertexCount;
+		m.triangleCount = mesh.faceCount;
+		m.triangles = mesh.getTriangles();
+		m.indices = mesh.getIndices();
+		m.texCoords = mesh.getTexCoords();
+		m_Meshes.emplace_back(rs.requestMeshIndex(), m);
+	}
+#else
 	mesh.vertices = scene.vertices.data();
 	mesh.normals = scene.normals.data();
 	mesh.triangles = scene.triangles.data();
@@ -540,32 +612,6 @@ rfw::Mesh rfw::gLTFObject::getMesh() const
 	}
 	mesh.vertexCount = scene.vertices.size();
 	mesh.texCoords = scene.texCoords.data();
-	return mesh;
-}
-
-bool rfw::gLTFObject::isAnimated() const { return !scene.animations.empty(); }
-
-uint rfw::gLTFObject::getAnimationCount() const { return uint(scene.animations.size()); }
-
-void rfw::gLTFObject::setAnimation(uint index)
-{
-	// TODO
-}
-
-uint rfw::gLTFObject::getMaterialForPrim(uint primitiveIdx) const { return scene.materialIndices.at(primitiveIdx); }
-
-std::vector<uint> rfw::gLTFObject::getLightIndices(const std::vector<bool> &matLightFlags) const
-{
-	std::vector<uint> indices;
-	for (const auto &mesh : scene.meshes)
-	{
-		for (int i = 0; i < mesh.faceCount; i++)
-		{
-			const auto &tri = scene.triangles.at(i + mesh.faceOffset);
-			if (matLightFlags[tri.material])
-				indices.push_back(i + mesh.faceOffset);
-		}
-	}
-
-	return indices;
+	m_Meshes.emplace_back(rs.requestMeshIndex(), mesh);
+#endif
 }

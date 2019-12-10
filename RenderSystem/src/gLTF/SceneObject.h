@@ -41,12 +41,14 @@ class SceneObject
 	std::vector<glm::vec4> baseVertices;
 	std::vector<glm::vec3> baseNormals;
 
+	std::vector<glm::mat4> meshTranforms;
 	std::vector<rfw::SceneMesh> meshes;
 	std::vector<rfw::SceneNode> nodes;
 	std::vector<rfw::MeshSkin> skins;
 	std::vector<rfw::MeshBone> bones;
 	std::vector<rfw::SceneAnimation> animations;
 	std::vector<int> rootNodes;
+	std::vector<bool> changedMeshNodeTransforms;
 
 	bool dirty = true;
 

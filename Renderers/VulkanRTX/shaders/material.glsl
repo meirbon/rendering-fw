@@ -12,7 +12,7 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 					inout ShadingData retVal,	 // material properties for current intersection
 					inout vec3 N, inout vec3 iN,  // geometric normal, interpolated normal
 					inout vec3 T, inout vec3 B,   // tangent vector
-					const mat3 invTransform		  // inverse instance transformation matrix
+					const mat4 invTransform		  // inverse instance transformation matrix
 )
 {
 	const float w = 1.0f - u - v;
@@ -36,11 +36,11 @@ void GetShadingData(const vec3 D,				  // IN: incoming ray direction
 	retVal.parameters = mat.parameters;
 
 	N = vec3(N0.w, N1.w, N2.w);
-	iN = normalize(w * N0.xyz + u * N1.xyz + v * N2.xyz);
+	iN = w * N0.xyz + u * N1.xyz + v * N2.xyz;
 
 	// Transform normals from local space to world space
-	N = invTransform * N;
-	iN = invTransform * iN;
+	N = normalize(invTransform * vec4(N, 0)).xyz;
+	iN = normalize(invTransform * vec4(iN, 0)).xyz;
 
 	// Calculating tangent space is faster than loading from memory
 	createTangentSpace(iN, T, B);

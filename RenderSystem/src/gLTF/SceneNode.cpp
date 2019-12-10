@@ -18,6 +18,8 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 	scale = T.scale;
 	matrix = transform;
 
+	calculateTransform();
+
 	for (int i = 0; i < meshIds.size(); i++)
 	{
 		int meshID = meshIds[i];
@@ -25,6 +27,9 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 		{
 			const auto newIdx = object->meshes.size();
 			object->meshes.emplace_back(*object);
+			object->meshTranforms.emplace_back(1.0f);
+			object->meshTranforms[newIdx] = localTransform;
+
 			auto &m = object->meshes.at(newIdx);
 			for (const auto &prim : meshes.at(meshID))
 				m.addPrimitive(prim.indices, prim.vertices, prim.normals, prim.uvs, prim.poses, prim.joints, prim.weights, prim.matID);
@@ -43,8 +48,6 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 		if (morphTargets > 0)
 			weights.resize(morphTargets, 0.0f);
 	}
-
-	calculateTransform();
 }
 
 bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
@@ -67,35 +70,34 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 		{
 			const int meshID = meshIDs.at(i);
 
+			object->changedMeshNodeTransforms[meshID] = true;
+
+			if (changed || !hasUpdatedStatic)
+			{
+				object->meshTranforms[meshID] = combinedTransform;
+				hasUpdatedStatic = true;
+				changed = true;
+			}
+
 			if (morphed)
 			{
 				object->meshes.at(meshID).setPose(weights);
 				morphed = false;
 				changed = true;
 			}
-			else if (skinIDs.at(i) != -1)
+
+			if (skinIDs.at(i) != -1)
 			{
 				auto &skin = object->skins.at(skinIDs.at(i));
 
+				const auto inverseTransform = inverse(combinedTransform);
 				for (int s = static_cast<int>(skin.jointNodes.size()), j = 0; j < s; j++)
 				{
-					auto &jointNode = object->nodes.at(skin.jointNodes.at(j));
-
-// Create a row major matrix for SIMD accelerated scene updates
-#if ROW_MAJOR_MESH_SKIN
-					skin.jointMatrices.at(j) = rowMajor4(combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j));
-#else
-					skin.jointMatrices.at(j) = combinedTransform * jointNode.combinedTransform * skin.inverseBindMatrices.at(j);
-#endif
+					const auto &jointNode = object->nodes.at(skin.jointNodes.at(j));
+					skin.jointMatrices[j] = inverseTransform * jointNode.combinedTransform * skin.inverseBindMatrices[j].matrix;
 				}
 
-				object->meshes.at(meshID).setPose(skin);
-				changed = true;
-			}
-			else if (!hasUpdatedStatic)
-			{
-				object->meshes.at(meshID).setTransform(combinedTransform);
-				hasUpdatedStatic = true;
+				object->meshes[meshID].setPose(skin);
 				changed = true;
 			}
 		}

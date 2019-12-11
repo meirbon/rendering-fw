@@ -21,6 +21,8 @@ Context::~Context()
 	m_Textures.clear();
 
 	delete m_SimpleShader;
+	delete m_ColorShader;
+	delete m_NormalShader;
 }
 
 std::vector<rfw::RenderTarget> Context::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
@@ -37,6 +39,9 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 		m_InitializedGlew = true;
 
 		m_SimpleShader = new utils::GLShader("glshaders/simple.vert", "glshaders/simple.frag");
+		m_ColorShader = new utils::GLShader("glshaders/simple.vert", "glshaders/color.frag");
+		m_NormalShader = new utils::GLShader("glshaders/simple.vert", "glshaders/normal.frag");
+		m_CurrentShader = m_SimpleShader;
 		CheckGL();
 	}
 
@@ -100,14 +105,14 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	glViewport(0, 0, m_Width, m_Height);
 
-	m_SimpleShader->bind();
+	m_CurrentShader->bind();
 	auto matrix = camera.getMatrix(0.01f, 1e16f);
 	const auto matrix3x3 = mat3(matrix);
-	m_SimpleShader->setUniform("CamMatrix", matrix);
-	m_SimpleShader->setUniform("CamMatrix3x3", matrix3x3);
-	m_SimpleShader->setUniform("CamDir", camera.direction);
-	m_SimpleShader->setUniform("ambient", m_Ambient);
-	m_SimpleShader->setUniform("forward", -camera.direction);
+	m_CurrentShader->setUniform("CamMatrix", matrix);
+	m_CurrentShader->setUniform("CamMatrix3x3", matrix3x3);
+	m_CurrentShader->setUniform("CamDir", camera.direction);
+	m_CurrentShader->setUniform("ambient", m_Ambient);
+	m_CurrentShader->setUniform("forward", -camera.direction);
 
 	for (int i = 0; i < m_Textures.size(); i++)
 	{
@@ -115,7 +120,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 		char buffer[128];
 		sprintf(buffer, "textures[%i]", i);
-		m_SimpleShader->setUniform(buffer, m_TextureBindings.at(i));
+		m_CurrentShader->setUniform(buffer, m_TextureBindings.at(i));
 	}
 
 	for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
@@ -141,13 +146,13 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			const auto count = min(32, int(instance.size()) - offset);
 
 			// Update instance matrices
-			m_SimpleShader->setUniform("InstanceMatrices[0]", instance.data() + offset, count, false);
-			m_SimpleShader->setUniform("InverseMatrices[0]", inverseInstance.data() + offset, count, false);
-			mesh->draw(*m_SimpleShader, count, m_Materials.data(), m_Textures.data());
+			m_CurrentShader->setUniform("InstanceMatrices[0]", instance.data() + offset, count, false);
+			m_CurrentShader->setUniform("InverseMatrices[0]", inverseInstance.data() + offset, count, false);
+			mesh->draw(*m_CurrentShader, count, m_Materials.data(), m_Textures.data());
 		}
 	}
 
-	m_SimpleShader->unbind();
+	m_CurrentShader->unbind();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDisable(GL_DEPTH_TEST);
@@ -252,9 +257,28 @@ void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *
 
 void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
 
-rfw::AvailableRenderSettings Context::getAvailableSettings() const { return rfw::AvailableRenderSettings(); }
+rfw::AvailableRenderSettings Context::getAvailableSettings() const
+{
+	auto settings = rfw::AvailableRenderSettings();
 
-void Context::setSetting(const rfw::RenderSetting &setting) {}
+	settings.settingKeys = {"VIEW"};
+	settings.settingValues = {{"SHADED", "NORMAL", "COLOR"}};
+
+	return settings;
+}
+
+void Context::setSetting(const rfw::RenderSetting &setting)
+{
+	if (setting.name == "VIEW")
+	{
+		if (setting.value == "SHADED")
+			m_CurrentShader = m_SimpleShader;
+		else if (setting.value == "NORMAL")
+			m_CurrentShader = m_NormalShader;
+		else if (setting.value == "COLOR")
+			m_CurrentShader = m_ColorShader;
+	}
+}
 
 void Context::update()
 {

@@ -71,6 +71,10 @@ class Context : public RenderContext
 	std::vector<DirectionalLight> m_DirectionalLights;
 	std::vector<SpotLight> m_SpotLights;
 
+	utils::GLShader *m_CurrentShader;
+
+	utils::GLShader *m_ColorShader;
+	utils::GLShader *m_NormalShader;
 	utils::GLShader *m_SimpleShader;
 	std::vector<GLMesh *> m_Meshes;
 	bool m_InitializedGlew = false;

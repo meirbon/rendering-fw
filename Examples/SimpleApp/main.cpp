@@ -15,7 +15,7 @@
 #define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
-#define SKINNED_MESH 1
+#define SKINNED_MESH 0
 #define PICA 1
 #define PICA_LIGHTS 1
 #define SPONZA 0
@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), vec3(1));
 	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0.2f, 3));
 
-	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
+	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(-1, 1, -1), vec3(0, 10, 0));
 	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(1, -1, -1), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
 	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(1), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
@@ -212,6 +212,21 @@ int main(int argc, char *argv[])
 
 	size_t instanceIdx = 0;
 	size_t materialIdx = 0;
+
+#if USE_GL_CONTEXT
+	// Preparse renderer settings to be used with ImGui
+	const auto settings = rs.getAvailableSettings();
+	std::vector<int> settingIndices(settings.settingKeys.size(), 0);
+	std::vector<const char *> keys(settings.settingKeys.size());
+	std::vector<std::vector<const char *>> values(settings.settingKeys.size());
+	for (int i = 0, s = static_cast<int>(settings.settingKeys.size()); i < s; i++)
+	{
+		keys[i] = settings.settingKeys[i].c_str();
+		values[i].resize(settings.settingValues[i].size());
+		for (int j = 0, sj = static_cast<int>(settings.settingValues[i].size()); j < sj; j++)
+			values[i][j] = settings.settingValues[i][j].c_str();
+	}
+#endif
 
 	rs.synchronize();
 	rs.setProbeIndex(glm::uvec2(window->getWidth() / 2, window->getHeight() / 2));
@@ -355,8 +370,13 @@ int main(int argc, char *argv[])
 		ImGui::BeginGroup();
 		ImGui::Text("Context");
 		ImGui::Checkbox("Autoplay", &playAnimation);
-		if (ImGui::Checkbox("Denoise", &denoise))
-			rs.setSetting({"denoise", denoise ? "1" : "0"});
+		for (int i = 0, s = static_cast<int>(keys.size()); i < s; i++)
+		{
+			if (ImGui::ListBox(keys[i], &settingIndices[i], values[i].data(), static_cast<int>(values[i].size())))
+				rs.setSetting(rfw::RenderSetting(keys[i], values[i][settingIndices[i]]));
+		}
+		ImGui::Separator();
+
 		camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");
 		camChanged |= ImGui::DragFloat("Focal dist", &camera.focalDistance, 0.0001f, 0.00001f, 1e10f, "%.7f");
 		camChanged |= ImGui::DragFloat("FOV", &camera.FOV, 0.1f, 20.0f, 120.0f);
@@ -407,7 +427,7 @@ int main(int argc, char *argv[])
 		}
 		catch (const std::exception &e)
 		{
-			DEBUG(e.what());
+			WARNING(e.what());
 		}
 
 		ImGui::EndGroup();

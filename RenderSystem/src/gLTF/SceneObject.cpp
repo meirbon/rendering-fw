@@ -32,7 +32,7 @@ bool rfw::SceneObject::transformTo(float timeInSeconds)
 void rfw::SceneObject::updateTriangles(uint offset, uint last)
 {
 	if (last == 0)
-		last = triangles.size();
+		last = static_cast<uint>(triangles.size());
 
 	assert(last <= triangles.size());
 

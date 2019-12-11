@@ -23,6 +23,7 @@ else ()
 	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")
 endif ()
 
+target_compile_definitions(${PROJECT_NAME} PUBLIC GLEW_STATIC GLFW_DLL)
 target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${LIBS} tinygltf)
 

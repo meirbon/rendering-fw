@@ -93,12 +93,12 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t width, uint3
 #ifdef WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr((VkDevice)m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
 	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
-	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
+	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
@@ -211,12 +211,12 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t texID, uint3
 #ifdef WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr((VkDevice)m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
 	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
-	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
+	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
@@ -403,12 +403,12 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 #if _WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr((VkDevice)m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
 	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
-	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
+	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed
@@ -518,12 +518,12 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 #if _WIN32 // WINDOWS
 	// Resolve extension function if needed
 	if (getMemoryWin32HandleKHR == nullptr)
-		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr(m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
+		getMemoryWin32HandleKHR = reinterpret_cast<PFN_vkGetMemoryWin32HandleKHR>(vkGetDeviceProcAddr((VkDevice)m_Device.getVkDevice(), "vkGetMemoryWin32HandleKHR"));
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
 	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
-	getMemoryWin32HandleKHR(m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
+	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
 	// Resolve extension function if needed

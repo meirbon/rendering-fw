@@ -318,7 +318,7 @@ vk::PhysicalDevice VkContext::pickPhysicalDevice() const
 void VkContext::createSurface()
 {
 	vk::SurfaceKHR surface;
-	if (glfwCreateWindowSurface(m_Instance, m_Window->getGLFW(), nullptr, reinterpret_cast<VkSurfaceKHR *>(&surface)) != VK_SUCCESS)
+	if (glfwCreateWindowSurface((VkInstance)m_Instance, m_Window->getGLFW(), nullptr, reinterpret_cast<VkSurfaceKHR *>(&surface)) != VK_SUCCESS)
 		throw std::runtime_error("Failed to create window surface.");
 
 	m_Surface = surface;

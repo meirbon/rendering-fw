@@ -49,6 +49,7 @@ rfw::Camera rfw::Camera::deserialize(std::string_view file)
 	}
 	catch (const std::exception &e)
 	{
+		WARNING(e.what());
 		return {};
 	}
 }

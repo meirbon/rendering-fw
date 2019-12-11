@@ -33,7 +33,7 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 			auto &m = object->meshes.at(newIdx);
 			for (const auto &prim : meshes.at(meshID))
 				m.addPrimitive(prim.indices, prim.vertices, prim.normals, prim.uvs, prim.poses, prim.joints, prim.weights, prim.matID);
-			meshIDs.push_back(newIdx);
+			meshIDs.push_back(static_cast<int>(newIdx));
 
 			if (skinIds.has(i))
 				skinIDs.push_back(skinIds[i]);

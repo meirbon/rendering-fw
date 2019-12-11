@@ -170,7 +170,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 	m_Members->m_DynamicDispatcher = vk::DispatchLoaderDynamic(instance, m_Members->m_VkDevice);
 
 	VmaAllocatorCreateInfo allocCreateInfo{};
-	allocCreateInfo.physicalDevice = physicalDevice;
+	allocCreateInfo.physicalDevice = (VkPhysicalDevice)physicalDevice;
 	allocCreateInfo.device = (VkDevice)m_Members->m_VkDevice;
 	allocCreateInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
 	// More memory usage, but provides better performance

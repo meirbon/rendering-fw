@@ -162,8 +162,8 @@ class VulkanDevice
 
 	VmaAllocator getAllocator() const { return m_Members->allocator; }
 
-	operator VkDevice() { return m_Members->m_VkDevice; }
-	operator VkPhysicalDevice() { return m_Members->m_PhysicalDevice; }
+	operator VkDevice() { return (VkDevice)m_Members->m_VkDevice; }
+	operator VkPhysicalDevice() { return (VkPhysicalDevice)m_Members->m_PhysicalDevice; }
 	operator vk::Device() { return m_Members->m_VkDevice; }
 	operator vk::PhysicalDevice() { return m_Members->m_PhysicalDevice; }
 	operator bool() { return m_Members != nullptr && m_Members->m_VkDevice; }

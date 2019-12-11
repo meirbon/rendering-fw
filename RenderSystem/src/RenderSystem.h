@@ -5,6 +5,7 @@
 #include <string_view>
 #include <bitset>
 #include <mutex>
+#include <future>
 
 #include <Structures.h>
 #include <RenderContext.h>
@@ -18,6 +19,7 @@
 
 #include "MaterialList.h"
 #include "SceneTriangles.h"
+#include "utils/gl/GLShader.h"
 
 namespace rfw
 {
@@ -59,8 +61,7 @@ class GeometryReference
 	GeometryReference(size_t index, rfw::RenderSystem &system) : m_Index(index), m_System(&system) { assert(m_System); }
 
   public:
-	operator uint() const { return static_cast<uint>(m_Index); }
-	operator size_t() const { return m_Index; }
+	operator size_t() const { return static_cast<size_t>(m_Index); }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 
 	bool isAnimated() const;
@@ -93,7 +94,6 @@ class LightReference
 	LightReference(size_t index, LightType type, rfw::RenderSystem &system) : m_Index(index), m_System(&system), m_Type(type) { assert(m_System); }
 	LightReference() = default;
 
-	operator uint() const { return static_cast<uint>(m_Index); }
 	operator size_t() const { return m_Index; }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 	[[nodiscard]] LightType getType() const { return m_Type; }
@@ -206,7 +206,6 @@ class RenderSystem
 	void loadRenderAPI(const std::string_view &name);
 	void unloadRenderAPI();
 
-	void setTarget(std::shared_ptr<rfw::utils::Window> m_Window);
 	void setTarget(GLuint *textureID, uint width, uint height);
 	void setTarget(rfw::utils::GLTexture *texture);
 	void setSkybox(std::string_view filename);
@@ -225,10 +224,10 @@ class RenderSystem
 	void updateInstance(const rfw::InstanceReference &instanceRef, const mat4 &transform);
 	void setAnimationTime(const rfw::GeometryReference &instanceRef, float timeInSeconds);
 
-	rfw::HostMaterial getMaterial(size_t index);
+	rfw::HostMaterial getMaterial(size_t index) const;
 	void setMaterial(size_t index, const rfw::HostMaterial &mat);
 	uint addMaterial(const glm::vec3 &color, float roughness = 1.0f);
-	void renderFrame(const Camera &camera, RenderStatus status = Converge);
+	void renderFrame(const Camera &camera, RenderStatus status = Converge, bool toneMap = true);
 
 	LightReference addPointLight(const glm::vec3 &position, const glm::vec3 &radiance);
 	LightReference addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, const glm::vec3 &direction);
@@ -268,8 +267,11 @@ class RenderSystem
   private:
 	void updateAreaLights();
 
+	GLuint m_TargetID = 0, m_FrameBufferID = 0;
+	GLuint m_TargetWidth, m_TargetHeight;
 	size_t m_EmptyMeshSlots = 0;
 	size_t m_EmptyInstanceSlots = 0;
+	std::future<void> m_UpdateThread, m_AnimationsThread;
 
 	std::vector<bool> m_MeshSlots;
 	std::vector<bool> m_InstanceSlots;
@@ -315,6 +317,8 @@ class RenderSystem
 	std::vector<PointLight> m_PointLights;
 	std::vector<SpotLight> m_SpotLights;
 	std::vector<DirectionalLight> m_DirectionalLights;
+
+	utils::GLShader m_ToneMapShader;
 
 	CreateContextFunction m_CreateContextFunction = nullptr;
 	DestroyContextFunction m_DestroyContextFunction = nullptr;

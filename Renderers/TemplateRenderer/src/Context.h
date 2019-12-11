@@ -9,14 +9,6 @@
 
 #include <GL/glew.h>
 
-#include <utils/gl/CheckGL.h>
-#include <utils/gl/GLBuffer.h>
-#include <utils/gl/GLShader.h>
-#include <utils/gl/GLTexture.h>
-#include <utils/gl/GLTextureArray.h>
-
-#include "Mesh.h"
-
 namespace rfw
 {
 
@@ -45,36 +37,15 @@ class Context : public RenderContext
 	rfw::RenderStats getStats() const override;
 
   private:
-	glm::vec3 m_Ambient = glm::vec3(0.15f);
-
-	void setLights(utils::GLShader *shader);
-
-	std::vector<std::vector<glm::mat4>> m_Instances;
-	std::vector<std::vector<glm::mat4>> m_InverseInstances;
-
-	std::vector<int> m_InstanceGeometry;
-	std::vector<glm::mat4> m_InstanceMatrices;
-	std::vector<glm::mat4> m_InverseInstanceMatrices;
-
-	std::vector<utils::GLTexture> m_Textures;
-	std::vector<GLint> m_TextureBindings;
-	std::vector<DeviceMaterial> m_Materials;
-
 	LightCount m_LightCount;
 	std::vector<PointLight> m_PointLights;
 	std::vector<AreaLight> m_AreaLights;
 	std::vector<DirectionalLight> m_DirectionalLights;
 	std::vector<SpotLight> m_SpotLights;
 
-	utils::GLShader *m_CurrentShader;
-
-	utils::GLShader *m_ColorShader;
-	utils::GLShader *m_NormalShader;
-	utils::GLShader *m_SimpleShader;
-	std::vector<GLMesh *> m_Meshes;
-	bool m_InitializedGlew = false;
-	GLuint m_TargetID, m_FboID, m_RboID;
+	GLuint m_TargetID;
 	GLuint m_Width, m_Height;
+	bool m_InitializedGlew = false;
 };
 
 } // namespace rfw

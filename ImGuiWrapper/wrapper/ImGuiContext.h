@@ -36,8 +36,6 @@ class Context
 
 	void render();
 
-	void render(vk::CommandBuffer cmdBuffer);
-
 #if defined(__APPLE__) && defined(__OBJC__)
 	void render(id<MTLCommandBuffer> commandBuffer, id<MTLRenderCommandEncoder> commandEncoder) const;
 #endif

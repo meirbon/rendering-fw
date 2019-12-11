@@ -297,6 +297,6 @@ class GLShader
 	const char *m_FragPath;
 
 	GLuint load();
-	void checkCompileErrors(GLuint shader, std::string type);
+	void checkCompileErrors(const char *file, GLuint shader, std::string type);
 };
 } // namespace rfw::utils

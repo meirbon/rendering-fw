@@ -9,8 +9,8 @@
 
 using namespace vkrtx;
 
-Image::Image(const VulkanDevice &dev, vk::ImageType type, vk::Format format, vk::Extent3D extent,
-			 vk::ImageTiling tiling, vk::ImageUsageFlags usage, vk::MemoryPropertyFlags memProps, Image::Type allocType)
+Image::Image(const VulkanDevice &dev, vk::ImageType type, vk::Format format, vk::Extent3D extent, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+			 vk::MemoryPropertyFlags memProps, Image::Type allocType)
 	: m_Device(dev), m_Extent(extent)
 {
 	vk::ImageCreateInfo imageCreateInfo{};
@@ -42,8 +42,7 @@ Image::Image(const VulkanDevice &dev, vk::ImageType type, vk::Format format, vk:
 		allocInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 	}
 
-	CheckVK(vmaCreateImage(m_Device.getAllocator(), (VkImageCreateInfo *)&imageCreateInfo, &allocInfo,
-						   (VkImage *)&m_Image, &m_Allocation, &m_AllocInfo));
+	CheckVK(vmaCreateImage(m_Device.getAllocator(), (VkImageCreateInfo *)&imageCreateInfo, &allocInfo, (VkImage *)&m_Image, &m_Allocation, &m_AllocInfo));
 
 	// m_Image = m_Device->createImage(imageCreateInfo);
 	if (!m_Image)
@@ -80,7 +79,7 @@ void Image::cleanup()
 	}
 	if (m_Image)
 	{
-		vmaDestroyImage(m_Device.getAllocator(), m_Image, m_Allocation);
+		vmaDestroyImage(m_Device.getAllocator(), (VkImage)m_Image, m_Allocation);
 		m_Image = nullptr;
 	}
 }
@@ -89,9 +88,8 @@ bool Image::setData(const void *data, uint32_t width, uint32_t height, uint32_t 
 {
 	vk::DeviceSize imageSize = width * height * stride;
 
-	auto stagingBuffer = Buffer<uint8_t>(
-		m_Device, imageSize, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
-		vk::BufferUsageFlagBits::eTransferSrc);
+	auto stagingBuffer = Buffer<uint8_t>(m_Device, imageSize, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+										 vk::BufferUsageFlagBits::eTransferSrc);
 	stagingBuffer.copyToDevice(data, imageSize);
 	auto cmdBuffer = m_Device.createOneTimeCmdBuffer();
 
@@ -106,8 +104,8 @@ bool Image::setData(const void *data, uint32_t width, uint32_t height, uint32_t 
 	barrier.setImage(m_Image);
 	barrier.setSubresourceRange({vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 
-	cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands,
-							   vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
+	cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), 0, nullptr, 0, nullptr,
+							   1, &barrier);
 
 	vk::BufferImageCopy region{};
 	region.setBufferOffset(0);
@@ -124,8 +122,8 @@ bool Image::setData(const void *data, uint32_t width, uint32_t height, uint32_t 
 	barrier.setOldLayout(vk::ImageLayout::eTransferDstOptimal);
 	barrier.setNewLayout(vk::ImageLayout::eShaderReadOnlyOptimal);
 
-	cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands,
-							   vk::DependencyFlags(), 0, nullptr, 0, nullptr, 0, &barrier);
+	cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), 0, nullptr, 0, nullptr,
+							   0, &barrier);
 
 	m_CurLayout = vk::ImageLayout::eTransferDstOptimal;
 
@@ -143,8 +141,7 @@ bool Image::createImageView(vk::ImageViewType viewType, vk::Format format, vk::I
 	imageViewCreateInfo.setSubresourceRange(subresourceRange);
 	imageViewCreateInfo.setImage(m_Image);
 	imageViewCreateInfo.setFlags(vk::ImageViewCreateFlags());
-	imageViewCreateInfo.setComponents(
-		{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+	imageViewCreateInfo.setComponents({vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
 
 	m_ImageView = m_Device->createImageView(imageViewCreateInfo);
 	if (!m_ImageView)
@@ -152,8 +149,7 @@ bool Image::createImageView(vk::ImageViewType viewType, vk::Format format, vk::I
 	return true;
 }
 
-bool Image::createSampler(vk::Filter magFilter, vk::Filter minFilter, vk::SamplerMipmapMode mipmapMode,
-						  vk::SamplerAddressMode addressMode)
+bool Image::createSampler(vk::Filter magFilter, vk::Filter minFilter, vk::SamplerMipmapMode mipmapMode, vk::SamplerAddressMode addressMode)
 {
 	vk::SamplerCreateInfo samplerCreateInfo{};
 	samplerCreateInfo.setPNext(nullptr);
@@ -198,14 +194,14 @@ void Image::transitionToLayout(vk::ImageLayout dstLayout, vk::AccessFlags dstAcc
 	{
 		auto queue = m_Device.getGraphicsQueue();
 		auto commandBuffer = m_Device.createOneTimeCmdBuffer();
-		commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands,
-									   vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
+		commandBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), 0, nullptr, 0,
+									   nullptr, 1, &barrier);
 		commandBuffer.submit(queue, true);
 	}
 	else
 	{
-		cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands,
-								  vk::DependencyFlags(), 0, nullptr, 0, nullptr, 1, &barrier);
+		cmdBuffer.pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), 0, nullptr, 0,
+								  nullptr, 1, &barrier);
 	}
 
 	m_CurLayout = dstLayout;

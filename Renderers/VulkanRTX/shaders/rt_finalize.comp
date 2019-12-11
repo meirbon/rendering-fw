@@ -2,6 +2,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "../src/Bindings.h"
+#include "tools.glsl"
 
 struct FinalizeParams {
 	uint scrwidth;
@@ -29,7 +30,5 @@ void main()
 	// plot scaled pixel, gamma corrected
 	vec4 value = acPixels[currentIndex] * params.pixelValueScale;
 
-	const vec3 rgb = sqrt(max(vec3(0.0f), (value.xyz - 0.5f) * params.contrastFactor + 0.5f + params.brightness));
-
-	imageStore(outputImage, imageIndex, vec4(rgb, value.w));
+	imageStore(outputImage, imageIndex, value);
 }

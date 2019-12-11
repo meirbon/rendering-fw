@@ -67,8 +67,6 @@ template <typename T> class ArrayProxy
 
 	const T &operator[](const int idx) { return m_Data[idx]; };
 
-	const T &operator[](const unsigned int idx) { return m_Data[idx]; };
-
 	const T &operator[](const size_t idx) { return m_Data[idx]; };
 
   private:

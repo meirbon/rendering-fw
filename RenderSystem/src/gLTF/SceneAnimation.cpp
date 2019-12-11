@@ -185,7 +185,7 @@ float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i,
 		return float_key.at(k);
 	case Sampler::LINEAR:
 	default:
-		return (1.0f - f) * float_key.at(k * count + i) + f * float_key.at((k + 1.0f) * count + i);
+		return (1.0f - f) * float_key[k * count + i] + f * float_key[k + 1] * count + i;
 	};
 }
 
@@ -297,7 +297,7 @@ void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float 
 		}
 		else if (target == rfw::SceneAnimation::Channel::WEIGHTS) // weight
 		{
-			auto weightCount = node.weights.size();
+			const auto weightCount = static_cast<int>(node.weights.size());
 			for (int i = 0; i < weightCount; i++)
 				node.weights[i] = sampler.sampleFloat(time, key, i, weightCount);
 

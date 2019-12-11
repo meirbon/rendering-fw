@@ -25,7 +25,7 @@ template <typename T> class VmaBuffer
 		{
 			if (allocation)
 			{
-				vmaDestroyBuffer(allocator, buffer, allocation);
+				vmaDestroyBuffer(allocator, (VkBuffer)buffer, allocation);
 				allocation = nullptr;
 				buffer = nullptr;
 				elements = 0;

@@ -72,8 +72,8 @@ layout(set = 0, binding = cBLUENOISE) buffer   blueNoiseBuffer { int blueNoise[]
 #define FLAGS data
 #define PATHIDX (data >> 8)
 
-#define ISLIGHTS 1
-#define MAXISLIGHTS 8
+#define ISLIGHTS 0
+#define MAXISLIGHTS 16
 
 #define AREALIGHTCOUNT        lightCounts.x
 #define POINTLIGHTCOUNT       lightCounts.y
@@ -367,37 +367,41 @@ float CalculateLightPDF(const vec3 D, const float t, const float lightArea, cons
 
 float LightPickProb(const int idx, const vec3 O, const vec3 N, const vec3 I)
 {
+    const uint lightCount = (AREALIGHTCOUNT + POINTLIGHTCOUNT + SPOTLIGHTCOUNT + DIRECTIONALLIGHTCOUNT);
+
 #if ISLIGHTS
-    // for implicit connections; calculates the chance that the light would have been explicitly selected
-    float potential[MAXISLIGHTS];
-    float sum = 0;
-    for (int i = 0; i < AREALIGHTCOUNT; i++) 
-	{ 
-		const float c = max(0.0f, PotentialAreaLightContribution(i, O, N, I, vec3(-1))); 
-		potential[i] = c;
-		sum += c;
-	}
-	for (int i = 0; i < POINTLIGHTCOUNT; i++) 
-	{ 
-		const float c = max(0.0f, PotentialPointLightContribution(i, O, N));
-		sum += c; 
-	}
-    for (int i = 0; i < SPOTLIGHTCOUNT; i++) 
-	{ 
-		const float c = max(0.0f, PotentialSpotLightContribution(i, O, N)); 
-		sum += c; 
-	}
-    for (int i = 0; i < DIRECTIONALLIGHTCOUNT; i++) 
-	{ 
-		const float c = max(0.0f, PotentialDirectionalLightContribution(i, O, N)); 
-		sum += c; 
-	}
-    if (sum <= 0)
-		return 0;// no potential lights found
-    return potential[idx] / sum;
-#else
-    return 1.0f / (AREALIGHTCOUNT + POINTLIGHTCOUNT + SPOTLIGHTCOUNT + DIRECTIONALLIGHTCOUNT);
+    if (lightCount < MAXISLIGHTS)
+    {
+        // for implicit connections; calculates the chance that the light would have been explicitly selected
+        float potential[MAXISLIGHTS];
+        float sum = 0;
+        for (int i = 0; i < AREALIGHTCOUNT; i++) 
+    	{ 
+    		const float c = max(0.0f, PotentialAreaLightContribution(i, O, N, I, vec3(-1))); 
+    		potential[i] = c;
+    		sum += c;
+    	}
+    	for (int i = 0; i < POINTLIGHTCOUNT; i++) 
+    	{ 
+    		const float c = max(0.0f, PotentialPointLightContribution(i, O, N));
+    		sum += c; 
+    	}
+        for (int i = 0; i < SPOTLIGHTCOUNT; i++) 
+    	{ 
+    		const float c = max(0.0f, PotentialSpotLightContribution(i, O, N)); 
+    		sum += c; 
+    	}
+        for (int i = 0; i < DIRECTIONALLIGHTCOUNT; i++) 
+    	{ 
+    		const float c = max(0.0f, PotentialDirectionalLightContribution(i, O, N)); 
+    		sum += c; 
+    	}
+        if (sum <= 0)
+    		return 0;// no potential lights found
+        return potential[idx] / sum;
+    }
 #endif
+    return 1.0f / (AREALIGHTCOUNT + POINTLIGHTCOUNT + SPOTLIGHTCOUNT + DIRECTIONALLIGHTCOUNT);
 }
 
 // https://pharr.org/matt/blog/2019/02/27/triangle-sampling-1.html
@@ -445,61 +449,69 @@ vec3 RandomBarycentrics(const float r0)
 
 vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout float pickProb, inout float lightPdf, inout vec3 lightColor)
 {
-    const float lightCount = AREALIGHTCOUNT + POINTLIGHTCOUNT + SPOTLIGHTCOUNT + DIRECTIONALLIGHTCOUNT;
+    const uint lightCount = AREALIGHTCOUNT + POINTLIGHTCOUNT + SPOTLIGHTCOUNT + DIRECTIONALLIGHTCOUNT;
     // predetermine the barycentrics for any area light we sample
     const vec3 bary = RandomBarycentrics(r0);
+    int lightIdx = 0;
 #if ISLIGHTS
-    // importance sampling of lights, pickProb is per-light probability
-    float potential[MAXISLIGHTS];
-    float sum = 0;
-	float total = 0;
-    int lights = 0;
-	int lightIdx = 0;
-    for (int i = 0; i < AREALIGHTCOUNT; i++)
-	{
-		float c = PotentialAreaLightContribution(i, I, N, vec3(0), bary);
-		potential[lights++] = c;
-		sum += c;
-	}
-    for (int i = 0; i < POINTLIGHTCOUNT; i++)
-	{
-		float c = PotentialPointLightContribution(i, I, N);
-		potential[lights++] = c;
-		sum += c;
-	}
-    for (int i = 0; i < SPOTLIGHTCOUNT; i++)
-	{
-		float c = PotentialSpotLightContribution(i, I, N);
-		potential[lights++] = c;
-		sum += c;
-	}
-    for (int i = 0; i < DIRECTIONALLIGHTCOUNT; i++)
-	{
-		float c = PotentialDirectionalLightContribution(i, I, N);
-		potential[lights++] = c;
-		sum += c;
-	}
-    if (sum <= 0)// no potential lights found
+    if (lightCount < MAXISLIGHTS)
     {
-        lightPdf = 0;
-        return vec3(1 /* light direction; don't return 0 or nan, this will be slow */);
+        // importance sampling of lights, pickProb is per-light probability
+        float potential[MAXISLIGHTS];
+        float sum = 0;
+	    float total = 0;
+        int lights = 0;
+        for (int i = 0; i < AREALIGHTCOUNT; i++)
+	    {
+	    	float c = PotentialAreaLightContribution(i, I, N, vec3(0), bary);
+	    	potential[lights++] = c;
+	    	sum += c;
+	    }
+        for (int i = 0; i < POINTLIGHTCOUNT; i++)
+	    {
+	    	float c = PotentialPointLightContribution(i, I, N);
+	    	potential[lights++] = c;
+	    	sum += c;
+	    }
+        for (int i = 0; i < SPOTLIGHTCOUNT; i++)
+	    {
+	    	float c = PotentialSpotLightContribution(i, I, N);
+	    	potential[lights++] = c;
+	    	sum += c;
+	    }
+        for (int i = 0; i < DIRECTIONALLIGHTCOUNT; i++)
+	    {
+	    	float c = PotentialDirectionalLightContribution(i, I, N);
+	    	potential[lights++] = c;
+	    	sum += c;
+	    }
+        if (sum <= 0)// no potential lights found
+        {
+            lightPdf = 0;
+            return vec3(1 /* light direction; don't return 0 or nan, this will be slow */);
+        }
+        r1 *= sum;
+        for (int i = 0; i < lights; i++)
+        {
+            total += potential[i];
+            if (total >= r1)
+	    	{
+	    		lightIdx = i;
+	    		break;
+	    	}
+        }
+        pickProb = potential[lightIdx] / sum;
     }
-    r1 *= sum;
-    for (int i = 0; i < lights; i++)
+    else
     {
-        total += potential[i];
-        if (total >= r1)
-		{
-			lightIdx = i;
-			break;
-		}
-    }
-    pickProb = potential[lightIdx] / sum;
 #else
-    // uniform random sampling of lights, pickProb is simply 1.0 / lightCount
-    pickProb = 1.0f / lightCount;
-    int lightIdx = int(r0 * lightCount);
-    r0 = (r0 - float(lightIdx) * (1.0f / lightCount)) * lightCount;
+        // uniform random sampling of lights, pickProb is simply 1.0 / lightCount
+        pickProb = 1.0f / lightCount;
+        lightIdx = int(r0 * lightCount);
+        r0 = (r0 - float(lightIdx) * (1.0f / float(lightCount))) * float(lightCount);
+#endif
+#if ISLIGHTS
+    }
 #endif
     lightIdx = clamp(lightIdx, 0, int(lightCount) - 1);
     if (lightIdx < AREALIGHTCOUNT)

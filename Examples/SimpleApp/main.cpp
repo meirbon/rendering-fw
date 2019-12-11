@@ -1,4 +1,3 @@
-#include <iostream>
 #include <future>
 #include <memory>
 
@@ -12,12 +11,11 @@
 
 #include <ImGuiContext.h>
 
-#define USE_GL_CONTEXT 1
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 0
-#define PICA 1
-#define PICA_LIGHTS 1
+#define PICA 0
+#define PICA_LIGHTS 0
 #define SPONZA 0
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
@@ -27,18 +25,16 @@ int main(int argc, char *argv[])
 	using namespace rfw;
 	using namespace utils;
 
-	auto rs = RenderSystem();
-
 	auto camera = rfw::Camera::deserialize("camera.bin");
 
 	unsigned int mouseX, mouseY;
 
-	// try
-	//{
-#if USE_GL_CONTEXT
 	auto window = std::make_shared<Window>(1280, 720, "Window", true, std::make_pair(4, 5));
 	auto textureTarget = new GLTexture(GLTexture::VEC4, window->getFramebufferWidth(), window->getFramebufferHeight(), true);
 	auto textureShader = GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
+
+	// RenderSystem needs to have been initialized after creating an OpenGL context
+	auto rs = RenderSystem();
 
 	textureShader.bind();
 	textureTarget->bind(0);
@@ -63,11 +59,6 @@ int main(int argc, char *argv[])
 	});
 
 	glViewport(0, 0, window->getWidth(), window->getHeight());
-#else
-	auto window = std::make_shared<Window>(1280, 720, "Window", true);
-
-	window->addResizeCallback([&rs, &camera](int width, int height) { camera.resize(width, height); });
-#endif
 
 	camera.resize(window->getWidth(), window->getHeight());
 
@@ -97,37 +88,34 @@ int main(int argc, char *argv[])
 	if (!rs.hasContext())
 	{
 		// Pick default renderer
+		rs.loadRenderAPI("CPURT"); // Custom CPU RT
+
 		// rs.loadRenderAPI("GLRenderer"); // OpenGL PBR Renderer
 
 		// rs.loadRenderAPI("OptiX6Context"); // OptiX 6.5 Path tracer
 
-		rs.loadRenderAPI("VulkanRTX"); // Vulkan RTX Path tracer
+		// rs.loadRenderAPI("VulkanRTX"); // Vulkan RTX Path tracer
 
 		// rs.loadRenderAPI("VkContext"); // WIP Vulkan PBR Renderer
 	}
 
 	rs.setSkybox("Envmaps/sky_15.hdr");
 
-#if USE_GL_CONTEXT
 	rs.setTarget(textureTarget);
-#else
-	rs.setTarget(window);
-#endif
 
 #if SKINNED_MESH
 	auto skinnedMesh = rs.addInstance(rs.addObject("Models/capture.DAE"), vec3(10));
 #endif
 
-	auto directionalLight = rs.addDirectionalLight(vec3(0, -.8f, -1), vec3(1));
 	auto cesiumMan = rs.addInstance(rs.addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5))), vec3(1), vec3(10, 0.2f, 3));
 
-	auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
+	// auto projectPolly = rs.addInstance(rs.addObject("Models/project_polly.glb"), vec3(2), vec3(0, 5, 0), 90.0f, vec3(0, 1, 0));
 	// auto interpolationTest = rs.addInstance(rs.addObject("Models/InterpolationTest.glb"), vec3(-1, 1, -1), vec3(0, 10, 0));
-	auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(1, -1, -1), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
-	auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(1), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
+	// auto animatedCube = rs.addInstance(rs.addObject("Models/AnimatedMorphCube.glb"), vec3(1, -1, -1), vec3(-5, 2, 0), 90.0f, vec3(1, 0, 0));
+	// auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(1), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
 
 #if PICA
-	auto lightMaterial = rs.addMaterial(vec3(100), 1);
+	auto lightMaterial = rs.addMaterial(vec3(50), 1);
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);
 	staticInstanceRef.rotate(180.0f, vec3(0, 1, 0));
@@ -164,29 +152,9 @@ int main(int argc, char *argv[])
 	auto dragonInstance = rs.addInstance(dragon, vec3(10), vec3(-20, 4.0f, 0), 0.0f, vec3(1));
 #endif
 
-	// auto dragonMaterialIdx = rs.addMaterial(vec3(1, 1, 1), 0.5f);
-	// auto dragonMaterial = rs.getMaterial(dragonMaterialIdx);
-	// dragonMaterial.roughness = 0.6f;
-	// dragonMaterial.transmission = 0.95f;
-	// dragonMaterial.absorption = vec3(0.0f, 0.2f, 0.2f);
-	// dragonMaterial.color = vec3(1, 0, 0);
-	// dragonMaterial.eta = 1.4f;
-	// rs.setMaterial(dragonMaterialIdx, dragonMaterial);
-	// auto dragon = rs.addObject("Models/dragon.obj", static_cast<int>(dragonMaterialIdx));
-
-	// for (int x = -20; x <= 20; x++)
-	//{
-	//	for (int z = -20; z <= 20; z++)
-	//	{
-	//		auto dragonInstance = rs.addInstance(dragon, vec3(10), vec3(10 * x, 0.0f, 10 * z));
-	//	}
-	//}
-
 	std::future<void> prepareNextFrame, synchronize;
 
 	Averager<float, 50> fpsStat;
-	Averager<float, 50> synchronizeStat;
-	Averager<float, 50> playAnimationStat;
 	Averager<float, 50> renderStat;
 
 	Averager<float, 50> primaryStat;
@@ -203,18 +171,17 @@ int main(int argc, char *argv[])
 	Timer timer;
 	bool updateFocus = false;
 	bool playAnimation = false;
-	bool denoise = false;
+	bool tonemap = true;
 
-	rfw::HostMaterial hostMaterial = {};
-	rfw::RenderStats stats = {};
+	HostMaterial hostMaterial = {};
+	RenderStats stats = {};
 	float distance = 0;
 	float speedModifier = 0.2f;
 
 	size_t instanceIdx = 0;
 	size_t materialIdx = 0;
 
-#if USE_GL_CONTEXT
-	// Preparse renderer settings to be used with ImGui
+	// Pre-parse renderer settings to be used with ImGui
 	const auto settings = rs.getAvailableSettings();
 	std::vector<int> settingIndices(settings.settingKeys.size(), 0);
 	std::vector<const char *> keys(settings.settingKeys.size());
@@ -226,7 +193,6 @@ int main(int argc, char *argv[])
 		for (int j = 0, sj = static_cast<int>(settings.settingValues[i].size()); j < sj; j++)
 			values[i][j] = settings.settingValues[i][j].c_str();
 	}
-#endif
 
 	rs.synchronize();
 	rs.setProbeIndex(glm::uvec2(window->getWidth() / 2, window->getHeight() / 2));
@@ -234,9 +200,7 @@ int main(int argc, char *argv[])
 	{
 		bool camChanged = false;
 
-#if USE_GL_CONTEXT
 		imguiContext.newFrame();
-#endif
 		RenderStatus status = window->pressed(KEY_B) ? Reset : Converge;
 		const float elapsed = timer.elapsed();
 		fpsStat.addSample(elapsed);
@@ -334,7 +298,6 @@ int main(int argc, char *argv[])
 		shadeStat.addSample(stats.shadeTime);
 		finalizeStat.addSample(stats.finalizeTime);
 
-#if USE_GL_CONTEXT
 		ImGui::Begin("Settings");
 		ImGui::BeginGroup();
 		ImGui::Text("Statistics");
@@ -360,8 +323,6 @@ int main(int argc, char *argv[])
 
 		ImGui::Separator();
 
-		ImGui::Text("Synchronize %3.1f ms", synchronizeStat.getAverage());
-		ImGui::Text("Animation %3.1f ms", playAnimation ? playAnimationStat.getAverage() : 0.0f);
 		ImGui::Text("Render %3.1f ms", renderStat.getAverage());
 		ImGui::EndGroup();
 
@@ -376,7 +337,9 @@ int main(int argc, char *argv[])
 				rs.setSetting(rfw::RenderSetting(keys[i], values[i][settingIndices[i]]));
 		}
 		ImGui::Separator();
-
+		ImGui::Checkbox("Tonemap", &tonemap);
+		ImGui::DragFloat("Contrast", &camera.contrast, 0.0001f, 0.000001f, 2.0f, "%.7f");
+		ImGui::DragFloat("Brightness", &camera.brightness, 0.0001f, 0.000001f, 10.0f, "%.7f");
 		camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");
 		camChanged |= ImGui::DragFloat("Focal dist", &camera.focalDistance, 0.0001f, 0.00001f, 1e10f, "%.7f");
 		camChanged |= ImGui::DragFloat("FOV", &camera.FOV, 0.1f, 20.0f, 120.0f);
@@ -459,33 +422,15 @@ int main(int argc, char *argv[])
 		if (camChanged)
 			status = Reset;
 
-		if (playAnimation)
-		{
-			const auto time = float(getElapsedMicroSeconds() * (1.0 / 10e5));
-
-			Timer anim;
-			rs.updateAnimationsTo(time);
-			playAnimationStat.addSample(anim.elapsed());
-		}
-#endif
-
-		// Synchronize scene data
-		Timer t;
-		rs.synchronize();
-		synchronizeStat.addSample(t.elapsed());
-
-#if ANIMATE_DRAGON
-		const float time = float(glfwGetTime());
-		dragonInstance.setRotation(time * 10, vec3(.2f, -.2f, .1f));
-		dragonInstance.update();
-#endif
-
-		//	Render scene
-		t.reset();
-		rs.renderFrame(camera, status);
+		// Render scene
+		Timer t = {};
+		rs.renderFrame(camera, status, tonemap);
 		renderStat.addSample(t.elapsed());
 
-#if USE_GL_CONTEXT
+		if (playAnimation)
+			rs.updateAnimationsTo(float(getElapsedMicroSeconds() * (1.0 / 10e5)));
+		rs.synchronize();
+
 		glViewport(0, 0, window->getFramebufferWidth(), window->getFramebufferHeight());
 		textureShader.bind();
 		textureTarget->bind(0);
@@ -496,7 +441,6 @@ int main(int argc, char *argv[])
 
 		// Present result
 		window->present();
-#endif
 	}
 
 	DEBUG("Serializing camera.");
@@ -504,12 +448,6 @@ int main(int argc, char *argv[])
 
 	// Window callbacks must be cleaned up first since they might contain references
 	window->clearCallbacks();
-	//}
-	// catch (const std::exception &e)
-	//{
-	//	std::cout << "Exception occurred: " << e.what() << std::endl;
-	//	std::cin.get();
-	//}
 
 	return 0;
 }

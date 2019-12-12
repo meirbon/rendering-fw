@@ -623,6 +623,7 @@ rfw::HostMaterial rfw::RenderSystem::getMaterial(size_t index) const { return m_
 
 void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
 {
+	const auto lightFlags = m_Materials->getMaterialLightFlags();
 	m_Changed[MATERIALS] = true;
 	m_Materials->set(static_cast<uint>(index), mat);
 
@@ -633,7 +634,20 @@ void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
 			const auto &[first, last] = m_ObjectMaterialRange[i];
 			if (index >= first && index < last)
 			{
-				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(m_Materials->getMaterialLightFlags(), true);
+				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(lightFlags, true);
+				m_Changed[LIGHTS] = true;
+				m_Changed[AREA_LIGHTS] = true;
+			}
+		}
+	}
+	else if (lightFlags[index]) // This material used to be emissive, update lights
+	{
+		for (size_t i = 0; i < m_ObjectMaterialRange.size(); i++)
+		{
+			const auto &[first, last] = m_ObjectMaterialRange[i];
+			if (index >= first && index < last)
+			{
+				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(lightFlags, true);
 				m_Changed[LIGHTS] = true;
 				m_Changed[AREA_LIGHTS] = true;
 			}

@@ -88,11 +88,11 @@ int main(int argc, char *argv[])
 	if (!rs.hasContext())
 	{
 		// Pick default renderer
-		rs.loadRenderAPI("CPURT"); // Custom CPU RT
+		// rs.loadRenderAPI("CPURT"); // Custom CPU RT
 
 		// rs.loadRenderAPI("GLRenderer"); // OpenGL PBR Renderer
 
-		// rs.loadRenderAPI("OptiX6Context"); // OptiX 6.5 Path tracer
+		rs.loadRenderAPI("OptiX6Context"); // OptiX 6.5 Path tracer
 
 		// rs.loadRenderAPI("VulkanRTX"); // Vulkan RTX Path tracer
 

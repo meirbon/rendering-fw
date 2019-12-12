@@ -21,8 +21,8 @@ class Camera
 
 	float focalDistance = 5.0f;				  // distance of the focal plane
 	float aperture = 0.0001f;				  // aperture size
-	float brightness = 0.0f;				  // combined with contrast:
-	float contrast = 0.0f;					  // pragmatic representation of exposure
+	float brightness = 0.05f;				  // combined with contrast:
+	float contrast = 1.0f;					  // pragmatic representation of exposure
 	float FOV = 40.0f;						  // field of view, in degrees
 	float aspectRatio = 1.0f;				  // image plane aspect ratio
 	float clampValue = 10.0f;				  // firefly clamping
@@ -35,9 +35,8 @@ class Camera
 	void translateRelative(const glm::vec3 &T);			 // move camera relative to orientation
 	void translateTarget(const glm::vec3 &T);			 // move camera target; used for rotating camera
 
-
 	void serialize(std::string_view file) const;
-	rfw::utils::Serializable<rfw::Camera, 1> serialize() const;
+	[[nodiscard]] rfw::utils::Serializable<rfw::Camera, 1> serialize() const;
 	static rfw::Camera deserialize(std::string_view file);
 
   private:

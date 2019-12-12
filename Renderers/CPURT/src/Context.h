@@ -49,7 +49,9 @@ class Context : public RenderContext
 	TopLevelBVH topLevelBVH;
 	std::vector<CPUMesh> m_Meshes;
 
-	glm::vec4* m_Pixels = nullptr;
+	int m_SkyboxWidth = 0, m_SkyboxHeight = 0;
+	std::vector<glm::vec3> m_Skybox = {glm::vec3(0)};
+	glm::vec4 *m_Pixels = nullptr;
 	GLuint m_TargetID = 0, m_PboID = 0;
 	int m_Width, m_Height;
 	bool m_InitializedGlew = false;

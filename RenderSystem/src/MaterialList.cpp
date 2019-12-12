@@ -228,8 +228,8 @@ void rfw::MaterialList::set(uint index, const HostMaterial &mat)
 		return;
 	}
 
-	m_HostMaterials.at(index) = mat;
-	m_IsEmissive.at(index) = mat.isEmissive();
+	m_HostMaterials[index] = mat;
+	m_IsEmissive[index] = mat.isEmissive();
 	m_IsDirty = true;
 }
 

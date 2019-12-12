@@ -16,16 +16,18 @@ MBVHTree::MBVHTree(BVHTree *orgTree)
 void MBVHTree::constructBVH()
 {
 	m_Tree.clear();
-	m_Tree.resize(m_OriginalTree->m_FaceCount * 2);
+	// Worst case, this BVH becomes as big as the original
+	m_Tree.resize(m_OriginalTree->m_BVHPool.size());
 	if (!m_OriginalTree->m_AABBs.empty())
 	{
 		utils::Timer t{};
-		m_FinalPtr = 1;
+		m_PoolPtr.store(1);
 		MBVHNode &mRootNode = m_Tree[0];
 		BVHNode &curNode = m_OriginalTree->m_BVHPool[0];
-		mRootNode.MergeNodes(curNode, this->m_OriginalTree->m_BVHPool, this);
+		m_BuildingThreads.store(1);
+		mRootNode.MergeNodes(curNode, this->m_OriginalTree->m_BVHPool.data(), m_Tree.data(), m_PoolPtr);
 
-		std::cout << "Building MBVH took: " << t.elapsed() << " ms. Poolptr: " << m_FinalPtr << std::endl;
+		std::cout << "Building MBVH took: " << t.elapsed() << " ms. Poolptr: " << m_PoolPtr.load() << std::endl;
 	}
 }
 

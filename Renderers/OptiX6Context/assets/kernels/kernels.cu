@@ -27,11 +27,7 @@ uint __float_as_uint(float x) { return uint(x); }
 template <typename T, int x> struct surface
 {
 };
-template <typename T>
-void surf2Dwrite(T value, surface<void, cudaSurfaceType2D> output, size_t stride, size_t y,
-				 cudaSurfaceBoundaryMode mode)
-{
-}
+template <typename T> void surf2Dwrite(T value, surface<void, cudaSurfaceType2D> output, size_t stride, size_t y, cudaSurfaceBoundaryMode mode) {}
 #endif
 
 surface<void, cudaSurfaceType2D> output;
@@ -69,7 +65,7 @@ __global__ void initCountersExtent(unsigned int pathCount)
 	counters->activePaths = pathCount;
 	counters->shaded = 0;		 // Thread atomic for shade kernel
 	counters->extensionRays = 0; // Compaction counter for extension rays
-	counters->shadowRays = 0;	// Compaction counter for connections
+	counters->shadowRays = 0;	 // Compaction counter for connections
 	counters->totalExtensionRays = pathCount;
 	counters->totalShadowRays = 0;
 }
@@ -86,8 +82,7 @@ __global__ void initCountersSubsequent()
 
 #define IS_SPECULAR 1
 
-__global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */) void shade(const uint pathLength,
-																							 const glm::mat3 toEyeSpace)
+__global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */) void shade(const uint pathLength, const glm::mat3 toEyeSpace)
 {
 	const int jobIndex = threadIdx.x + blockIdx.x * blockDim.x;
 	if (jobIndex >= counters->activePaths)
@@ -111,8 +106,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	if (primIdx < 0)
 	{
 		// formulas by Paul Debevec, http://www.pauldebevec.com/Probes
-		const uint u = static_cast<uint>(static_cast<float>(skyboxWidth) * 0.5f *
-										 (1.0f + atan2(D.x, -D.z) * glm::one_over_pi<float>()));
+		const uint u = static_cast<uint>(static_cast<float>(skyboxWidth) * 0.5f * (1.0f + atan2(D.x, -D.z) * glm::one_over_pi<float>()));
 		const uint v = static_cast<uint>(static_cast<float>(skyboxHeight) * acos(D.y) * glm::one_over_pi<float>());
 		const uint idx = u + v * skyboxWidth;
 		const vec3 skySample = idx < skyboxHeight * skyboxWidth ? skybox[idx] : vec3(0);
@@ -141,17 +135,15 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	const vec3 O = glm::vec3(O4);
 	const vec3 I = O + D * hitData.w;
 	const uint uintBaryCentrics = __float_as_uint(hitData.x);
-	const vec2 barycentrics =
-		vec2(static_cast<float>(uintBaryCentrics & 65535), static_cast<float>(uintBaryCentrics >> 16)) *
-		(1.0f / 65536.0f);
+	const vec2 barycentrics = vec2(static_cast<float>(uintBaryCentrics & 65535), static_cast<float>(uintBaryCentrics >> 16)) * (1.0f / 65536.0f);
 	const int instanceIdx = __float_as_uint(hitData.y);
 	const DeviceInstanceDescriptor &instance = instances[instanceIdx];
 
 	const DeviceTriangle &triangle = instance.triangles[primIdx];
 
 	glm::vec3 N, iN, T, B;
-	const ShadingData shadingData = getShadingData(D, barycentrics.x, barycentrics.y, view->spreadAngle * hitData.w, triangle,
-												   instanceIdx, N, iN, T, B, instance.invTransform);
+	const ShadingData shadingData =
+		getShadingData(D, barycentrics.x, barycentrics.y, view->spreadAngle * hitData.w, triangle, instanceIdx, N, iN, T, B, instance.invTransform);
 
 	if (counters->samplesTaken == 0 && pathLength == 0 && pathIndex == counters->probeIdx)
 	{
@@ -240,9 +232,8 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	iN *= flip;					  // Fix interpolated normal (consistent normal interpolation)
 	throughput *= 1.0f / bsdfPdf; // Apply postponed bsdf pdf
 
-	if ((flags & IS_SPECULAR) == 0 &&
-		(lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.directionalLightCount +
-		 lightCounts.spotLightCount) > 0) // Only cast shadow rays for non-specular objects
+	if ((flags & IS_SPECULAR) == 0 && (lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.directionalLightCount +
+									   lightCounts.spotLightCount) > 0) // Only cast shadow rays for non-specular objects
 	{
 		vec3 lightColor;
 		float r0, r1, pickProb, lightPdf = 0;
@@ -336,14 +327,12 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 
 	const uint extensionRayIdx = atomicAdd(&counters->extensionRays, 1u); // Get compacted index for extension ray
 
-	pathOrigins[extensionRayIdx + nextBufferIndex * stride] =
-		vec4(I + R * geometryEpsilon, uintBitsToFloat((pathIndex << 8u) | flags));
+	pathOrigins[extensionRayIdx + nextBufferIndex * stride] = vec4(I + R * geometryEpsilon, uintBitsToFloat((pathIndex << 8u) | flags));
 	pathDirections[extensionRayIdx + nextBufferIndex * stride] = vec4(R, uintBitsToFloat(PackNormal(iN)));
 	pathThroughputs[extensionRayIdx + nextBufferIndex * stride] = vec4(throughput, newBsdfPdf);
 }
 
-__global__ void finalize(const uint scrwidth, const uint scrheight, const float pixelValueScale, const float brightness,
-						 const float contrastFactor)
+__global__ void finalize(const uint scrwidth, const uint scrheight, const float pixelValueScale)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -362,8 +351,7 @@ __global__ void finalize(const uint scrwidth, const uint scrheight, const float 
 	inputPixels[index] = value;
 }
 
-__global__ void finalizeBlit(const uint scrwidth, const uint scrheight, const float pixelValueScale,
-							 const float brightness, const float contrastFactor)
+__global__ void finalizeBlit(const uint scrwidth, const uint scrheight, const float pixelValueScale)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -375,15 +363,10 @@ __global__ void finalizeBlit(const uint scrwidth, const uint scrheight, const fl
 
 	const glm::vec4 value = accumulator[index] * pixelValueScale;
 
-	const float r = sqrt(max(0.0f, (value.x - 0.5f) * contrastFactor + 0.5f + brightness));
-	const float g = sqrt(max(0.0f, (value.y - 0.5f) * contrastFactor + 0.5f + brightness));
-	const float b = sqrt(max(0.0f, (value.z - 0.5f) * contrastFactor + 0.5f + brightness));
-
-	surf2Dwrite<glm::vec4>(glm::vec4(r, g, b, value.w), output, x * sizeof(float4), y, cudaBoundaryModeClamp);
+	surf2Dwrite<glm::vec4>(value, output, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
-__global__ void tonemap(const uint scrwidth, const uint scrheight, const float pixelValueScale, const float brightness,
-						const float contrastFactor)
+__global__ void tonemap(const uint scrwidth, const uint scrheight, const float pixelValueScale, const float brightness, const float contrastFactor)
 {
 	const int x = threadIdx.x + blockIdx.x * blockDim.x;
 	const int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -407,10 +390,7 @@ __host__ void setPathStates(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathStates, &pt
 __host__ void setPathOrigins(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathOrigins, &ptr, sizeof(void *)); }
 __host__ void setPathDirections(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathDirections, &ptr, sizeof(void *)); }
 __host__ void setPathThroughputs(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathThroughputs, &ptr, sizeof(void *)); }
-__host__ void setPotentialContributions(PotentialContribution *ptr)
-{
-	cudaMemcpyToSymbol(connectData, &ptr, sizeof(void *));
-}
+__host__ void setPotentialContributions(PotentialContribution *ptr) { cudaMemcpyToSymbol(connectData, &ptr, sizeof(void *)); }
 __host__ void setMaterials(DeviceMaterial *ptr) { cudaMemcpyToSymbol(materials, &ptr, sizeof(void *)); }
 __host__ void setFloatTextures(glm::vec4 *ptr) { cudaMemcpyToSymbol(floatTextures, &ptr, sizeof(void *)); }
 __host__ void setUintTextures(uint *ptr) { cudaMemcpyToSymbol(uintTextures, &ptr, sizeof(void *)); }
@@ -420,10 +400,7 @@ __host__ void setSkyDimensions(uint width, uint height)
 	cudaMemcpyToSymbol(skyboxWidth, &width, sizeof(uint));
 	cudaMemcpyToSymbol(skyboxHeight, &height, sizeof(uint));
 }
-__host__ void setInstanceDescriptors(DeviceInstanceDescriptor *ptr)
-{
-	cudaMemcpyToSymbol(instances, &ptr, sizeof(void *));
-}
+__host__ void setInstanceDescriptors(DeviceInstanceDescriptor *ptr) { cudaMemcpyToSymbol(instances, &ptr, sizeof(void *)); }
 __host__ void setGeometryEpsilon(float value) { cudaMemcpyToSymbol(geometryEpsilon, &value, sizeof(float)); }
 __host__ void setBlueNoiseBuffer(uint *ptr) { cudaMemcpyToSymbol(blueNoise, &ptr, sizeof(void *)); }
 __host__ void setScreenDimensions(uint width, uint height)
@@ -431,18 +408,12 @@ __host__ void setScreenDimensions(uint width, uint height)
 	cudaMemcpyToSymbol(scrWidth, &width, sizeof(uint));
 	cudaMemcpyToSymbol(scrHeight, &height, sizeof(uint));
 }
-__host__ void setLightCount(rfw::LightCount lightCount)
-{
-	cudaMemcpyToSymbol(lightCounts, &lightCount, sizeof(rfw::LightCount));
-}
+__host__ void setLightCount(rfw::LightCount lightCount) { cudaMemcpyToSymbol(lightCounts, &lightCount, sizeof(rfw::LightCount)); }
 
 __host__ void setAreaLights(rfw::DeviceAreaLight *als) { cudaMemcpyToSymbol(areaLights, &als, sizeof(void *)); }
 __host__ void setPointLights(rfw::DevicePointLight *pls) { cudaMemcpyToSymbol(pointLights, &pls, sizeof(void *)); }
 __host__ void setSpotLights(rfw::DeviceSpotLight *sls) { cudaMemcpyToSymbol(spotLights, &sls, sizeof(void *)); }
-__host__ void setDirectionalLights(rfw::DeviceDirectionalLight *dls)
-{
-	cudaMemcpyToSymbol(directionalLights, &dls, sizeof(void *));
-}
+__host__ void setDirectionalLights(rfw::DeviceDirectionalLight *dls) { cudaMemcpyToSymbol(directionalLights, &dls, sizeof(void *)); }
 __host__ void setClampValue(float value) { cudaMemcpyToSymbol(clampValue, &value, sizeof(float)); }
 __host__ void setNormalBuffer(glm::vec4 *ptr) { cudaMemcpyToSymbol(normals, &ptr, sizeof(void *)); }
 __host__ void setAlbedoBuffer(glm::vec4 *ptr) { cudaMemcpyToSymbol(albedos, &ptr, sizeof(void *)); }
@@ -470,25 +441,23 @@ __host__ cudaError launchShade(const uint pathCount, const uint pathLength, cons
 	return cudaGetLastError();
 }
 
-__host__ cudaError launchFinalize(bool blit, const unsigned int scrwidth, const unsigned int scrheight,
-								  const unsigned int samples, const float brightness, const float contrast)
+__host__ cudaError launchFinalize(bool blit, const unsigned int scrwidth, const unsigned int scrheight, const unsigned int samples, const float brightness,
+								  const float contrast)
 {
 	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
 	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);
 	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
 	const dim3 blockDim = dim3(16, 16, 1);
 
-	const float contrastFactor = (259.0f * (contrast * 256.0f + 255.0f)) / (255.0f * (259.0f - 256.0f * contrast));
 	if (blit)
-		finalizeBlit<<<gridDim, blockDim>>>(scrwidth, scrheight, 1.0f / float(samples), brightness, contrastFactor);
+		finalizeBlit<<<gridDim, blockDim>>>(scrwidth, scrheight, 1.0f / float(samples));
 	else
-		finalize<<<gridDim, blockDim>>>(scrwidth, scrheight, 1.0f / float(samples), brightness, contrastFactor);
+		finalize<<<gridDim, blockDim>>>(scrwidth, scrheight, 1.0f / float(samples));
 
 	return cudaGetLastError();
 }
 
-cudaError launchTonemap(unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness,
-						float contrast)
+cudaError launchTonemap(unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness, float contrast)
 {
 	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
 	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);

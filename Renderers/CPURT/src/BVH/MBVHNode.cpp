@@ -29,7 +29,7 @@ void MBVHNode::SetBounds(unsigned int nodeIdx, const AABB &bounds)
 	this->bmaxz[nodeIdx] = bounds.zMax;
 }
 
-void MBVHNode::MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHTree *bvhTree)
+void MBVHNode::MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr)
 {
 	int numChildren;
 	GetBVHNodeInfo(node, bvhPool, numChildren);
@@ -47,12 +47,12 @@ void MBVHNode::MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHTree 
 			}
 			else
 			{
-				const uint newIdx = bvhTree->m_FinalPtr++;
-				MBVHNode &newNode = bvhTree->m_Tree[newIdx];
+				const auto newIdx = poolPtr.fetch_add(1);
+				MBVHNode &newNode = bvhTree[newIdx];
 				this->childs[idx] = newIdx; // replace BVHNode idx with MBVHNode idx
 				this->counts[idx] = -1;
 				this->SetBounds(idx, curNode.bounds);
-				newNode.MergeNodes(curNode, bvhPool, bvhTree);
+				newNode.MergeNodes(curNode, bvhPool, bvhTree, poolPtr);
 			}
 		}
 	}
@@ -65,12 +65,11 @@ void MBVHNode::MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHTree 
 	}
 }
 
-void MBVHNode::MergeNodesMT(const BVHNode &node, const BVHNode *bvhPool, MBVHTree *bvhTree, bool thread)
+void MBVHNode::MergeNodesMT(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr, std::atomic_int &threadCount, bool thread)
 {
 	int numChildren;
 	GetBVHNodeInfo(node, bvhPool, numChildren);
 
-	int threadCount = 0;
 	std::vector<std::future<void>> threads;
 
 	// invalidate any remaining children
@@ -94,135 +93,27 @@ void MBVHNode::MergeNodesMT(const BVHNode &node, const BVHNode *bvhPool, MBVHTre
 				continue;
 			}
 
-			bvhTree->m_PoolPtrMutex.lock();
-			const auto newIdx = bvhTree->m_FinalPtr++;
-			bvhTree->m_PoolPtrMutex.unlock();
+			const auto newIdx = poolPtr.fetch_add(1);
 
-			MBVHNode *newNode = &bvhTree->m_Tree[newIdx];
+			MBVHNode *newNode = &bvhTree[newIdx];
 			this->childs[idx] = newIdx; // replace BVHNode idx with MBVHNode idx
 			this->counts[idx] = -1;
 			this->SetBounds(idx, curNode->bounds);
 
-			if (bvhTree->m_ThreadLimitReached || !thread)
+			if (!thread || threadCount.load() >= std::thread::hardware_concurrency())
 			{
-				newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, !thread);
+				newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, poolPtr, threadCount, !thread);
 			}
 			else
 			{
-				bvhTree->m_ThreadMutex.lock();
-				bvhTree->m_BuildingThreads++;
-				if (bvhTree->m_BuildingThreads > std::thread::hardware_concurrency())
-					bvhTree->m_ThreadLimitReached = true;
-				bvhTree->m_ThreadMutex.unlock();
-
-				threadCount++;
-				threads.push_back(std::async([newNode, curNode, bvhPool, bvhTree]() { newNode->MergeNodesMT(*curNode, bvhPool, bvhTree); }));
+				threadCount.fetch_add(1);
+				threads.push_back(std::async([&]() { newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, poolPtr, threadCount); }));
 			}
 		}
 	}
 
-	for (int i = 0; i < threadCount; i++)
-	{
-		threads[i].get();
-	}
-}
-
-void MBVHNode::MergeNodes(const BVHNode &node, const std::vector<BVHNode> &bvhPool, MBVHTree *bvhTree)
-{
-	int numChildren;
-	GetBVHNodeInfo(node, bvhPool.data(), numChildren);
-
-	for (int idx = 0; idx < numChildren; idx++)
-	{
-		if (this->counts[idx] == -1)
-		{ // not a leaf
-			const BVHNode &curNode = bvhPool[this->childs[idx]];
-			if (curNode.IsLeaf())
-			{
-				this->counts[idx] = curNode.GetCount();
-				this->childs[idx] = curNode.GetLeftFirst();
-				this->SetBounds(idx, curNode.bounds);
-			}
-			else
-			{
-				const uint newIdx = bvhTree->m_FinalPtr++;
-				MBVHNode &newNode = bvhTree->m_Tree[newIdx];
-				this->childs[idx] = newIdx; // replace BVHNode idx with MBVHNode idx
-				this->counts[idx] = -1;
-				this->SetBounds(idx, curNode.bounds);
-				newNode.MergeNodes(curNode, bvhPool, bvhTree);
-			}
-		}
-	}
-
-	// invalidate any remaining children
-	for (int idx = numChildren; idx < 4; idx++)
-	{
-		this->SetBounds(idx, vec3(1e34f), vec3(-1e34f));
-		this->counts[idx] = 0;
-	}
-}
-
-void MBVHNode::MergeNodesMT(const BVHNode &node, const std::vector<BVHNode> &bvhPool, MBVHTree *bvhTree, bool thread)
-{
-	int numChildren;
-	GetBVHNodeInfo(node, bvhPool.data(), numChildren);
-
-	int threadCount = 0;
-	std::vector<std::future<void>> threads{};
-
-	// Invalidate any remaining children
-	for (int idx = numChildren; idx < 4; idx++)
-	{
-		this->SetBounds(idx, vec3(1e34f), vec3(-1e34f));
-		this->counts[idx] = 0;
-	}
-
-	for (int idx = 0; idx < numChildren; idx++)
-	{
-		if (this->counts[idx] == -1)
-		{ // not a leaf
-			const BVHNode *curNode = &bvhPool[this->childs[idx]];
-
-			if (curNode->IsLeaf())
-			{
-				this->counts[idx] = curNode->GetCount();
-				this->childs[idx] = curNode->GetLeftFirst();
-				this->SetBounds(idx, curNode->bounds);
-				continue;
-			}
-
-			bvhTree->m_PoolPtrMutex.lock();
-			const auto newIdx = bvhTree->m_FinalPtr++;
-			bvhTree->m_PoolPtrMutex.unlock();
-
-			MBVHNode *newNode = &bvhTree->m_Tree[newIdx];
-			this->childs[idx] = newIdx; // replace BVHNode idx with MBVHNode idx
-			this->counts[idx] = -1;
-			this->SetBounds(idx, curNode->bounds);
-
-			if (bvhTree->m_ThreadLimitReached || !thread)
-			{
-				newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, !thread);
-			}
-			else
-			{
-				bvhTree->m_ThreadMutex.lock();
-				bvhTree->m_BuildingThreads++;
-				if (bvhTree->m_BuildingThreads > std::thread::hardware_concurrency())
-					bvhTree->m_ThreadLimitReached = true;
-				bvhTree->m_ThreadMutex.unlock();
-
-				threadCount++;
-				threads.push_back(std::async([newNode, curNode, bvhPool, bvhTree]() { newNode->MergeNodesMT(*curNode, bvhPool, bvhTree); }));
-			}
-		}
-	}
-
-	for (int i = 0; i < threadCount; i++)
-	{
-		threads[i].get();
-	}
+	for (auto &t : threads)
+		t.get();
 }
 
 void MBVHNode::GetBVHNodeInfo(const BVHNode &node, const BVHNode *pool, int &numChildren)

@@ -20,6 +20,15 @@ class TopLevelBVH
 		AABB rootBounds = {};
 		for (const auto &aabb : boundingBoxes)
 			rootBounds.Grow(aabb);
+		transformedAABBs = boundingBoxes;
+		for (int i = 0, s = static_cast<int>(transformedAABBs.size()); i < s; i++)
+		{
+			const auto &matrix = instanceMatrices[i];
+			const glm::vec3 minBounds = matrix * glm::vec4(glm::make_vec3(boundingBoxes[i].bmin), 1.0f);
+			const glm::vec3 maxBounds = matrix * glm::vec4(glm::make_vec3(boundingBoxes[i].bmax), 1.0f);
+			transformedAABBs[i] = AABB(minBounds, maxBounds);
+		}
+
 		m_Nodes.resize(boundingBoxes.size() * 2);
 		m_PrimIndices.resize(boundingBoxes.size());
 		for (uint i = 0, s = static_cast<uint>(m_PrimIndices.size()); i < s; i++)
@@ -28,11 +37,12 @@ class TopLevelBVH
 		m_PoolPtr.store(2);
 		m_Nodes[0].bounds = rootBounds;
 		m_Nodes[0].leftFirst = 0;
-		m_Nodes[0].count = boundingBoxes.size();
-		m_Nodes[0].Subdivide(boundingBoxes.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
+		m_Nodes[0].count = transformedAABBs.size();
+		m_Nodes[0].Subdivide(transformedAABBs.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
 
-		//m_MNodes.resize(m_Nodes.size());
-		//m_MNodes[0].MergeNodes(m_Nodes[0], m_Nodes.data(), )
+		m_MPoolPtr.store(1);
+		m_MNodes.resize(m_Nodes.size());
+		m_MNodes[0].MergeNodes(m_Nodes[0], m_Nodes.data(), m_MNodes.data(), m_MPoolPtr);
 	}
 
 	rfw::Triangle *intersect(Ray &ray, float t_min = 0.0f) const
@@ -56,11 +66,20 @@ class TopLevelBVH
 				for (int i = 0; i < node.GetCount(); i++)
 				{
 					const auto primIdx = m_PrimIndices[node.GetLeftFirst() + i];
+
 					if (boundingBoxes[primIdx].Intersect(ray.origin, dirInverse, &tNear1, &tFar1) && tNear1 < ray.t)
 					{
+						// Transform ray to local space for mesh BVH
+						const auto &matrix = instanceMatrices[primIdx];
+												const vec3 origin = matrix * vec4(ray.origin, 1);
+												const vec3 direction = matrix * vec4(ray.direction, 0);
+
+//						const vec3 origin = ray.origin;
+//						const vec3 direction = ray.direction;
+
 						const auto mesh = accelerationStructures[primIdx];
 						int rayPrimIdx = ray.primIdx;
-						mesh->mbvh->traverse(ray.origin, ray.direction, t_min, &ray.t, &ray.primIdx);
+						mesh->mbvh->traverse(origin, direction, t_min, &ray.t, &rayPrimIdx);
 						if (ray.primIdx != rayPrimIdx)
 							instIdx = primIdx;
 					}
@@ -111,6 +130,13 @@ class TopLevelBVH
 
 	void setInstance(int idx, glm::mat4 transform, CPUMesh *tree, AABB boundingBox)
 	{
+		// Transform AABB to correct position
+		auto min = glm::make_vec3(boundingBox.bmin);
+		auto max = glm::make_vec3(boundingBox.bmax);
+		min = transform * vec4(min, 1);
+		max = transform * vec4(max, 1);
+		boundingBox = AABB(min, max);
+
 		if (idx >= accelerationStructures.size())
 		{
 			boundingBoxes.emplace_back(boundingBox);
@@ -132,9 +158,12 @@ class TopLevelBVH
   private:
 	// Top level BVH structure data
 	std::atomic_int m_PoolPtr = 0;
+	std::atomic_int m_MPoolPtr = 0;
+	std::atomic_int m_MThreadCount = 0;
 	std::vector<BVHNode> m_Nodes;
 	std::vector<MBVHNode> m_MNodes;
 	std::vector<AABB> boundingBoxes;
+	std::vector<AABB> transformedAABBs;
 	std::vector<unsigned int> m_PrimIndices;
 
 	// Instance data

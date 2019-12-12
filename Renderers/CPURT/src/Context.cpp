@@ -3,6 +3,10 @@
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
 
+#ifdef _WIN32
+#include <ppl.h>
+#endif
+
 using namespace rfw;
 
 rfw::RenderContext *createRenderContext() { return new Context(); }
@@ -51,9 +55,12 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	const auto camParams = Ray::CameraParams(camera.getView(), 0, 1e-5f, m_Width, m_Height);
 
-#pragma omp parallel for
+#ifdef _WIN32
+	concurrency::parallel_for(0, m_Height, [&](int y) {
+#else
 	for (int y = 0; y < m_Height; y++)
 	{
+#endif
 		const int yOffset = y * m_Width;
 
 		for (int x = 0; x < m_Width; x++)
@@ -66,9 +73,18 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			if (triangle)
 				m_Pixels[pixelIdx] = glm::vec4(triangle->Nx, triangle->Ny, triangle->Nz, 1.0f);
 			else
-				m_Pixels[pixelIdx] = glm::vec4(0.0f);
+			{
+				const vec2 uv = vec2(0.5f * (1.0f + atan(ray.direction.x, -ray.direction.z) * glm::one_over_pi<float>()),
+									 acos(ray.direction.y) * glm::one_over_pi<float>());
+				const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
+				m_Pixels[pixelIdx] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+			}
 		}
+#ifdef _WIN32
+	});
+#else
 	}
+#endif
 
 	glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB);
 	CheckGL();
@@ -98,7 +114,12 @@ void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform)
 	topLevelBVH.setInstance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->aabb);
 }
 
-void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
+void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+{
+	m_Skybox = pixels;
+	m_SkyboxWidth = width;
+	m_SkyboxHeight = height;
+}
 
 void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
 						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)

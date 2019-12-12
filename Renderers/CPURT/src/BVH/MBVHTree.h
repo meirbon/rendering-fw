@@ -17,15 +17,13 @@ class MBVHTree
 	BVHTree *m_OriginalTree;
 	std::vector<MBVHNode> m_Tree;
 	std::vector<unsigned int> m_PrimitiveIndices{};
-	unsigned int m_FinalPtr = 0;
 	void constructBVH();
 	void traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
 
 	AABB aabb;
 
   private:
-	std::mutex m_PoolPtrMutex{};
-	std::mutex m_ThreadMutex{};
-	unsigned int m_BuildingThreads = 0;
+	std::atomic_int m_BuildingThreads = 0;
+	std::atomic_int m_PoolPtr = 0;
 	bool m_ThreadLimitReached = false;
 };

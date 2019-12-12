@@ -1,6 +1,6 @@
 project(OptiX_PTX)
 
-include_directories(../../../Dependencies/OptiX6.5/include ../../../Dependencies/glm-9.9.6 ../../../RenderContext ../../../RenderSystem/src ../../../Dependencies/half2.1.0 ../../src)
+include_directories(../../../../Dependencies/OptiX6.5/include ../../../../Dependencies/glm-9.9.6 ../../../../RenderContext ../../../../RenderSystem/src ../../../../Dependencies/half2.1.0 ../../src)
 
 cuda_compile_ptx(cuda_ptx_files ${PROJECT_SOURCE_DIR}/Kernels.cu OPTIONS -lineinfo -gencode arch=compute_75,code=sm_75 -use_fast_math --expt-relaxed-constexpr)
 add_custom_command(
@@ -9,7 +9,7 @@ add_custom_command(
 		DEPENDS ${cuda_ptx_files}
 )
 
-add_custom_target(ptx ALL
+add_custom_target(OptiX_PTX ALL
 		DEPENDS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/Kernels.ptx
 		SOURCES ./Kernels.cu
 		)

@@ -25,10 +25,7 @@ enum OptiXRayIndex
 	Shadow = 2u
 };
 
-void usageReportCallback(int error, const char *context, const char *message, void *cbdata)
-{
-	WARNING("OptiX (%i) %s: %s", error, context, message);
-}
+void usageReportCallback(int error, const char *context, const char *message, void *cbdata) { WARNING("OptiX (%i) %s: %s", error, context, message); }
 
 void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 {
@@ -318,32 +315,34 @@ void OptiXContext::cleanup()
 void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 {
 	Counters *counters = m_Counters->getHostPointer();
-	if (status == Reset)
+	if (status == Reset || m_FirstFrame)
 	{
+		m_FirstFrame = false;
 		cudaMemsetAsync(m_Accumulator->getDevicePointer(), 0, m_ScrWidth * m_ScrHeight * sizeof(vec4));
 		CheckCUDA(cudaDeviceSynchronize());
 		m_SampleIndex = 0;
+
+		const auto view = camera.getView();
+		*m_CameraView->getHostPointer() = view;
+		m_CameraView->copyToDeviceAsync();
+
+		const vec3 right = view.p2 - view.p1;
+		const vec3 up = view.p3 - view.p1;
+
+		m_Context["stride"]->setUint(static_cast<uint>(m_ScrWidth * m_ScrHeight));
+		m_Context["posLensSize"]->setFloat(view.pos.x, view.pos.y, view.pos.z, view.aperture);
+		m_Context["right"]->setFloat(right.x, right.y, right.z);
+		m_Context["up"]->setFloat(up.x, up.y, up.z);
+		m_Context["p1"]->setFloat(view.p1.x, view.p1.y, view.p1.z);
+		m_Context["geometryEpsilon"]->setFloat(m_GeometryEpsilon);
+		m_Context["scrsize"]->setInt(m_ScrWidth, m_ScrHeight, 1);
 	}
 
 	counters->samplesTaken = m_SampleIndex;
 	m_Counters->copyToDeviceAsync();
 
-	const auto view = camera.getView();
-	*m_CameraView->getHostPointer() = view;
-	m_CameraView->copyToDeviceAsync();
-
-	const vec3 right = view.p2 - view.p1;
-	const vec3 up = view.p3 - view.p1;
-
 	m_Context["sampleIndex"]->setUint(m_SampleIndex);
 	m_Context["pathLength"]->setUint(0);
-	m_Context["stride"]->setUint(static_cast<uint>(m_ScrWidth * m_ScrHeight));
-	m_Context["posLensSize"]->setFloat(view.pos.x, view.pos.y, view.pos.z, view.aperture);
-	m_Context["right"]->setFloat(right.x, right.y, right.z);
-	m_Context["up"]->setFloat(up.x, up.y, up.z);
-	m_Context["p1"]->setFloat(view.p1.x, view.p1.y, view.p1.z);
-	m_Context["geometryEpsilon"]->setFloat(m_GeometryEpsilon);
-	m_Context["scrsize"]->setInt(m_ScrWidth, m_ScrHeight, 1);
 
 	try
 	{
@@ -433,8 +432,7 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	m_Counters->copyToDeviceAsync();
 }
 
-void OptiXContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials,
-								const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void OptiXContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	std::vector<rfw::DeviceMaterial> mats(materials.size());
 	memcpy(mats.data(), materials.data(), materials.size() * sizeof(rfw::Material));
@@ -589,8 +587,7 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 	instance->validate();
 
 	m_InstanceDescriptors.at(instanceIdx).invTransform = inverse(mat3(transform));
-	m_InstanceDescriptors.at(instanceIdx).triangles =
-		reinterpret_cast<DeviceTriangle *>(m_Meshes.at(meshIdx)->getTrianglesBuffer().getDevicePointer());
+	m_InstanceDescriptors.at(instanceIdx).triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes.at(meshIdx)->getTrianglesBuffer().getDevicePointer());
 
 	if (addInsteadOfSet)
 		m_SceneGraph->addChild(instance);
@@ -610,9 +607,8 @@ void OptiXContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width
 	setSkyDimensions(static_cast<uint>(width), static_cast<uint>(height));
 }
 
-void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
-							 const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
-							 const rfw::DeviceDirectionalLight *directionalLights)
+void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+							 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	CheckCUDA(cudaDeviceSynchronize());
 	delete m_AreaLights;
@@ -641,8 +637,7 @@ void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLi
 	}
 	if (lightCount.directionalLightCount > 0)
 	{
-		m_DirectionalLights =
-			new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
+		m_DirectionalLights = new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
 		setDirectionalLights(m_DirectionalLights->getDevicePointer());
 	}
 
@@ -655,8 +650,7 @@ void OptiXContext::update()
 	if (!m_DeviceInstanceDescriptors || m_InstanceDescriptors.size() > m_DeviceInstanceDescriptors->getElementCount())
 	{
 		delete m_DeviceInstanceDescriptors;
-		m_DeviceInstanceDescriptors = new CUDABuffer<DeviceInstanceDescriptor>(
-			m_InstanceDescriptors.size() + (m_InstanceDescriptors.size() % 32), ON_DEVICE);
+		m_DeviceInstanceDescriptors = new CUDABuffer<DeviceInstanceDescriptor>(m_InstanceDescriptors.size() + (m_InstanceDescriptors.size() % 32), ON_DEVICE);
 		setInstanceDescriptors(m_DeviceInstanceDescriptors->getDevicePointer());
 	}
 
@@ -714,8 +708,7 @@ void OptiXContext::resizeBuffers()
 	m_PathOrigins = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
 	m_PathDirections = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
 	m_PathThroughputs = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
-	m_ConnectData =
-		new OptiXCUDABuffer<PotentialContribution>(m_Context, pixelCount * MAX_PATH_LENGTH, ReadWrite, RT_FORMAT_USER);
+	m_ConnectData = new OptiXCUDABuffer<PotentialContribution>(m_Context, pixelCount * MAX_PATH_LENGTH, ReadWrite, RT_FORMAT_USER);
 
 	const std::array<size_t, 2> dimensions = {static_cast<size_t>(m_ScrWidth), static_cast<size_t>(m_ScrHeight)};
 	m_NormalBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);

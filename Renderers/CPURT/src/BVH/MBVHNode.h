@@ -108,13 +108,10 @@ class MBVHNode
 		return hit;
 	}
 
-	void MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHTree *bvhTree);
+	void MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr);
 
-	void MergeNodesMT(const BVHNode &node, const BVHNode *bvhPool, MBVHTree *bvhTree, bool thread = true);
-
-	void MergeNodes(const BVHNode &node, const std::vector<BVHNode> &bvhPool, MBVHTree *bvhTree);
-
-	void MergeNodesMT(const BVHNode &node, const std::vector<BVHNode> &bvhPool, MBVHTree *bvhTree, bool thread = true);
+	void MergeNodesMT(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr, std::atomic_int &threadCount,
+					  bool thread = true);
 
 	void GetBVHNodeInfo(const BVHNode &node, const BVHNode *pool, int &numChildren);
 

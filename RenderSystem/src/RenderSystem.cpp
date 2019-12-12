@@ -49,7 +49,7 @@ extern "C"
 using namespace rfw;
 using namespace utils;
 
-rfw::RenderSystem::RenderSystem() : m_ToneMapShader("shaders/draw-tex.vert", "shaders/tone-map.frag")
+rfw::RenderSystem::RenderSystem() : m_ThreadPool(std::thread::hardware_concurrency()), m_ToneMapShader("shaders/draw-tex.vert", "shaders/tone-map.frag")
 {
 	m_Materials = new MaterialList();
 	glGenFramebuffers(1, &m_FrameBufferID);
@@ -60,6 +60,8 @@ rfw::RenderSystem::RenderSystem() : m_ToneMapShader("shaders/draw-tex.vert", "sh
 
 rfw::RenderSystem::~RenderSystem()
 {
+	m_ThreadPool.stop(true);
+
 	if (m_Context)
 		unloadRenderAPI();
 
@@ -199,6 +201,7 @@ void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
 	CheckGL();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	CheckGL();
 }
 
 void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
@@ -216,6 +219,7 @@ void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 	CheckGL();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	CheckGL();
 }
 
 void RenderSystem::setSkybox(std::string_view filename)
@@ -230,229 +234,222 @@ void RenderSystem::setSkybox(std::string_view filename)
 	m_Changed[SKYBOX] = true;
 }
 
-void rfw::RenderSystem::synchronize()
+void RenderSystem::synchronize()
 {
 	if (m_AnimationsThread.valid())
 		m_AnimationsThread.get();
 
-	m_UpdateThread = std::async([this]() {
-		rfw::utils::Timer t;
+	if (m_Changed[SKYBOX])
+		m_Context->setSkyDome(m_Skybox->getBuffer(), m_Skybox->getWidth(), m_Skybox->getHeight());
 
-		if (m_Changed[SKYBOX])
-			m_Context->setSkyDome(m_Skybox->getBuffer(), m_Skybox->getWidth(), m_Skybox->getHeight());
+	if (m_Materials->isDirty())
+		m_Materials->generateDeviceMaterials();
 
-		if (m_Materials->isDirty())
-			m_Materials->generateDeviceMaterials();
+	// Update materials
+	if (!m_Materials->getMaterials().empty() && m_Changed[MATERIALS])
+	{
+		const std::vector<TextureData> &textures = m_Materials->getTextureDescriptors();
+		if (!textures.empty())
+			m_Context->setTextures(textures);
 
-		// Update materials
-		if (!m_Materials->getMaterials().empty() && m_Changed[MATERIALS])
+		m_Context->setMaterials(m_Materials->getDeviceMaterials(), m_Materials->getMaterialTexIds());
+	}
+
+	// First update area lights as these might update models in the process.
+	// Updating area lights first prevents us from having to update models twice
+	if (m_Changed[AREA_LIGHTS] && !m_UninitializedMeshes)
+	{
+		updateAreaLights();
+		m_Changed[LIGHTS] = true;
+		m_Changed[AREA_LIGHTS] = false;
+	}
+
+	if (m_Changed[ANIMATED])
+	{
+		for (SceneTriangles *object : m_Models)
 		{
-			const std::vector<TextureData> &textures = m_Materials->getTextureDescriptors();
-			if (!textures.empty())
-				m_Context->setTextures(textures);
+			if (!object->isAnimated())
+				continue;
 
-			m_Context->setMaterials(m_Materials->getDeviceMaterials(), m_Materials->getMaterialTexIds());
-		}
+			const auto changedMeshes = object->getChangedMeshes();
 
-		// First update area lights as these might update models in the process.
-		// Updating area lights first prevents us from having to update models twice
-		if (m_Changed[AREA_LIGHTS] && !m_UninitializedMeshes)
-		{
-			updateAreaLights();
-			m_Changed[LIGHTS] = true;
-			m_Changed[AREA_LIGHTS] = false;
-		}
-
-		if (m_Changed[ANIMATED])
-		{
-			for (SceneTriangles *object : m_Models)
+			for (const auto &[index, mesh] : object->getMeshes())
 			{
-				if (!object->isAnimated())
+				// TODO: Only set meshes that actualy changed
+				m_Context->setMesh(index, mesh);
+			}
+		}
+	}
+
+	// Update loaded objects/models
+	if (m_Changed[MODELS])
+	{
+		for (size_t i = 0; i < m_Models.size(); i++)
+		{
+			// Only update if changed
+			if (!m_ModelChanged[i])
+				continue;
+
+			const auto &model = m_Models[i];
+			const auto meshes = model->getMeshes();
+
+			for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
+			{
+				const auto &[meshSlot, mesh] = meshes[i];
+				assert(mesh.vertexCount > 0);
+				assert(mesh.triangleCount > 0);
+				assert(mesh.vertices);
+				assert(mesh.normals);
+				assert(mesh.triangles);
+
+				m_Context->setMesh(meshSlot, mesh);
+			}
+
+			// Reset state
+			m_ModelChanged[i] = false;
+		}
+	}
+
+	if (m_Changed[AREA_LIGHTS])
+	{
+		updateAreaLights();
+		m_Changed[LIGHTS] = true;
+	}
+
+	for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
+	{
+		rfw::InstanceReference &instRef = m_Instances[i];
+
+		if (m_InstanceChanged[i]) // Need to update this instance anyway
+		{
+			// Update instance
+			const auto &matrix = m_InstanceMatrices[i];
+			const auto geometry = instRef.getGeometryReference();
+
+			const auto &instanceMapping = instRef.getIndices();
+			const auto &meshes = geometry.getMeshes();
+			const auto &matrices = geometry.getMeshMatrices();
+
+			for (size_t i = 0, s = meshes.size(); i < s; i++)
+			{
+				const auto meshID = meshes[i].first;
+				const auto instanceID = instanceMapping[i];
+				m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
+			}
+
+			m_InstanceChanged[i] = false;
+		}
+		else
+		{
+			const auto geometry = instRef.getGeometryReference();
+			if (!geometry.isAnimated())
+				continue;
+
+			const auto object = instRef.getGeometryReference().getObject();
+			const auto changedTransforms = object->getChangedMeshMatrices();
+
+			// Update instance
+			const auto &matrix = m_InstanceMatrices[i];
+
+			const auto &instanceMapping = instRef.getIndices();
+			const auto &meshes = geometry.getMeshes();
+			const auto &matrices = geometry.getMeshMatrices();
+
+			for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
+			{
+				if (!changedTransforms[i])
 					continue;
 
-				const auto changedMeshes = object->getChangedMeshes();
-
-				for (const auto &[index, mesh] : object->getMeshes())
-				{
-					// TODO: Only set meshes that actualy changed
-					m_Context->setMesh(index, mesh);
-				}
+				const auto meshID = meshes[i].first;
+				const auto instanceID = instanceMapping[i];
+				m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
 			}
+		}
+	}
 
-			for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
+	// Update instances
+	if (m_Changed[INSTANCES])
+	{
+		for (size_t i = 0; i < m_Instances.size(); i++)
+		{
+			// Only update if changed
+			if (!m_InstanceChanged.at(i))
+				continue;
+
+			// Update instance
+			const auto &ref = m_Instances[i];
+			const auto &matrix = m_InstanceMatrices[i];
+
+			const auto &instanceMapping = ref.getIndices();
+			const auto &meshes = ref.getGeometryReference().getMeshes();
+			const auto &matrices = ref.getGeometryReference().getMeshMatrices();
+
+			for (size_t i = 0, s = meshes.size(); i < s; i++)
 			{
-				rfw::InstanceReference &instRef = m_Instances[i];
-
-				if (m_InstanceChanged[i]) // Need to update this instance anyway
-				{
-					// Update instance
-					const auto &matrix = m_InstanceMatrices[i];
-					const auto geometry = instRef.getGeometryReference();
-
-					const auto &instanceMapping = instRef.getIndices();
-					const auto &meshes = geometry.getMeshes();
-					const auto &matrices = geometry.getMeshMatrices();
-
-					for (size_t i = 0, s = meshes.size(); i < s; i++)
-					{
-						const auto meshID = meshes[i].first;
-						const auto instanceID = instanceMapping[i];
-						m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
-					}
-
-					m_InstanceChanged[i] = false;
-				}
-				else
-				{
-					const auto geometry = instRef.getGeometryReference();
-					if (!geometry.isAnimated())
-						continue;
-
-					const auto object = instRef.getGeometryReference().getObject();
-					const auto changedTransforms = object->getChangedMeshMatrices();
-
-					// Update instance
-					const auto &matrix = m_InstanceMatrices[i];
-
-					const auto &instanceMapping = instRef.getIndices();
-					const auto &meshes = geometry.getMeshes();
-					const auto &matrices = geometry.getMeshMatrices();
-
-					for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
-					{
-						if (!changedTransforms[i])
-							continue;
-
-						const auto meshID = meshes[i].first;
-						const auto instanceID = instanceMapping[i];
-						m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
-					}
-				}
+				const auto meshID = meshes[i].first;
+				const auto instanceID = instanceMapping[i];
+				m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
 			}
 		}
+	}
 
-		// Update loaded objects/models
-		if (m_Changed[MODELS])
-		{
-			for (size_t i = 0; i < m_Models.size(); i++)
-			{
-				// Only update if changed
-				if (!m_ModelChanged[i])
-					continue;
+	if (m_Changed[LIGHTS])
+	{
+		LightCount count = {};
+		count.areaLightCount = static_cast<uint>(m_AreaLights.size());
+		count.pointLightCount = static_cast<uint>(m_PointLights.size());
+		count.spotLightCount = static_cast<uint>(m_SpotLights.size());
+		count.directionalLightCount = static_cast<uint>(m_DirectionalLights.size());
+		m_Context->setLights(count, reinterpret_cast<const DeviceAreaLight *>(m_AreaLights.data()),
+							 reinterpret_cast<const DevicePointLight *>(m_PointLights.data()), reinterpret_cast<const DeviceSpotLight *>(m_SpotLights.data()),
+							 reinterpret_cast<const DeviceDirectionalLight *>(m_DirectionalLights.data()));
+	}
 
-				const auto &model = m_Models[i];
-				const auto meshes = model->getMeshes();
+	if (m_Changed.any())
+	{
+		m_Context->update();
+		m_ShouldReset = true;
+		m_Changed.reset();
 
-				for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
-				{
-					const auto &[meshSlot, mesh] = meshes[i];
-					assert(mesh.vertexCount > 0);
-					assert(mesh.triangleCount > 0);
-					assert(mesh.vertices);
-					assert(mesh.normals);
-					assert(mesh.triangles);
-
-					m_Context->setMesh(meshSlot, mesh);
-				}
-
-				// Reset state
-				m_ModelChanged[i] = false;
-			}
-		}
-
-		if (m_Changed[AREA_LIGHTS])
-		{
-			updateAreaLights();
-			m_Changed[LIGHTS] = true;
-		}
-
-		// Update instances
-		if (m_Changed[INSTANCES])
-		{
-			for (size_t i = 0; i < m_Instances.size(); i++)
-			{
-				// Only update if changed
-				if (!m_InstanceChanged.at(i))
-					continue;
-
-				// Update instance
-				const auto &ref = m_Instances[i];
-				const auto &matrix = m_InstanceMatrices[i];
-
-				const auto &instanceMapping = ref.getIndices();
-				const auto &meshes = ref.getGeometryReference().getMeshes();
-				const auto &matrices = ref.getGeometryReference().getMeshMatrices();
-
-				for (size_t i = 0, s = meshes.size(); i < s; i++)
-				{
-					const auto meshID = meshes[i].first;
-					const auto instanceID = instanceMapping[i];
-					m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
-				}
-			}
-		}
-
-		if (m_Changed[LIGHTS])
-		{
-			LightCount count = {};
-			count.areaLightCount = static_cast<uint>(m_AreaLights.size());
-			count.pointLightCount = static_cast<uint>(m_PointLights.size());
-			count.spotLightCount = static_cast<uint>(m_SpotLights.size());
-			count.directionalLightCount = static_cast<uint>(m_DirectionalLights.size());
-			m_Context->setLights(
-				count, reinterpret_cast<const DeviceAreaLight *>(m_AreaLights.data()), reinterpret_cast<const DevicePointLight *>(m_PointLights.data()),
-				reinterpret_cast<const DeviceSpotLight *>(m_SpotLights.data()), reinterpret_cast<const DeviceDirectionalLight *>(m_DirectionalLights.data()));
-		}
-
-		if (m_Changed.any())
-		{
-			m_Context->update();
-			m_ShouldReset = true;
-			m_Changed.reset();
-
-			for (auto &&i : m_InstanceChanged)
-				i = false;
-		}
-	});
+		for (auto &&i : m_InstanceChanged)
+			i = false;
+	}
 }
 
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
 {
-	m_AnimationsThread = std::async([this, timeInSeconds]() {
 #if ENABLE_THREADING
-		std::vector<std::future<void>> updates;
-		for (SceneTriangles *object : m_Models)
+	std::vector<std::future<void>> updates;
+	for (SceneTriangles *object : m_Models)
+	{
+		if (object->isAnimated())
 		{
-			if (object->isAnimated())
-			{
-				m_Changed[ANIMATED] = true;
-				m_ShouldReset = true;
-				updates.push_back(std::async([object, timeInSeconds]() { object->transformTo(timeInSeconds); }));
-			}
+			m_Changed[ANIMATED] = true;
+			m_ShouldReset = true;
+			updates.push_back(m_ThreadPool.push([object, timeInSeconds](int) { object->transformTo(timeInSeconds); }));
 		}
+	}
 
-		for (auto &update : updates)
-		{
-			if (update.valid())
-				update.get();
-		}
-
+	for (auto &update : updates)
+	{
+		if (update.valid())
+			update.get();
+	}
 #else
-		for (size_t i = 0; i < m_Models.size(); i++)
+	for (size_t i = 0; i < m_Models.size(); i++)
+	{
+		auto object = m_Models[i];
+		if (object->isAnimated())
 		{
-			auto object = m_Models[i];
-			if (object->isAnimated())
-			{
-				m_Changed[ANIMATED] = true;
-				m_ShouldReset = true;
-				object->transformTo(timeInSeconds);
-			}
+			m_Changed[ANIMATED] = true;
+			m_ShouldReset = true;
+			object->transformTo(timeInSeconds);
 		}
+	}
 #endif
-	});
 }
 
-rfw::GeometryReference RenderSystem::getGeometryReference(size_t index)
+GeometryReference RenderSystem::getGeometryReference(size_t index)
 {
 	if (index >= m_Models.size())
 		throw std::runtime_error("Geometry at given index does not exist.");
@@ -460,7 +457,7 @@ rfw::GeometryReference RenderSystem::getGeometryReference(size_t index)
 	return rfw::GeometryReference(index, *this);
 }
 
-rfw::InstanceReference RenderSystem::getInstanceReference(size_t index)
+InstanceReference RenderSystem::getInstanceReference(size_t index)
 {
 	if (index >= m_Instances.size())
 		throw std::runtime_error("Instance at given index does not exist.");
@@ -468,9 +465,9 @@ rfw::InstanceReference RenderSystem::getInstanceReference(size_t index)
 	return m_Instances[index];
 }
 
-rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, int material) { return addObject(fileName, false, glm::mat4(1.0f), material); }
+GeometryReference RenderSystem::addObject(std::string_view fileName, int material) { return addObject(fileName, false, glm::mat4(1.0f), material); }
 
-rfw::GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, int material)
+GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, int material)
 {
 	return addObject(fileName, normalize, glm::mat4(1.0f), material);
 }
@@ -623,31 +620,19 @@ rfw::HostMaterial rfw::RenderSystem::getMaterial(size_t index) const { return m_
 
 void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
 {
-	const auto lightFlags = m_Materials->getMaterialLightFlags();
+	const bool wasEmissive = m_Materials->getMaterialLightFlags()[index];
 	m_Changed[MATERIALS] = true;
 	m_Materials->set(static_cast<uint>(index), mat);
 
-	if (mat.isEmissive())
+	// Material was made emissive or used to be emissive, thus we need to update area lights
+	if (mat.isEmissive() || wasEmissive)
 	{
 		for (size_t i = 0; i < m_ObjectMaterialRange.size(); i++)
 		{
 			const auto &[first, last] = m_ObjectMaterialRange[i];
 			if (index >= first && index < last)
 			{
-				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(lightFlags, true);
-				m_Changed[LIGHTS] = true;
-				m_Changed[AREA_LIGHTS] = true;
-			}
-		}
-	}
-	else if (lightFlags[index]) // This material used to be emissive, update lights
-	{
-		for (size_t i = 0; i < m_ObjectMaterialRange.size(); i++)
-		{
-			const auto &[first, last] = m_ObjectMaterialRange[i];
-			if (index >= first && index < last)
-			{
-				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(lightFlags, true);
+				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(m_Materials->getMaterialLightFlags(), true);
 				m_Changed[LIGHTS] = true;
 				m_Changed[AREA_LIGHTS] = true;
 			}

@@ -1,7 +1,3 @@
-//
-// Created by meir on 10/25/19.
-//
-
 #include "Context.h"
 
 #include "Bindings.h"
@@ -638,7 +634,7 @@ void vkrtx::Context::setLights(rfw::LightCount lightCount, const rfw::DeviceArea
 		m_SpotLightBuffer->copyToDevice(spotLights, m_SpotLightBuffer->getSize());
 	if (lightCount.directionalLightCount > 0)
 		m_DirectionalLightBuffer->copyToDevice(directionalLights, m_DirectionalLightBuffer->getSize());
-	
+
 	// Update descriptor set
 	shadeDescriptorSet->bind(cAREALIGHT_BUFFER, {m_AreaLightBuffer->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(cPOINTLIGHT_BUFFER, {m_PointLightBuffer->getDescriptorBufferInfo()});

@@ -54,9 +54,9 @@ class GLTexture
 	operator GLuint() const { return m_ID; }
 
   private:
-	TextureType m_Type;
-	GLuint m_ID;
-	GLuint m_Width, m_Height;
+	TextureType m_Type = NONE;
+	GLuint m_ID = 0;
+	GLuint m_Width = 0, m_Height = 0;
 };
 } // namespace utils
 } // namespace rfw

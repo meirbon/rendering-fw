@@ -78,11 +78,12 @@ __global__ void initCountersSubsequent()
 	counters->activePaths = counters->extensionRays; // Remaining active paths
 	counters->shaded = 0;							 // Thread atomic for shade kernel
 	counters->extensionRays = 0;					 // Compaction counter for extension rays
+	counters->shadowRays = 0;
 }
 
 #define IS_SPECULAR 1
 
-__global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */) void shade(const uint pathLength, const glm::mat3 toEyeSpace)
+__global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */) void shade(const uint pathLength, const glm::mat3 toEyeSpace)
 {
 	const int jobIndex = threadIdx.x + blockIdx.x * blockDim.x;
 	if (jobIndex >= counters->activePaths)

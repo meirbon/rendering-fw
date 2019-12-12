@@ -1,13 +1,10 @@
-//
-// Created by Mèir Noordermeer on 23/11/2019.
-//
-
 #include "Context.h"
 
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
 
 using namespace rfw;
+using namespace utils;
 
 rfw::RenderContext *createRenderContext() { return new Context(); }
 
@@ -25,9 +22,9 @@ Context::~Context()
 	delete m_NormalShader;
 }
 
-std::vector<rfw::RenderTarget> Context::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
+std::vector<RenderTarget> Context::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
-void Context::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("Not supported (yet)."); }
+void Context::init(std::shared_ptr<Window> &window) { throw std::runtime_error("Not supported (yet)."); }
 
 void Context::init(GLuint *glTextureID, uint width, uint height)
 {
@@ -38,9 +35,9 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 			throw std::runtime_error("Could not init GLEW.");
 		m_InitializedGlew = true;
 
-		m_SimpleShader = new utils::GLShader("glshaders/simple.vert", "glshaders/simple.frag");
-		m_ColorShader = new utils::GLShader("glshaders/simple.vert", "glshaders/color.frag");
-		m_NormalShader = new utils::GLShader("glshaders/simple.vert", "glshaders/normal.frag");
+		m_SimpleShader = new GLShader("glshaders/simple.vert", "glshaders/simple.frag");
+		m_ColorShader = new GLShader("glshaders/simple.vert", "glshaders/color.frag");
+		m_NormalShader = new GLShader("glshaders/simple.vert", "glshaders/normal.frag");
 		m_CurrentShader = m_SimpleShader;
 		CheckGL();
 	}
@@ -76,6 +73,7 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 	assert(m_TargetID);
 	assert(m_FboID);
 	assert(m_RboID);
+	CheckGL();
 }
 
 void Context::cleanup()
@@ -94,8 +92,11 @@ void Context::cleanup()
 	m_Materials.clear();
 }
 
-void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
+void Context::renderFrame(const Camera &camera, RenderStatus status)
 {
+	for (int i = 0, s = static_cast<int>(m_Textures.size()); i < s; i++)
+		m_Textures[i].bind(i);
+
 	CheckGL();
 	glBindFramebuffer(GL_FRAMEBUFFER, m_FboID);
 	glEnable(GL_DEPTH_TEST);
@@ -158,29 +159,31 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
-{
-	m_Materials = materials;
-}
+void Context::setMaterials(const std::vector<DeviceMaterial> &materials, const std::vector<MaterialTexIds> &texDescriptors) { m_Materials = materials; }
 
-void Context::setTextures(const std::vector<rfw::TextureData> &textures)
+void Context::setTextures(const std::vector<TextureData> &textures)
 {
+	CheckGL();
+
 	GLint value;
 	glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &value);
 
 	if (value < textures.size())
-	{
 		FAILURE("Too many textures supplied, maximum supported by current GPU: %i", value);
-	}
 
+	for (auto &m_Texture : m_Textures)
+		m_Texture.cleanup();
 	m_Textures.clear();
+
 	m_Textures.resize(textures.size());
 	m_TextureBindings.resize(textures.size());
 
-	for (int i = 0; i < textures.size(); i++)
+	CheckGL();
+
+	for (int i = 0, s = static_cast<int>(m_Textures.size()); i < s; i++)
 	{
-		const auto &tex = textures.at(i);
-		auto &glTex = m_Textures.at(i);
+		const auto &tex = textures[i];
+		auto &glTex = m_Textures[i];
 
 		glTex.bind();
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -196,7 +199,8 @@ void Context::setTextures(const std::vector<rfw::TextureData> &textures)
 
 		glTex.generateMipMaps();
 		glTex.bind(i);
-		m_TextureBindings.at(i) = i;
+
+		m_TextureBindings[i] = i;
 	}
 
 	CheckGL();
@@ -229,7 +233,16 @@ void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform)
 	}
 }
 
-void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
+void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+{
+	CheckGL();
+	std::vector<glm::vec4> skybox(width * height);
+	for (int i = 0, s = static_cast<int>(width * height); i < s; i++)
+		skybox[i] = vec4(pixels[i], 1);
+
+	m_Skybox.setData(skybox, width, height);
+	CheckGL();
+}
 
 void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
 						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)

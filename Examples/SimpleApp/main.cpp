@@ -15,7 +15,7 @@
 
 #define SKINNED_MESH 0
 #define PICA 1
-#define PICA_LIGHTS 0
+#define PICA_LIGHTS 1
 #define SPONZA 0
 #define DRAGON 0
 #define ANIMATE_DRAGON 0
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
 	unsigned int mouseX, mouseY;
 
-	auto window = std::make_shared<Window>(400, 400, "Window", true, std::make_pair(4, 5));
+	auto window = std::make_shared<Window>(1280, 720, "Window", true, std::make_pair(4, 5));
 	auto textureTarget = new GLTexture(GLTexture::VEC4, window->getFramebufferWidth(), window->getFramebufferHeight(), true);
 	auto textureShader = GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 	// auto animatedSphere = rs.addInstance(rs.addObject("Models/AnimatedMorphSphere.glb"), vec3(1), vec3(5, 2, -4), 90.0f, vec3(1, 0, 0));
 
 #if PICA
-	auto lightMaterial = rs.addMaterial(vec3(50), 1);
+	auto lightMaterial = rs.addMaterial(vec3(10), 1);
 	auto staticRef = rs.addObject("Models/pica/scene.gltf");
 	auto staticInstanceRef = rs.addInstance(staticRef);
 	staticInstanceRef.rotate(180.0f, vec3(0, 1, 0));
@@ -124,8 +124,8 @@ int main(int argc, char *argv[])
 	auto lightQuad = rs.addQuad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
 	auto lightInstance = rs.addInstance(lightQuad);
 #if PICA_LIGHTS
-	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), vec3(100));
-	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(100), cos(radians(45.0f)), vec3(0, -1, 0));
+	auto pointLight = rs.addPointLight(vec3(-15, 10, -5), vec3(10));
+	auto spotLight = rs.addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
 #endif
 #endif
 
@@ -193,6 +193,8 @@ int main(int argc, char *argv[])
 		for (int j = 0, sj = static_cast<int>(settings.settingValues[i].size()); j < sj; j++)
 			values[i][j] = settings.settingValues[i][j].c_str();
 	}
+
+	std::future<void> updateThread;
 
 	rs.synchronize();
 	rs.setProbeIndex(glm::uvec2(window->getWidth() / 2, window->getHeight() / 2));
@@ -422,14 +424,22 @@ int main(int argc, char *argv[])
 		if (camChanged)
 			status = Reset;
 
+		// Make sure synchronization has finished
+		if (updateThread.valid())
+			updateThread.get();
+
 		// Render scene
 		Timer t = {};
+		// Render frame
 		rs.renderFrame(camera, status, tonemap);
 		renderStat.addSample(t.elapsed());
 
-		if (playAnimation)
-			rs.updateAnimationsTo(float(getElapsedMicroSeconds() * (1.0 / 10e5)));
-		rs.synchronize();
+		// Launch a new update thread
+		updateThread = std::async([&rs, playAnimation] {
+			if (playAnimation)
+				rs.updateAnimationsTo(float(getElapsedMicroSeconds() * (1.0 / 10e5)));
+			rs.synchronize();
+		});
 
 		glViewport(0, 0, window->getFramebufferWidth(), window->getFramebufferHeight());
 		textureShader.bind();

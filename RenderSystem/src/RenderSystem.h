@@ -20,6 +20,7 @@
 #include "MaterialList.h"
 #include "SceneTriangles.h"
 #include "utils/gl/GLShader.h"
+#include "utils/ThreadPool.h"
 
 namespace rfw
 {
@@ -55,12 +56,14 @@ class RfwException : public std::exception
 // Use lightweight object as a geometry reference for now, we might want to expand in the future
 class GeometryReference
 {
+
 	friend class rfw::RenderSystem;
 
   private:
 	GeometryReference(size_t index, rfw::RenderSystem &system) : m_Index(index), m_System(&system) { assert(m_System); }
 
   public:
+	GeometryReference() = default;
 	operator size_t() const { return static_cast<size_t>(m_Index); }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 
@@ -184,12 +187,12 @@ class RenderSystem
 		friend class RenderSystem;
 
 	  public:
+		ProbeResult() = default;
 		rfw::InstanceReference object;
-		float distance;
-		size_t materialIdx;
+		float distance = 0;
+		size_t materialIdx = 0;
 
 	  private:
-		ProbeResult() = default;
 		ProbeResult(const rfw::InstanceReference &reference, int meshIdx, int primIdx, Triangle *t, size_t material, float dist)
 			: object(reference), distance(dist), meshID(meshIdx), primID(primIdx), triangle(t), materialIdx(material)
 		{
@@ -267,6 +270,7 @@ class RenderSystem
   private:
 	void updateAreaLights();
 
+	utils::ThreadPool m_ThreadPool;
 	GLuint m_TargetID = 0, m_FrameBufferID = 0;
 	GLuint m_TargetWidth, m_TargetHeight;
 	size_t m_EmptyMeshSlots = 0;

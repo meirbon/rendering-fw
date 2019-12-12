@@ -45,6 +45,7 @@ class Context : public RenderContext
 	rfw::RenderStats getStats() const override;
 
   private:
+	utils::GLTexture m_Skybox;
 	glm::vec3 m_Ambient = glm::vec3(0.15f);
 
 	void setLights(utils::GLShader *shader);

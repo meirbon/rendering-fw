@@ -121,13 +121,11 @@ RT_PROGRAM void generatePrimaryRay()
 	const float xr = x1 * r2 + x2 * r3;
 	const float yr = y1 * r2 + y2 * r3;
 	const glm::vec4 posLens = glm::vec4(posLensSize.x, posLensSize.y, posLensSize.z, posLensSize.w);
-	const glm::vec3 origin =
-		glm::vec3(posLens) + posLens.w * (glm::vec3(right.x, right.y, right.z) * xr + glm::vec3(up.x, up.y, up.z) * yr);
+	const glm::vec3 origin = glm::vec3(posLens) + posLens.w * (glm::vec3(right.x, right.y, right.z) * xr + glm::vec3(up.x, up.y, up.z) * yr);
 
 	const float u = (static_cast<float>(sx) + r0) * (1.0f / scrsize.x);
 	const float v = (static_cast<float>(sy) + r1) * (1.0f / scrsize.y);
-	const glm::vec3 pointOnPixel =
-		glm::vec3(p1.x, p1.y, p1.z) + u * glm::vec3(right.x, right.y, right.z) + v * glm::vec3(up.x, up.y, up.z);
+	const glm::vec3 pointOnPixel = glm::vec3(p1.x, p1.y, p1.z) + u * glm::vec3(right.x, right.y, right.z) + v * glm::vec3(up.x, up.y, up.z);
 	const glm::vec3 direction = normalize(pointOnPixel - origin);
 
 	const uint bufferIdx = pathIdx + (bufferIndex * stride);
@@ -172,7 +170,7 @@ RT_PROGRAM void generateShadowRay()
 
 	uint isVisible = 0;
 	const auto epsilon = 10.0f * geometryEpsilon;
-	rtTrace(sceneRoot, make_Ray(O, D, 2u, epsilon, D4.w - 2.0f * epsilon), isVisible);
+	rtTrace(sceneRoot, make_Ray(O, D, 2u, 1e-4f, D4.w - 2.0f * epsilon), isVisible);
 	if (isVisible == 0)
 		return;
 

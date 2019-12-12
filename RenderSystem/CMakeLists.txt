@@ -3,7 +3,7 @@ project(RenderSystem)
 file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.h)
 
-add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
+add_library(${PROJECT_NAME} OBJECT ${SOURCES} ${HEADERS})
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 find_package(OpenGL REQUIRED)
@@ -24,7 +24,7 @@ else ()
 endif ()
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLEW_STATIC GLFW_DLL)
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf)
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf ImGuiWrapper)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${LIBS} tinygltf)
 
 set_target_properties(${PROJECT_NAME}

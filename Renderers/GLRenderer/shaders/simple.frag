@@ -247,10 +247,10 @@ vec3 evalLighting(vec3 matColor, float roughness, vec3 N, vec3 T, vec3 B, vec3 w
 
 void main()
 {
-    vec3 normal = N;
     uint flags = floatBitsToUint(color_flags.w);
     vec3 finalColor = vec3(0);
     vec3 color = color_flags.xyz;
+    vec3 normal = N;
 
     if (!any(greaterThan(color, vec3(1))))
     {
@@ -300,9 +300,10 @@ void main()
             AreaLight light = areaLights[i];
             vec3 L = light.position_area.xyz - WPos.xyz;
             float dist2 = dot(L, L);
-            L /= sqrt(dist2);
+            L = normalize(L);
             float NdotL = dot(normal, L);
             float LNdotL = -dot(light.normal, L);
+
             if (NdotL > 0 && LNdotL > 0)
             {
                 finalColor += evalLighting(color, roughness, normal, T, B, forward, L) * light.radiance * NdotL * (1.0f / dist2);

@@ -81,26 +81,18 @@ class RenderContext
 
 	// Initialization methods, by default these throw to indicate the chosen rendercontext does not support the
 	// specified target
-	virtual void init(std::shared_ptr<rfw::utils::Window> &window)
-	{
-		throw std::runtime_error("RenderContext does not support given target type.");
-	};
-	virtual void init(GLuint *glTextureID, uint width, uint height)
-	{
-		throw std::runtime_error("RenderContext does not support given target type.");
-	};
+	virtual void init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("RenderContext does not support given target type."); };
+	virtual void init(GLuint *glTextureID, uint width, uint height) { throw std::runtime_error("RenderContext does not support given target type."); };
 
 	virtual void cleanup() = 0;
 	virtual void renderFrame(const rfw::Camera &camera, rfw::RenderStatus status) = 0;
-	virtual void setMaterials(const std::vector<rfw::DeviceMaterial> &materials,
-							  const std::vector<rfw::MaterialTexIds> &texDescriptors) = 0;
+	virtual void setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) = 0;
 	virtual void setTextures(const std::vector<rfw::TextureData> &textures) = 0;
 	virtual void setMesh(size_t index, const rfw::Mesh &mesh) = 0;
 	virtual void setInstance(size_t i, size_t meshIdx, const mat4 &transform) = 0;
 	virtual void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) = 0;
-	virtual void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
-						   const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
-						   const rfw::DeviceDirectionalLight *directionalLights) = 0;
+	virtual void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+						   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) = 0;
 	virtual void getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const = 0;
 	virtual rfw::AvailableRenderSettings getAvailableSettings() const = 0;
 	virtual void setSetting(const rfw::RenderSetting &setting) = 0;

@@ -3,6 +3,7 @@
 
 #include <utils/gl/CheckGL.h>
 #include <utils/gl/GLDraw.h>
+#include <utils/Timer.h>
 
 #include "kernels.h"
 #include "CheckCUDA.h"
@@ -10,13 +11,6 @@
 
 using namespace rfw;
 using namespace utils;
-
-#ifdef WIN32
-extern "C"
-{
-	__declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
-}
-#endif
 
 enum OptiXRayIndex
 {
@@ -344,9 +338,15 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	m_Context["sampleIndex"]->setUint(m_SampleIndex);
 	m_Context["pathLength"]->setUint(0);
 
+	m_RenderStats.clear();
+	rfw::utils::Timer timer = {};
+
 	try
 	{
+		timer.reset();
 		m_Context->launch(Primary, m_ScrWidth * m_ScrHeight);
+		m_RenderStats.primaryCount += m_ScrWidth * m_ScrHeight;
+		m_RenderStats.primaryTime += timer.elapsed();
 	}
 	catch (const std::exception &e)
 	{
@@ -360,25 +360,51 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	uint pathLength = 0;
 
 	const auto pixelCount = static_cast<uint>(m_ScrWidth * m_ScrHeight);
+	timer.reset();
 	InitCountersForExtend(pixelCount);
 	CheckCUDA(launchShade(pixelCount, pathLength, toEyeMatrix));
+	CheckCUDA(cudaDeviceSynchronize());
+	m_RenderStats.shadeTime += timer.elapsed();
+
 	m_Counters->copyToHost();
 	uint activePaths = counters->extensionRays;
 
 	while (activePaths > 0 && pathLength < MAX_PATH_LENGTH)
 	{
-		CheckCUDA(cudaDeviceSynchronize());
+		if (counters->shadowRays > 0)
+		{
+			m_RenderStats.shadowCount += counters->shadowRays;
+
+			timer.reset();
+			m_Context->launch(Shadow, counters->shadowRays);
+			m_RenderStats.shadowTime += timer.elapsed();
+		}
+
 		InitCountersSubsequent();
 		pathLength = pathLength + 1;
 		m_Context["pathLength"]->setUint(pathLength);
+
+		timer.reset();
 		m_Context->launch(Secondary, activePaths);
+		if (pathLength == 1)
+		{
+			m_RenderStats.secondaryCount += activePaths;
+			m_RenderStats.secondaryTime += timer.elapsed();
+		}
+		else
+		{
+			m_RenderStats.deepCount += activePaths;
+			m_RenderStats.deepTime += timer.elapsed();
+		}
+
+		timer.reset();
 		CheckCUDA(launchShade(activePaths, pathLength, toEyeMatrix));
+		CheckCUDA(cudaDeviceSynchronize());
+		m_RenderStats.shadeTime += timer.elapsed();
+
 		m_Counters->copyToHost();
 		activePaths = counters->extensionRays;
 	}
-
-	if (counters->shadowRays > 0)
-		m_Context->launch(Shadow, counters->shadowRays);
 
 	if (m_SampleIndex == 0)
 	{
@@ -586,8 +612,8 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 	instance->setMatrix(true, value_ptr(transform), value_ptr(invMat));
 	instance->validate();
 
-	m_InstanceDescriptors.at(instanceIdx).invTransform = inverse(mat3(transform));
-	m_InstanceDescriptors.at(instanceIdx).triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes.at(meshIdx)->getTrianglesBuffer().getDevicePointer());
+	m_InstanceDescriptors.at(instanceIdx).invTransform = transpose(inverse(mat3(transform)));
+	m_InstanceDescriptors.at(instanceIdx).triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->getTrianglesBuffer().getDevicePointer());
 
 	if (addInsteadOfSet)
 		m_SceneGraph->addChild(instance);
@@ -611,10 +637,12 @@ void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLi
 							 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	CheckCUDA(cudaDeviceSynchronize());
+
 	delete m_AreaLights;
 	delete m_PointLights;
 	delete m_SpotLights;
 	delete m_DirectionalLights;
+
 	m_AreaLights = nullptr;
 	m_PointLights = nullptr;
 	m_SpotLights = nullptr;
@@ -675,14 +703,14 @@ void OptiXContext::getProbeResults(unsigned int *instanceIndex, unsigned int *pr
 rfw::AvailableRenderSettings OptiXContext::getAvailableSettings() const
 {
 	AvailableRenderSettings settings;
-	settings.settingKeys = {"denoise"};
-	settings.settingValues = {{"1", "0"}};
+	settings.settingKeys = {"DENOISE"};
+	settings.settingValues = {{"0", "1"}};
 	return settings;
 }
 
 void OptiXContext::setSetting(const rfw::RenderSetting &setting)
 {
-	if (setting.name == "denoise")
+	if (setting.name == "DENOISE")
 		m_Denoise = (setting.value == "1");
 }
 
@@ -708,7 +736,7 @@ void OptiXContext::resizeBuffers()
 	m_PathOrigins = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
 	m_PathDirections = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
 	m_PathThroughputs = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
-	m_ConnectData = new OptiXCUDABuffer<PotentialContribution>(m_Context, pixelCount * MAX_PATH_LENGTH, ReadWrite, RT_FORMAT_USER);
+	m_ConnectData = new OptiXCUDABuffer<PotentialContribution>(m_Context, pixelCount, ReadWrite, RT_FORMAT_USER);
 
 	const std::array<size_t, 2> dimensions = {static_cast<size_t>(m_ScrWidth), static_cast<size_t>(m_ScrHeight)};
 	m_NormalBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);

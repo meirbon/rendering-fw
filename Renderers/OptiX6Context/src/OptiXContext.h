@@ -52,6 +52,7 @@ class OptiXContext : public rfw::RenderContext
   private:
 	bool m_Initialized = false, m_Denoise = false, m_FirstFrame = true;
 	rfw::RenderTarget m_CurrentTarget;
+	rfw::RenderStats m_RenderStats;
 	void resizeBuffers();
 	void createTexture();
 

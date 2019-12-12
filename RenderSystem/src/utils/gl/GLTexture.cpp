@@ -4,9 +4,10 @@
 namespace rfw::utils
 {
 
-GLTexture::GLTexture() : m_Type(NONE), m_Width(0), m_Height(0)
+GLTexture::GLTexture()
 {
 	glGenTextures(1, &m_ID);
+	CheckGL();
 	bind();
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -14,6 +15,8 @@ GLTexture::GLTexture() : m_Type(NONE), m_Width(0), m_Height(0)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	unbind();
 	CheckGL();
+
+	assert(m_ID > 0);
 }
 
 GLTexture::GLTexture(TextureType type, uint width, uint height, bool init) : m_Type(type), m_Width(width), m_Height(height)
@@ -25,19 +28,20 @@ GLTexture::GLTexture(TextureType type, uint width, uint height, bool init) : m_T
 		initialize(type, width, height);
 	unbind();
 	CheckGL();
+	assert(m_ID > 0);
 }
 
 GLTexture::~GLTexture() { cleanup(); }
 
-GLTexture::GLTexture(const GLTexture &other) : GLTexture()
+GLTexture::GLTexture(const GLTexture &other)
 {
-	if (this->m_ID > 0)
+	if (m_ID > 0)
 		glDeleteTextures(1, &m_ID);
 
-	this->m_ID = other.m_ID;
-	this->m_Width = other.m_Width;
-	this->m_Height = other.m_Height;
-	this->m_Type = other.m_Type;
+	m_ID = other.m_ID;
+	m_Width = other.m_Width;
+	m_Height = other.m_Height;
+	m_Type = other.m_Type;
 
 	const GLTexture *otherPtr = &other;
 	auto *ptr = const_cast<GLTexture *>(otherPtr);
@@ -86,6 +90,9 @@ void GLTexture::setData(const std::vector<glm::vec4> &data, uint width, uint hei
 
 void GLTexture::setData(const glm::vec4 *data, uint width, uint height, uint layer)
 {
+	CheckGL();
+	m_Width = width;
+	m_Height = height;
 	m_Type = VEC4;
 	bind();
 	glTexImage2D(GL_TEXTURE_2D, layer, static_cast<GLint>(m_Type), width, height, 0, GL_RGBA, GL_FLOAT, data);
@@ -97,6 +104,9 @@ void GLTexture::setData(const std::vector<uint> &data, uint width, uint height, 
 
 void GLTexture::setData(const uint *data, uint width, uint height, uint layer)
 {
+	CheckGL();
+	m_Width = width;
+	m_Height = height;
 	m_Type = UINT;
 	bind();
 	glTexImage2D(GL_TEXTURE_2D, layer, static_cast<GLint>(m_Type), width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);

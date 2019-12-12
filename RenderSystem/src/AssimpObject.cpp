@@ -62,7 +62,7 @@ struct NodeWithIndex
 int calculateNodeCount(const aiNode *node)
 {
 	int count = 1;
-	for (int i = 0; i < node->mNumChildren; i++)
+	for (int i = 0, s = static_cast<int>(node->mNumChildren); i < s; i++)
 		count += calculateNodeCount(node->mChildren[i]);
 	return count;
 }
@@ -75,7 +75,7 @@ int traverseNodeTree(NodeWithIndex *storage, const aiNode *node, int &counter)
 	storage[index].node = node;
 	storage[index].index = index;
 
-	for (int i = 0; i < node->mNumMeshes; i++)
+	for (int i = 0, s = static_cast<int>(node->mNumMeshes); i < s; i++)
 		storage[index].meshIDs.push_back(node->mMeshes[i]);
 
 	mat4 T;
@@ -83,10 +83,10 @@ int traverseNodeTree(NodeWithIndex *storage, const aiNode *node, int &counter)
 	T = rowMajor4(T);
 	storage[index].transform = T;
 
-	for (int i = 0; i < node->mNumMeshes; i++)
+	for (int i = 0, s = static_cast<int>(node->mNumMeshes); i < s; i++)
 		storage[index].meshIDs.push_back(i);
 
-	for (int i = 0; i < node->mNumChildren; i++)
+	for (int i = 0, s = static_cast<int>(node->mNumChildren); i < s; i++)
 		storage[index].childIndices.push_back(traverseNodeTree(storage, node->mChildren[i], counter));
 
 	return index;
@@ -138,23 +138,22 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		nodeIndexMapping[sceneNodes.at(i).name] = i;
 
 	auto meshes = std::vector<std::vector<rfw::TmpPrim>>(scene->mNumMeshes);
-	for (int i = 0; i < scene->mNumMeshes; i++)
+	for (int i = 0, s = static_cast<int>(scene->mNumMeshes); i < s; i++)
 	{
 		const aiMesh *mesh = scene->mMeshes[i];
 
 		TmpPrim prim = {};
 
-		for (int j = 0; j < mesh->mNumVertices; j++)
+		for (int j = 0, sj = static_cast<int>(mesh->mNumVertices); j < sj; j++)
 		{
 			prim.vertices.push_back(glm::make_vec3(&mesh->mVertices[j].x));
 			prim.normals.push_back(glm::make_vec3(&mesh->mNormals[j].x));
 			if (mesh->HasTextureCoords(0))
 				prim.uvs.push_back(glm::make_vec2(&mesh->mTextureCoords[0][j].x));
 			else
-				prim.uvs.emplace_back(0);
+				prim.uvs.emplace_back(0.0f, 0.0f);
 		}
-
-		for (int j = 0; j < mesh->mNumFaces; j++)
+		for (int j = 0, sj = static_cast<int>(mesh->mNumFaces); j < sj; j++)
 		{
 			const auto &face = mesh->mFaces[j];
 			assert(face.mNumIndices == 3);
@@ -168,7 +167,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			prim.joints.resize(prim.vertices.size(), uvec4(0));
 			prim.weights.resize(prim.vertices.size(), vec4(0));
 
-			for (int j = 0; j < mesh->mNumBones; j++)
+			for (int j = 0, sj = static_cast<int>(mesh->mNumBones); j < sj; j++)
 			{
 				const auto &bone = mesh->mBones[j];
 				const std::string key = bone->mName.C_Str();
@@ -177,7 +176,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				animNodeMeshes[key].push_back(i);
 			}
 
-			for (int j = 0; j < mesh->mNumBones; j++)
+			for (int j = 0, sj = static_cast<int>(mesh->mNumBones); j < sj; j++)
 			{
 				const auto &bone = mesh->mBones[j];
 
@@ -187,7 +186,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 					const int index = nodeIndexMapping[name];
 
 					meshSkin.jointNodes.push_back(index);
-					const int matrixIdx = meshSkin.inverseBindMatrices.size();
+					const int matrixIdx = static_cast<int>(meshSkin.inverseBindMatrices.size());
 					skinNodes[name] = matrixIdx;
 					mat4 boneMatrix = mat4(1.0f);
 					memcpy(value_ptr(boneMatrix), &bone->mOffsetMatrix, 16 * sizeof(float));
@@ -195,7 +194,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 					meshSkin.inverseBindMatrices.push_back(boneMatrix);
 				}
 
-				for (int k = 0; k < bone->mNumWeights; k++)
+				for (int k = 0, sk = static_cast<int>(bone->mNumWeights); k < sk; k++)
 				{
 					const auto &weight = bone->mWeights[k].mWeight;
 					const auto &vID = bone->mWeights[k].mVertexId;
@@ -223,7 +222,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		prim.poses.at(0).positions = prim.vertices;
 		prim.poses.at(0).normals = prim.normals;
 
-		for (int j = 0; j < mesh->mNumAnimMeshes; j++)
+		for (int j = 0, sj = static_cast<int>(mesh->mNumAnimMeshes); j < sj; j++)
 		{
 			auto &pose = prim.poses.at(j + 1);
 			const auto animMesh = mesh->mAnimMeshes[j];
@@ -231,14 +230,14 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				pose.positions = prim.vertices;
 			else
 			{
-				for (int k = 0; k < animMesh->mNumVertices; k++)
+				for (int k = 0, sk = static_cast<int>(animMesh->mNumVertices); k < sk; k++)
 					pose.positions.push_back(glm::make_vec3(&animMesh->mVertices[k].x));
 			}
 
 			if (!animMesh->HasNormals())
 				pose.normals = prim.normals;
 			{
-				for (int k = 0; k < animMesh->mNumVertices; k++)
+				for (int k = 0, sk = static_cast<int>(animMesh->mNumVertices); k < sk; k++)
 					pose.normals.push_back(glm::make_vec3(&animMesh->mNormals[k].x));
 			}
 
@@ -263,7 +262,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		object.skins.push_back(meshSkin);
 	}
 
-	for (int i = 0; i < scene->mNumAnimations; i++)
+	for (int i = 0, si = static_cast<int>(scene->mNumAnimations); i < si; i++)
 	{
 		const auto anim = scene->mAnimations[i];
 
@@ -272,7 +271,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		animation.duration = anim->mDuration;
 		animation.ticksPerSecond = anim->mTicksPerSecond;
 
-		for (int j = 0; j < anim->mNumChannels; j++)
+		for (int j = 0, sj = static_cast<int>(anim->mNumChannels); j < sj; j++)
 		{
 			const auto chan = anim->mChannels[j];
 
@@ -283,14 +282,14 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			{
 				rfw::SceneAnimation::Sampler sampler = {};
 				sampler.method = rfw::SceneAnimation::Sampler::LINEAR;
-				for (int k = 0; k < chan->mNumPositionKeys; k++)
+				for (int k = 0, sk = static_cast<int>(chan->mNumPositionKeys); k < sk; k++)
 				{
 					const auto posKey = chan->mPositionKeys[k];
-					sampler.key_frames.push_back(posKey.mTime);
+					sampler.key_frames.push_back(static_cast<float>(posKey.mTime));
 					sampler.vec3_key.push_back(glm::make_vec3(&posKey.mValue.x));
 				}
 
-				const auto samplerID = animation.samplers.size();
+				const auto samplerID = static_cast<int>(animation.samplers.size());
 				channel.samplerIDs.push_back(samplerID);
 				channel.targets.push_back(rfw::SceneAnimation::Channel::TRANSLATION);
 				animation.samplers.push_back(sampler);
@@ -300,14 +299,14 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			{
 				rfw::SceneAnimation::Sampler sampler = {};
 				sampler.method = rfw::SceneAnimation::Sampler::LINEAR;
-				for (int k = 0; k < chan->mNumRotationKeys; k++)
+				for (int k = 0, sk = static_cast<int>(chan->mNumRotationKeys); k < sk; k++)
 				{
 					const auto rotKey = chan->mRotationKeys[k];
-					sampler.key_frames.push_back(rotKey.mTime);
+					sampler.key_frames.push_back(static_cast<float>(rotKey.mTime));
 					sampler.quat_key.emplace_back(rotKey.mValue.w, rotKey.mValue.x, rotKey.mValue.y, rotKey.mValue.z);
 				}
 
-				const auto samplerID = animation.samplers.size();
+				const auto samplerID = static_cast<int>(animation.samplers.size());
 				channel.samplerIDs.push_back(samplerID);
 				channel.targets.push_back(rfw::SceneAnimation::Channel::ROTATION);
 				animation.samplers.push_back(sampler);
@@ -317,14 +316,14 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			{
 				rfw::SceneAnimation::Sampler sampler = {};
 				sampler.method = rfw::SceneAnimation::Sampler::LINEAR;
-				for (int k = 0; k < chan->mNumScalingKeys; k++)
+				for (int k = 0, sk = static_cast<int>(chan->mNumScalingKeys); k < sk; k++)
 				{
 					const auto scaleKey = chan->mScalingKeys[k];
-					sampler.key_frames.push_back(scaleKey.mTime);
+					sampler.key_frames.push_back(static_cast<float>(scaleKey.mTime));
 					sampler.vec3_key.push_back(glm::make_vec3(&scaleKey.mValue.x));
 				}
 
-				const auto samplerID = animation.samplers.size();
+				const auto samplerID = static_cast<int>(animation.samplers.size());
 				channel.samplerIDs.push_back(samplerID);
 				channel.targets.push_back(rfw::SceneAnimation::Channel::SCALE);
 				animation.samplers.push_back(sampler);
@@ -526,14 +525,14 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		m_RfwMeshes.resize(scene->mNumMeshes);
 		m_Meshes.resize(scene->mNumMeshes);
 		m_SceneGraph.resize(scene->mNumMeshes);
-		for (int i = 0; i < scene->mNumMeshes; i++)
+		for (int i = 0, si = static_cast<int>(scene->mNumMeshes); i < si; i++)
 		{
 			m_SceneGraph[i].localTransform = glm::mat4(1.0f);
 			m_SceneGraph[i].combinedTransform = glm::mat4(1.0f);
 			m_SceneGraph[i].meshes.push_back(i);
 		}
 
-		for (int i = 0; i < scene->mNumMeshes; i++)
+		for (int i = 0, si = static_cast<int>(scene->mNumMeshes); i < si; i++)
 		{
 			auto *aiMesh = scene->mMeshes[i];
 

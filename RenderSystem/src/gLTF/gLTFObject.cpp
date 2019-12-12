@@ -44,13 +44,14 @@ rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node, c
 		transform = glm::make_mat4(node.matrix.data());
 
 	if (node.translation.size() == 3)
-		T.translation = vec3(node.translation[0], node.translation[1], node.translation[2]);
+		T.translation = vec3(static_cast<float>(node.translation[0]), static_cast<float>(node.translation[1]), static_cast<float>(node.translation[2]));
 
 	if (node.rotation.size() == 4)
-		T.rotation = quat(node.rotation[3], node.rotation[0], node.rotation[1], node.rotation[2]);
+		T.rotation = quat(static_cast<float>(node.rotation[3]), static_cast<float>(node.rotation[0]), static_cast<float>(node.rotation[1]),
+						  static_cast<float>(node.rotation[2]));
 
 	if (node.scale.size() == 3)
-		T.scale = vec3(node.scale[0], node.scale[1], node.scale[2]);
+		T.scale = vec3(static_cast<float>(node.scale[0]), static_cast<float>(node.scale[1]), static_cast<float>(node.scale[2]));
 
 	auto n = rfw::SceneNode(&object.scene, node.name, node.children, {node.mesh}, {node.skin}, meshes, T, transform);
 	return n;
@@ -85,7 +86,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 		throw LoadException(message);
 	}
 
-	m_BaseMaterialIdx = matList->getMaterials().size();
+	m_BaseMaterialIdx = static_cast<uint>(matList->getMaterials().size());
 	const auto baseTextureIdx = matList->getTextures().size();
 
 	for (const auto &tinyMat : model.materials)
@@ -115,11 +116,11 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				for (auto &item : value.second.json_double_value)
 				{
 					if (item.first == "index")
-						mat.map[TEXTURE0].textureID = (int)item.second + baseTextureIdx;
+						mat.map[TEXTURE0].textureID = static_cast<int>(item.second) + static_cast<int>(baseTextureIdx);
 					if (item.first == "scale")
-						mat.map[TEXTURE0].uvscale = vec2(item.second);
+						mat.map[TEXTURE0].uvscale = vec2(static_cast<float>(item.second));
 					if (item.first == "offset")
-						mat.map[TEXTURE0].uvoffset = vec2(item.second);
+						mat.map[TEXTURE0].uvoffset = vec2(static_cast<float>(item.second));
 				}
 			}
 			if (value.first == "normalTexture")
@@ -128,11 +129,11 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				for (auto &item : value.second.json_double_value)
 				{
 					if (item.first == "index")
-						mat.map[NORMALMAP0].textureID = (int)item.second + baseTextureIdx;
+						mat.map[NORMALMAP0].textureID = static_cast<int>(item.second) + static_cast<int>(baseTextureIdx);
 					if (item.first == "scale")
-						mat.map[TEXTURE0].uvscale = vec2(item.second);
+						mat.map[NORMALMAP0].uvscale = vec2(static_cast<float>(item.second));
 					if (item.first == "offset")
-						mat.map[TEXTURE0].uvoffset = vec2(item.second);
+						mat.map[NORMALMAP0].uvoffset = vec2(static_cast<float>(item.second));
 				}
 			}
 			if (value.first == "emissiveFactor")
@@ -415,9 +416,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							{
 								glm::dvec4 w4;
 								memcpy(&w4, a, sizeof(glm::dvec4));
-								const float norm = 1.0 / (w4.x + w4.y + w4.z + w4.w);
+								const double norm = 1.0 / (w4.x + w4.y + w4.z + w4.w);
 								w4 *= norm;
-								tmpWeights.emplace_back(w4);
+								tmpWeights.emplace_back(vec4(w4));
 							}
 						}
 					}
@@ -496,7 +497,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 		scene.nodes.emplace_back(createNode(*this, node, meshes));
 	}
 
-	for (size_t i = 0; i < gltfScene.nodes.size(); i++)
+	for (int i = 0, s = static_cast<int>(gltfScene.nodes.size()); i < s; i++)
 		scene.rootNodes.push_back(i);
 
 	if (hasTransform)

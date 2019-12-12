@@ -92,9 +92,9 @@ int main(int argc, char *argv[])
 
 		// rs.loadRenderAPI("GLRenderer"); // OpenGL PBR Renderer
 
-		rs.loadRenderAPI("OptiX6Context"); // OptiX 6.5 Path tracer
+		// rs.loadRenderAPI("OptiX6Context"); // OptiX 6.5 Path tracer
 
-		// rs.loadRenderAPI("VulkanRTX"); // Vulkan RTX Path tracer
+		rs.loadRenderAPI("VulkanRTX"); // Vulkan RTX Path tracer
 
 		// rs.loadRenderAPI("VkContext"); // WIP Vulkan PBR Renderer
 	}

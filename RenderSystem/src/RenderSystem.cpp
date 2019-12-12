@@ -17,11 +17,12 @@
 #include "utils/gl/CheckGL.h"
 #include "utils/gl/GLDraw.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <ppl.h>
 #include <libloaderapi.h>
 #include <utils/Timer.h>
 #elif defined(__linux__) || defined(__APPLE__)
@@ -56,6 +57,9 @@ rfw::RenderSystem::RenderSystem() : m_ThreadPool(std::thread::hardware_concurren
 	m_ToneMapShader.bind();
 	m_ToneMapShader.setUniform("view", mat4(1.0f));
 	m_ToneMapShader.unbind();
+
+	m_TargetWidth = 0;
+	m_TargetHeight = 0;
 }
 
 rfw::RenderSystem::~RenderSystem()
@@ -272,10 +276,13 @@ void RenderSystem::synchronize()
 				continue;
 
 			const auto changedMeshes = object->getChangedMeshes();
+			auto meshes = object->getMeshes();
 
-			for (const auto &[index, mesh] : object->getMeshes())
+			for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 			{
-				// TODO: Only set meshes that actualy changed
+				if (!changedMeshes[i])
+					continue;
+				const auto &[index, mesh] = meshes[i];
 				m_Context->setMesh(index, mesh);
 			}
 		}
@@ -290,12 +297,8 @@ void RenderSystem::synchronize()
 			if (!m_ModelChanged[i])
 				continue;
 
-			const auto &model = m_Models[i];
-			const auto meshes = model->getMeshes();
-
-			for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
+			for (const auto &[meshSlot, mesh] : m_Models[i]->getMeshes())
 			{
-				const auto &[meshSlot, mesh] = meshes[i];
 				assert(mesh.vertexCount > 0);
 				assert(mesh.triangleCount > 0);
 				assert(mesh.vertices);
@@ -384,7 +387,7 @@ void RenderSystem::synchronize()
 			const auto &meshes = ref.getGeometryReference().getMeshes();
 			const auto &matrices = ref.getGeometryReference().getMeshMatrices();
 
-			for (size_t i = 0, s = meshes.size(); i < s; i++)
+			for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 			{
 				const auto meshID = meshes[i].first;
 				const auto instanceID = instanceMapping[i];
@@ -419,6 +422,17 @@ void RenderSystem::synchronize()
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
 {
 #if ENABLE_THREADING
+#if _WIN32
+	concurrency::parallel_for(0, static_cast<int>(m_Models.size()), [&](int i) {
+		auto object = m_Models[i];
+		if (object->isAnimated())
+		{
+			m_Changed[ANIMATED] = true;
+			m_ShouldReset = true;
+			object->transformTo(timeInSeconds);
+		}
+	});
+#else
 	std::vector<std::future<void>> updates;
 	for (SceneTriangles *object : m_Models)
 	{
@@ -435,6 +449,7 @@ void RenderSystem::updateAnimationsTo(float timeInSeconds)
 		if (update.valid())
 			update.get();
 	}
+#endif
 #else
 	for (size_t i = 0; i < m_Models.size(); i++)
 	{
@@ -607,11 +622,13 @@ void RenderSystem::updateInstance(const InstanceReference &instanceRef, const ma
 void RenderSystem::setAnimationTime(const rfw::GeometryReference &instanceRef, float timeInSeconds)
 {
 #if ANIMATION_ENABLED
-	assert(m_Instances.size() > (size_t)instanceRef);
-	m_Models[instanceRef]->transformTo(timeInSeconds);
-	m_ModelChanged[instanceRef] = true;
+	const auto index = instanceRef.getIndex();
 
-	if (!m_ObjectLightIndices.at(instanceRef.getIndex()).empty())
+	assert(m_Instances.size() > (size_t)instanceRef);
+	m_Models[index]->transformTo(timeInSeconds);
+	m_ModelChanged[index] = true;
+
+	if (!m_ObjectLightIndices[index].empty())
 		m_Changed[LIGHTS] = m_Changed[AREA_LIGHTS] = true;
 #endif
 }
@@ -950,14 +967,14 @@ void RenderSystem::updateAreaLights()
 		const auto &matrix = m_InstanceMatrices[i];
 		const auto &geometry = reference.getGeometryReference();
 
-		const auto lightIndices = geometry.getLightIndices();
+		const auto &lightIndices = geometry.getLightIndices();
 		if (lightIndices.empty())
 			continue;
 
-		const auto meshes = geometry.getMeshes();
-		const auto meshTransforms = geometry.getMeshMatrices();
+		const auto &meshes = geometry.getMeshes();
+		const auto &meshTransforms = geometry.getMeshMatrices();
 
-		for (int i = 0, s = meshes.size(); i < s; i++)
+		for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 		{
 			const auto &[meshSlot, mesh] = meshes[i];
 
@@ -1005,6 +1022,7 @@ void RenderSystem::updateAreaLights()
 		}
 	}
 }
+const std::vector<rfw::InstanceReference> &RenderSystem::getInstances() const { return m_Instances; }
 
 rfw::InstanceReference::InstanceReference(size_t index, GeometryReference reference, rfw::RenderSystem &system)
 {
@@ -1019,10 +1037,10 @@ rfw::InstanceReference::InstanceReference(size_t index, GeometryReference refere
 
 	const auto &meshes = reference.getMeshes();
 	m_Members->instanceIDs.resize(meshes.size());
-	for (size_t i = 0, s = meshes.size(); i < s; i++)
+	for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 	{
-		const int instanceID = system.requestInstanceIndex();
-		system.m_InverseInstanceMapping[instanceID] = std::make_tuple(index, reference.getIndex(), i);
+		const int instanceID = static_cast<int>(system.requestInstanceIndex());
+		system.m_InverseInstanceMapping[instanceID] = std::make_tuple(static_cast<int>(index), static_cast<int>(reference.getIndex()), i);
 		m_Members->instanceIDs[i] = instanceID;
 	}
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 #include <string>
 #include <string_view>
@@ -64,14 +65,14 @@ class GeometryReference
 
   public:
 	GeometryReference() = default;
-	operator size_t() const { return static_cast<size_t>(m_Index); }
+	explicit operator size_t() const { return static_cast<size_t>(m_Index); }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 
-	bool isAnimated() const;
+	[[nodiscard]] bool isAnimated() const;
 	void setAnimationTime(float time) const;
-	const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const;
-	const std::vector<glm::mat4> &getMeshMatrices() const;
-	const std::vector<std::vector<int>> &getLightIndices() const;
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const;
+	[[nodiscard]] const std::vector<glm::mat4> &getMeshMatrices() const;
+	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices() const;
 
   protected:
 	SceneTriangles *getObject() const;
@@ -97,7 +98,7 @@ class LightReference
 	LightReference(size_t index, LightType type, rfw::RenderSystem &system) : m_Index(index), m_System(&system), m_Type(type) { assert(m_System); }
 	LightReference() = default;
 
-	operator size_t() const { return m_Index; }
+	explicit operator size_t() const { return m_Index; }
 	[[nodiscard]] size_t getIndex() const { return m_Index; }
 	[[nodiscard]] LightType getType() const { return m_Type; }
 
@@ -116,7 +117,7 @@ class InstanceReference
 	InstanceReference() = default;
 	InstanceReference(size_t index, GeometryReference reference, rfw::RenderSystem &system);
 
-	operator size_t() const { return m_Members->index; }
+	explicit operator size_t() const { return m_Members->index; }
 
 	[[nodiscard]] const GeometryReference &getGeometryReference() const { return m_Members->geomReference; }
 
@@ -193,14 +194,14 @@ class RenderSystem
 		size_t materialIdx = 0;
 
 	  private:
-		ProbeResult(const rfw::InstanceReference &reference, int meshIdx, int primIdx, Triangle *t, size_t material, float dist)
-			: object(reference), distance(dist), meshID(meshIdx), primID(primIdx), triangle(t), materialIdx(material)
+		ProbeResult(rfw::InstanceReference reference, int meshIdx, int primIdx, Triangle *t, size_t material, float dist)
+			: object(std::move(reference)), distance(dist), meshID(meshIdx), primID(primIdx), triangle(t), materialIdx(material)
 		{
 		}
 
-		int meshID;
-		int primID;
-		Triangle *triangle;
+		int meshID = 0;
+		int primID = 0;
+		Triangle *triangle = nullptr;
 	};
 
 	RenderSystem();
@@ -221,7 +222,7 @@ class RenderSystem
 	rfw::GeometryReference addObject(std::string_view fileName, int material = -1);
 	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, int material = -1);
 	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
-	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, const uint material);
+	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, uint material);
 	rfw::InstanceReference addInstance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f), glm::vec3 translation = glm::vec3(0.0f),
 									   float degrees = 1.0f, glm::vec3 axes = glm::vec3(1.0f));
 	void updateInstance(const rfw::InstanceReference &instanceRef, const mat4 &transform);
@@ -272,7 +273,7 @@ class RenderSystem
 
 	utils::ThreadPool m_ThreadPool;
 	GLuint m_TargetID = 0, m_FrameBufferID = 0;
-	GLuint m_TargetWidth, m_TargetHeight;
+	GLuint m_TargetWidth = 0, m_TargetHeight = 0;
 	size_t m_EmptyMeshSlots = 0;
 	size_t m_EmptyInstanceSlots = 0;
 	std::future<void> m_UpdateThread, m_AnimationsThread;
@@ -307,7 +308,7 @@ class RenderSystem
 	std::vector<SceneTriangles *> m_Models;
 	std::mutex m_SetMeshMutex;
 
-	// A vector containg the index of (instance, object, mesh) for probe retrieval
+	// Vector containing the index of (instance, object, mesh) for probe retrieval
 	std::vector<std::tuple<int, int, int>> m_InverseInstanceMapping;
 
 	std::vector<InstanceReference> m_Instances;

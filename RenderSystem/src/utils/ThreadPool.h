@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <thread>
 #include <mutex>
 #include <queue>
@@ -7,9 +8,7 @@
 #include <atomic>
 #include <functional>
 
-namespace rfw
-{
-namespace utils
+namespace rfw::utils
 {
 class ThreadPool
 {
@@ -47,7 +46,7 @@ class ThreadPool
 
   public:
 	ThreadPool() { init(); }
-	ThreadPool(size_t threadCount)
+	explicit ThreadPool(size_t threadCount)
 	{
 		init();
 		resize(threadCount);
@@ -134,10 +133,10 @@ class ThreadPool
 			m_CV.notify_all();
 		}
 
-		for (int i = 0, s = static_cast<int>(m_Threads.size()); i < s; i++)
+		for (auto &m_Thread : m_Threads)
 		{
-			if (m_Threads[i]->joinable())
-				m_Threads[i]->join();
+			if (m_Thread->joinable())
+				m_Thread->join();
 		}
 
 		clearQueue();
@@ -169,13 +168,13 @@ class ThreadPool
 		return pck->get_future();
 	}
 
-  private:
 	// Prevent threadpools from being moved around
 	ThreadPool(const ThreadPool &other) = delete;
 	ThreadPool(ThreadPool &&) = delete;
-	ThreadPool &operator=(const ThreadPool &);
-	ThreadPool &operator=(ThreadPool &&);
+	ThreadPool &operator=(const ThreadPool &) = delete;
+	ThreadPool &operator=(ThreadPool &&) = delete;
 
+  private:
 	void setThread(size_t ID)
 	{
 		// Copy of the shared ptr to the flag
@@ -189,7 +188,7 @@ class ThreadPool
 				while (isPop)
 				{																 // if there is anything in the queue
 					std::unique_ptr<std::function<void(int id)>> func(callback); // at return, delete the function even if an exception occurred
-					(*callback)(ID);
+					(*callback)(static_cast<int>(ID));
 					if (_flag)
 						return; // the thread is wanted to stop, return even if the queue is not empty yet
 					else
@@ -211,7 +210,7 @@ class ThreadPool
 		};
 
 		// compiler may not support std::make_unique()
-		m_Threads[ID].reset(new std::thread(f));
+		m_Threads[ID] = std::make_unique<std::thread>(f);
 	}
 
 	void init()
@@ -233,5 +232,4 @@ class ThreadPool
 	std::mutex m_Mutex;
 	std::condition_variable m_CV;
 };
-} // namespace utils
-} // namespace rfw
+} // namespace rfw::utils

@@ -29,7 +29,7 @@ void rfw::Application::run(Application *app)
 }
 
 rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string_view title, std::string_view renderAPI)
-	: window(scrWidth, scrHeight, title.data(), true, std::make_pair(4, 5)), m_ImGuiContext(window.getGLFW())
+	: window(static_cast<int>(scrWidth), static_cast<int>(scrHeight), title.data(), true, std::make_pair(4, 5)), m_ImGuiContext(window.getGLFW())
 {
 	m_RS = std::make_unique<rfw::RenderSystem>();
 

@@ -30,6 +30,9 @@ class TopLevelBVH
 		m_Nodes[0].leftFirst = 0;
 		m_Nodes[0].count = boundingBoxes.size();
 		m_Nodes[0].Subdivide(boundingBoxes.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
+
+		//m_MNodes.resize(m_Nodes.size());
+		//m_MNodes[0].MergeNodes(m_Nodes[0], m_Nodes.data(), )
 	}
 
 	rfw::Triangle *intersect(Ray &ray, float t_min = 0.0f) const
@@ -55,9 +58,11 @@ class TopLevelBVH
 					const auto primIdx = m_PrimIndices[node.GetLeftFirst() + i];
 					if (boundingBoxes[primIdx].Intersect(ray.origin, dirInverse, &tNear1, &tFar1) && tNear1 < ray.t)
 					{
-						instIdx = primIdx;
 						const auto mesh = accelerationStructures[primIdx];
+						int rayPrimIdx = ray.primIdx;
 						mesh->mbvh->traverse(ray.origin, ray.direction, t_min, &ray.t, &ray.primIdx);
+						if (ray.primIdx != rayPrimIdx)
+							instIdx = primIdx;
 					}
 				}
 			}
@@ -128,6 +133,7 @@ class TopLevelBVH
 	// Top level BVH structure data
 	std::atomic_int m_PoolPtr = 0;
 	std::vector<BVHNode> m_Nodes;
+	std::vector<MBVHNode> m_MNodes;
 	std::vector<AABB> boundingBoxes;
 	std::vector<unsigned int> m_PrimIndices;
 

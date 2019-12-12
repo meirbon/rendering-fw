@@ -14,7 +14,7 @@
 #define CATCH_ERRORS 0
 
 #define SKINNED_MESH 0
-#define PICA 0
+#define PICA 1
 #define PICA_LIGHTS 0
 #define SPONZA 0
 #define DRAGON 0
@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 
 	unsigned int mouseX, mouseY;
 
-	auto window = std::make_shared<Window>(1280, 720, "Window", true, std::make_pair(4, 5));
+	auto window = std::make_shared<Window>(400, 400, "Window", true, std::make_pair(4, 5));
 	auto textureTarget = new GLTexture(GLTexture::VEC4, window->getFramebufferWidth(), window->getFramebufferHeight(), true);
 	auto textureShader = GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
 

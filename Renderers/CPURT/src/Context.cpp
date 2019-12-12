@@ -49,6 +49,9 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	m_Pixels = static_cast<glm::vec4 *>(glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB));
 	assert(m_Pixels);
 
+	const auto camParams = Ray::CameraParams(camera.getView(), 0, 1e-5f, m_Width, m_Height);
+
+#pragma omp parallel for
 	for (int y = 0; y < m_Height; y++)
 	{
 		const int yOffset = y * m_Width;
@@ -57,7 +60,13 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 		{
 			const int pixelIdx = yOffset + x;
 
-			m_Pixels[pixelIdx] = glm::vec4((float)x / m_Width, (float)y / m_Height, 0.2f, 1.0f);
+			Ray ray = Ray::generateFromView(camParams, x, y, 0, 0, 0, 0);
+			auto triangle = topLevelBVH.intersect(ray, 1e-5f);
+
+			if (triangle)
+				m_Pixels[pixelIdx] = glm::vec4(triangle->Nx, triangle->Ny, triangle->Nz, 1.0f);
+			else
+				m_Pixels[pixelIdx] = glm::vec4(0.0f);
 		}
 	}
 
@@ -119,7 +128,7 @@ rfw::AvailableRenderSettings Context::getAvailableSettings() const { return {}; 
 
 void Context::setSetting(const rfw::RenderSetting &setting) {}
 
-void Context::update() {}
+void Context::update() { topLevelBVH.constructBVH(); }
 
 void Context::setProbePos(glm::uvec2 probePos) {}
 

@@ -75,6 +75,7 @@ void BVHTree::reset()
 
 void BVHTree::setVertices(const glm::vec4 *vertices)
 {
+	m_Vertices = vertices;
 	aabb = AABB();
 
 	m_AABBs.resize(m_FaceCount);

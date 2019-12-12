@@ -4,7 +4,7 @@
 
 #include "../Triangle.h"
 
-#define MAX_PRIMS 4
+#define MAX_PRIMS 1
 #define MAX_DEPTH 64
 #define BINS 11
 

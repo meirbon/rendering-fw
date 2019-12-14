@@ -1,10 +1,12 @@
 #include <Application.h>
 
 #define SKINNED_MESH 0
-#define PICA 1
-#define PICA_LIGHTS 1
+#define CESIUMMAN 0
+#define POLLY 0
+#define PICA 0
+#define PICA_LIGHTS 0
+#define DRAGON 1
 #define SPONZA 0
-#define DRAGON 0
 #define ANIMATE_DRAGON 0
 
 using namespace rfw;
@@ -25,17 +27,30 @@ class App : public rfw::Application
 
   private:
 	unsigned int mouseX, mouseY;
+#if CESIUMMAN
 	rfw::GeometryReference cesiumMan;
 	rfw::InstanceReference cesiumManInstance;
+#endif
+#if POLLY
 	rfw::GeometryReference polly;
 	rfw::InstanceReference pollyInstance;
+#endif
+#if PICA
 	rfw::GeometryReference pica;
 	rfw::InstanceReference picaInstance;
-
+#endif
+#if DRAGON
+	rfw::GeometryReference dragon;
+	rfw::InstanceReference dragonInstance;
+	rfw::GeometryReference plane;
+	rfw::InstanceReference planeInstance;
+#endif
+#if PICA_LIGHTS
 	rfw::GeometryReference lightQuad;
 	rfw::InstanceReference lightQuadInstance;
 	rfw::LightReference pointLight;
 	rfw::LightReference spotLight;
+#endif
 
 	rfw::RenderSystem::ProbeResult probe = {};
 	size_t instanceID = 0, materialID = 0;
@@ -65,26 +80,57 @@ void App::init() {}
 void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	rs->setSkybox("Envmaps/sky_15.hdr");
+#if CESIUMMAN
 	cesiumMan = rs->addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+#endif
+#if POLLY
 	polly = rs->addObject("Models/project_polly.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+#endif
+#if PICA
 	pica = rs->addObject("Models/pica/scene.gltf");
-
+#endif
+#if PICA_LIGHTS
 	auto lightMaterial = rs->addMaterial(vec3(50), 1);
-
 	lightQuad = rs->addQuad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
-	lightQuadInstance = rs->addInstance(lightQuad);
 	pointLight = rs->addPointLight(vec3(-15, 10, -5), vec3(10));
 	spotLight = rs->addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
+#endif
+#if DRAGON
+	const auto dragonMaterial = rs->addMaterial(vec3(255.f / 255.f, 231.f / 255.f, 102.f / 255.f), 0.05f);
+	auto material = rs->getMaterial(dragonMaterial);
+	material.metallic = 1.0f;
+	rs->setMaterial(dragonMaterial, material);
+	dragon = rs->addObject("Models/dragon.obj", dragonMaterial);
+	const auto planeMat = rs->addMaterial(vec3(1.f, 0.4f, 0.4f), 0.03f);
+	material = rs->getMaterial(planeMat);
+	material.metallic = 0.2f;
+	rs->setMaterial(planeMat, material);
+	plane = rs->addQuad(vec3(0, 1, 0), vec3(0, 0, 0), 50.0f, 50.0f, planeMat);
+
+	rs->addPointLight(vec3(5, 10, 2), vec3(100));
+#endif
 }
 
 void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
 {
+#if CESIUMMAN
 	cesiumManInstance = rs->addInstance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
+#endif
+#if POLLY
 	pollyInstance = rs->addInstance(polly, vec3(1), vec3(8, 2, 1));
+#endif
+#if PICA
 	picaInstance = rs->addInstance(pica);
-
 	picaInstance.rotate(180.0f, vec3(0, 1, 0));
 	picaInstance.update();
+#endif
+#if PICA_LIGHTS
+	lightQuadInstance = rs->addInstance(lightQuad);
+#endif
+#if DRAGON
+	dragonInstance = rs->addInstance(dragon, vec3(10), vec3(0, 2.83f, 0));
+	planeInstance = rs->addInstance(plane);
+#endif
 }
 
 void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
@@ -263,8 +309,8 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 		rs->setMaterial(materialID, hostMaterial);
 	ImGui::Text("Material %zu", materialID);
 	ImGui::ColorEdit3("Color", value_ptr(hostMaterial.color), ImGuiColorEditFlags_DisplayRGB);
-	ImGui::ColorEdit3("Absorption", value_ptr(hostMaterial.absorption), ImGuiColorEditFlags_DisplayRGB);
-	ImGui::SliderFloat("Ior", &hostMaterial.eta, 0.0f, 1.0f);
+	ImGui::SliderFloat3("Absorption", value_ptr(hostMaterial.absorption), 0.0f, 100.0f, "%.0f");
+	ImGui::SliderFloat("Ior", &hostMaterial.eta, 1.0f, 2.0f);
 	ImGui::SliderFloat("Roughness", &hostMaterial.roughness, 0.0f, 1.0f);
 	ImGui::SliderFloat("Transmission", &hostMaterial.transmission, 0.0f, 1.0f);
 	ImGui::SliderFloat("Metallic", &hostMaterial.metallic, 0.0f, 1.0f);
@@ -276,8 +322,6 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::SliderFloat("Spec tint", &hostMaterial.specularTint, 0.0f, 10.f);
 	ImGui::SliderFloat("Subsurface", &hostMaterial.subsurface, 0.0f, 1.0f);
 	ImGui::EndGroup();
-
-	ImGui::End();
 
 	ImGui::End();
 }

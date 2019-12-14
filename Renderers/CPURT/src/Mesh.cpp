@@ -8,7 +8,7 @@ using namespace rfw;
 
 void rfw::CPUMesh::setGeometry(const Mesh &mesh)
 {
-	triangles = (rfw::Triangle *)mesh.triangles;
+	triangles = const_cast<rfw::Triangle *>(mesh.triangles);
 	vertexCount = mesh.vertexCount;
 	triangleCount = mesh.triangleCount;
 

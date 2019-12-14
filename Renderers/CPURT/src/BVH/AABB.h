@@ -39,8 +39,9 @@ class AABB
 
 	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const
 	{
-		const glm::vec3 t1 = (glm::make_vec3(bmin) - org) * dirInverse;
-		const glm::vec3 t2 = (glm::make_vec3(bmax) - org) * dirInverse;
+#if 0
+		const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+		const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
 
 		const glm::vec3 min = glm::min(t1, t2);
 		const glm::vec3 max = glm::max(t1, t2);
@@ -49,6 +50,31 @@ class AABB
 		*t_max = glm::min(max.x, glm::min(max.y, max.z));
 
 		return *t_max >= 0.0f && *t_min < *t_max;
+#else
+		const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+		const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+
+		const __m128 t1 = _mm_mul_ps(_mm_sub_ps(bmin4, origin), dirInv);
+		const __m128 t2 = _mm_mul_ps(_mm_sub_ps(bmax4, origin), dirInv);
+
+		union {
+			__m128 tmin4;
+			float tmin[4];
+		};
+
+		union {
+			__m128 tmax4;
+			float tmax[4];
+		};
+
+		tmin4 = _mm_min_ps(t1, t2);
+		tmax4 = _mm_max_ps(t1, t2);
+
+		*t_min = glm::max(tmin[0], glm::max(tmin[1], tmin[2]));
+		*t_max = glm::min(tmax[0], glm::min(tmax[1], tmax[2]));
+
+		return *t_max >= 0.0f && *t_min < *t_max;
+#endif
 	}
 
 	inline void Reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }

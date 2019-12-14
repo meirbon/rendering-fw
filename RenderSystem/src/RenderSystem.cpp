@@ -658,13 +658,13 @@ void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
 	}
 }
 
-uint RenderSystem::addMaterial(const glm::vec3 &color, float roughness)
+int RenderSystem::addMaterial(const glm::vec3 &color, float roughness)
 {
 	HostMaterial mat{};
 	mat.color = color;
 	mat.roughness = roughness;
 	m_Changed[MATERIALS] = true;
-	const uint index = m_Materials->add(mat);
+	const int index = static_cast<int>(m_Materials->add(mat));
 	return index;
 }
 

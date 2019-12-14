@@ -2,6 +2,7 @@
 
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
+#include <utils/Timer.h>
 
 #ifdef _WIN32
 #include <ppl.h>
@@ -55,8 +56,12 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	const auto camParams = Ray::CameraParams(camera.getView(), 0, 1e-5f, m_Width, m_Height);
 
+	m_Stats.clear();
+	m_Stats.primaryCount = m_Width * m_Height;
+
+	auto timer = rfw::utils::Timer();
 #ifdef _WIN32
-	concurrency::parallel_for(0, m_Height, [&](int y) {
+	concurrency::parallel_for(0, m_Height, [&](const int y) {
 #else
 	for (int y = 0; y < m_Height; y++)
 	{
@@ -68,10 +73,17 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			const int pixelIdx = yOffset + x;
 
 			Ray ray = Ray::generateFromView(camParams, x, y, 0, 0, 0, 0);
-			auto triangle = topLevelBVH.intersect(ray, 1e-5f);
+			const auto result = topLevelBVH.intersect(ray, 1e-5f);
 
-			if (triangle)
-				m_Pixels[pixelIdx] = glm::vec4(triangle->Nx, triangle->Ny, triangle->Nz, 1.0f);
+			if (result.has_value())
+			{
+				const auto &tri = result.value();
+				const vec3 N = vec3(tri.Nx, tri.Ny, tri.Nz);
+				const vec3 p = ray.origin + ray.direction * ray.t;
+				const vec3 bary = triangle::getBaryCoords(p, N, tri.vertex0, tri.vertex1, tri.vertex2);
+				const vec3 iN = normalize(bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2);
+				m_Pixels[pixelIdx] = glm::vec4(iN, 1.0f);
+			}
 			else
 			{
 				const vec2 uv = vec2(0.5f * (1.0f + atan(ray.direction.x, -ray.direction.z) * glm::one_over_pi<float>()),
@@ -85,6 +97,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 #else
 	}
 #endif
+	m_Stats.primaryTime = timer.elapsed();
 
 	glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB);
 	CheckGL();
@@ -153,4 +166,4 @@ void Context::update() { topLevelBVH.constructBVH(); }
 
 void Context::setProbePos(glm::uvec2 probePos) {}
 
-rfw::RenderStats Context::getStats() const { return rfw::RenderStats(); }
+rfw::RenderStats Context::getStats() const { return m_Stats; }

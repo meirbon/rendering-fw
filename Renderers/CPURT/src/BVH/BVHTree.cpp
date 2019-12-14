@@ -76,7 +76,10 @@ void BVHTree::reset()
 void BVHTree::setVertices(const glm::vec4 *vertices)
 {
 	m_Vertices = vertices;
-	aabb = AABB();
+	aabb = AABB(vec3(1e34f), vec3(-1e34f));
+
+	for (int i = 0; i < m_VertexCount; i++)
+		aabb.Grow(m_Vertices[i]);
 
 	m_AABBs.resize(m_FaceCount);
 	if (m_Indices)
@@ -85,7 +88,6 @@ void BVHTree::setVertices(const glm::vec4 *vertices)
 		{
 			const uvec3 &idx = m_Indices[i];
 			m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
-			aabb.Grow(m_AABBs[i]);
 		}
 	}
 	else
@@ -94,7 +96,6 @@ void BVHTree::setVertices(const glm::vec4 *vertices)
 		{
 			const uvec3 idx = uvec3(i * 3) + uvec3(0, 1, 2);
 			m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
-			aabb.Grow(m_AABBs[i]);
 		}
 	}
 }

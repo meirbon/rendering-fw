@@ -1,3 +1,4 @@
+#define GLM_FORCE_AVX
 #include "BVH/MBVHTree.h"
 
 #define PRINT_BUILD_TIME 1
@@ -31,10 +32,10 @@ void MBVHTree::constructBVH()
 	}
 }
 
-void MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx)
+bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx)
 {
 	if (m_OriginalTree->m_Indices)
-		MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->m_Vertices, m_OriginalTree->m_Indices);
-	else
-		MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->m_Vertices);
+		return MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->m_Vertices,
+									  m_OriginalTree->m_Indices);
+	return MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->m_Vertices);
 }

@@ -16,6 +16,8 @@ struct MBVHTraversal
 struct MBVHHit
 {
 	union {
+		__m128 t_min;
+		__m128i t_mini;
 		glm::vec4 tmin4;
 		float tmin[4];
 		int tmini[4];
@@ -67,6 +69,60 @@ class MBVHNode
 
 	inline MBVHHit intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t) const
 	{
+#if 1
+		static const __m128i mask = _mm_set1_epi32(0xFFFFFFFCu);
+		static const __m128i or_mask = _mm_set_epi32(0b11, 0b10, 0b01, 0b00);
+
+		MBVHHit hit{};
+
+		__m128 orgComponent = _mm_set1_ps(org.x);
+		__m128 dirComponent = _mm_set1_ps(dirInverse.x);
+
+		__m128 t1 = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(bminx), orgComponent), dirComponent);
+		__m128 t2 = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(bmaxx), orgComponent), dirComponent);
+
+		hit.t_min = _mm_min_ps(t1, t2);
+		__m128 t_max = _mm_max_ps(t1, t2);
+
+		orgComponent = _mm_set1_ps(org.y);
+		dirComponent = _mm_set1_ps(dirInverse.y);
+		t1 = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(bminy), orgComponent), dirComponent);
+		t2 = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(bmaxy), orgComponent), dirComponent);
+
+		hit.t_min = _mm_max_ps(hit.t_min, _mm_min_ps(t1, t2));
+		t_max = _mm_min_ps(t_max, _mm_max_ps(t1, t2));
+
+		orgComponent = _mm_set1_ps(org.z);
+		dirComponent = _mm_set1_ps(dirInverse.z);
+		t1 = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(bminz), orgComponent), dirComponent);
+		t2 = _mm_mul_ps(_mm_sub_ps(_mm_load_ps(bmaxz), orgComponent), dirComponent);
+
+		hit.t_min = _mm_max_ps(hit.t_min, _mm_min_ps(t1, t2));
+		t_max = _mm_min_ps(t_max, _mm_max_ps(t1, t2));
+
+		hit.t_mini = _mm_and_si128(hit.t_mini, mask);
+		hit.t_mini = _mm_or_si128(hit.t_mini, or_mask);
+		const __m128 greaterThan0 = _mm_cmpgt_ps(t_max, _mm_set1_ps(0.0f));
+		const __m128 lessThanEqualMax = _mm_cmple_ps(hit.t_min, t_max);
+		const __m128 lessThanT = _mm_cmplt_ps(hit.t_min, _mm_set1_ps(*t));
+
+		const __m128 result = _mm_and_ps(greaterThan0, _mm_and_ps(lessThanEqualMax, lessThanT));
+		const int resultMask = _mm_movemask_ps(result);
+		hit.result = glm::bvec4(resultMask & 1, resultMask & 2, resultMask & 4, resultMask & 8);
+
+		if (hit.tmin[0] > hit.tmin[1])
+			std::swap(hit.tmin[0], hit.tmin[1]);
+		if (hit.tmin[2] > hit.tmin[3])
+			std::swap(hit.tmin[2], hit.tmin[3]);
+		if (hit.tmin[0] > hit.tmin[2])
+			std::swap(hit.tmin[0], hit.tmin[2]);
+		if (hit.tmin[1] > hit.tmin[3])
+			std::swap(hit.tmin[1], hit.tmin[3]);
+		if (hit.tmin[2] > hit.tmin[3])
+			std::swap(hit.tmin[2], hit.tmin[3]);
+
+		return hit;
+#else
 		MBVHHit hit{};
 
 		glm::vec4 t1 = (bminx4 - org.x) * dirInverse.x;
@@ -106,6 +162,7 @@ class MBVHNode
 			std::swap(hit.tmin[2], hit.tmin[3]);
 
 		return hit;
+#endif
 	}
 
 	void MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr);
@@ -117,9 +174,9 @@ class MBVHNode
 
 	void SortResults(const float *tmin, int &a, int &b, int &c, int &d) const;
 
-	static void traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
+	static bool traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
 							 const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
-	static void traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
+	static bool traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
 							 const unsigned int *primIndices, const glm::vec4 *vertices);
 
 	static bool traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,

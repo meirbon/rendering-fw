@@ -1,4 +1,7 @@
+#define GLM_FORCE_AVX
+
 #include "Triangle.h"
+#include <glm/simd/geometric.h>
 
 using namespace glm;
 namespace rfw::triangle
@@ -40,9 +43,76 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14, const glm::vec4 &p24,
 			   const float epsilon)
 {
-	const vec3 p0 = vec3(p04);
-	const vec3 p1 = vec3(p14);
-	const vec3 p2 = vec3(p24);
+#if 0
+	const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+	const __m128 direction = _mm_maskload_ps(value_ptr(dir), _mm_set_epi32(0, ~0, ~0, ~0));
+
+	const __m128 p0 = _mm_load_ps(value_ptr(p04));
+	const __m128 p1 = _mm_load_ps(value_ptr(p14));
+	const __m128 p2 = _mm_load_ps(value_ptr(p24));
+
+	const __m128 edge1 = _mm_sub_ps(p1, p0);
+	const __m128 edge2 = _mm_sub_ps(p2, p0);
+
+	const __m128 h = glm_vec4_cross(edge1, edge2);
+
+	union {
+		__m128 a4;
+		float a[4];
+	};
+
+	a4 = glm_vec4_dot(edge1, h);
+
+	if (a[0] > -epsilon && a[0] < epsilon)
+		return false;
+
+	const float f = 1.f / a[0];
+
+	const __m128 s = _mm_sub_ps(origin, p0);
+
+	union {
+		__m128 sh4;
+		float sh[4];
+	};
+	sh4 = glm_vec4_dot(s, h);
+
+	const float u = f * sh[0];
+	if (u < 0.0f || u > 1.0f)
+		return false;
+
+	const __m128 q = glm_vec4_cross(s, edge1);
+
+	union {
+		__m128 dirq4;
+		float dirq[4];
+	};
+
+	dirq4 = glm_vec4_dot(direction, q);
+	const float v = f * dirq[0];
+
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+
+	union {
+		__m128 edge2q4;
+		float edge2q[4];
+	};
+
+	edge2q4 = glm_vec4_dot(edge2, q);
+
+	const float t = f * edge2q[0];
+
+	if (t > tmin && *rayt > t) // ray intersection
+	{
+		*rayt = t;
+		return true;
+	}
+
+	return false;
+#else
+	const vec3 p0 = p04;
+	const vec3 p1 = p14;
+	const vec3 p2 = p24;
 
 	const vec3 edge1 = p1 - p0;
 	const vec3 edge2 = p2 - p0;
@@ -73,6 +143,7 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 	}
 
 	return false;
+#endif
 }
 
 glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2)

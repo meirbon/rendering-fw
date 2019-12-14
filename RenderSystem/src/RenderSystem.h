@@ -231,7 +231,7 @@ class RenderSystem
 
 	rfw::HostMaterial getMaterial(size_t index) const;
 	void setMaterial(size_t index, const rfw::HostMaterial &mat);
-	uint addMaterial(const glm::vec3 &color, float roughness = 1.0f);
+	int addMaterial(const glm::vec3 &color, float roughness = 1.0f);
 	void renderFrame(const Camera &camera, RenderStatus status = Converge, bool toneMap = true);
 
 	LightReference addPointLight(const glm::vec3 &position, const glm::vec3 &radiance);

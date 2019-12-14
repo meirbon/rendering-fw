@@ -1,3 +1,4 @@
+#define GLM_FORCE_AVX
 #include "BVH/MBVHNode.h"
 #include "BVH/MBVHTree.h"
 
@@ -183,9 +184,11 @@ void MBVHNode::SortResults(const float *tmin, int &a, int &b, int &c, int &d) co
 	if (tmin[b] > tmin[c])
 		std::swap(b, c);
 }
-void MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
+bool MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
 							const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
+	bool valid = false;
+
 	MBVHTraversal todo[32];
 	int stackptr = 0;
 
@@ -208,7 +211,10 @@ void MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_
 				const glm::uvec3 &idx = indices[primIdx];
 
 				if (rfw::triangle::intersect(org, dir, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z]))
+				{
+					valid = true;
 					*hit_idx = primIdx;
+				}
 			}
 			continue;
 		}
@@ -225,10 +231,14 @@ void MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_
 			}
 		}
 	}
+
+	return valid;
 }
-void MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
+
+bool MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
 							const unsigned int *primIndices, const glm::vec4 *vertices)
 {
+	bool valid = false;
 	MBVHTraversal todo[32];
 	int stackptr = 0;
 
@@ -251,7 +261,10 @@ void MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_
 				const glm::uvec3 idx = uvec3(primIdx * 3) + uvec3(0, 1, 2);
 
 				if (rfw::triangle::intersect(org, dir, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z]))
+				{
+					valid = true;
 					*hit_idx = primIdx;
+				}
 			}
 			continue;
 		}
@@ -268,6 +281,8 @@ void MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_
 			}
 		}
 	}
+
+	return valid;
 }
 
 bool MBVHNode::traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,

@@ -4,7 +4,7 @@
 
 #include "../Triangle.h"
 
-#define MAX_PRIMS 1
+#define MAX_PRIMS 3
 #define MAX_DEPTH 64
 #define BINS 11
 
@@ -24,6 +24,7 @@ BVHNode::BVHNode(int leftFirst, int count, AABB bounds) : bounds(bounds)
 
 bool BVHNode::Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const
 {
+#if 0
 	const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
 	const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
 
@@ -34,22 +35,45 @@ bool BVHNode::Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float
 	*t_max = glm::min(max.x, glm::min(max.y, max.z));
 
 	return *t_max >= 0.0f && *t_min < *t_max;
+#else
+	const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+	const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+
+	const __m128 t1 = _mm_mul_ps(_mm_sub_ps(bounds.bmin4, origin), dirInv);
+	const __m128 t2 = _mm_mul_ps(_mm_sub_ps(bounds.bmax4, origin), dirInv);
+
+	union {
+		__m128 tmin4;
+		float tmin[4];
+	};
+
+	union {
+		__m128 tmax4;
+		float tmax[4];
+	};
+
+	tmin4 = _mm_min_ps(t1, t2);
+	tmax4 = _mm_max_ps(t1, t2);
+
+	*t_min = glm::max(tmin[0], glm::max(tmin[1], tmin[2]));
+	*t_max = glm::min(tmax[0], glm::min(tmax[1], tmax[2]));
+
+	return *t_max >= 0.0f && *t_min < *t_max;
+#endif
 }
 
 void BVHNode::CalculateBounds(const AABB *aabbs, const unsigned int *primitiveIndices)
 {
 	AABB newBounds = {vec3(1e34f), vec3(-1e34f)};
 	for (int idx = 0; idx < bounds.count; idx++)
-	{
 		newBounds.Grow(aabbs[primitiveIndices[bounds.leftFirst + idx]]);
-	}
 
-	bounds.xMin = newBounds.xMin;
-	bounds.yMin = newBounds.yMin;
-	bounds.zMin = newBounds.zMin;
-	bounds.xMax = newBounds.xMax;
-	bounds.yMax = newBounds.yMax;
-	bounds.zMax = newBounds.zMax;
+	bounds.xMin = newBounds.xMin - 1e-5f;
+	bounds.yMin = newBounds.yMin - 1e-5f;
+	bounds.zMin = newBounds.zMin - 1e-5f;
+	bounds.xMax = newBounds.xMax + 1e-5f;
+	bounds.yMax = newBounds.yMax + 1e-5f;
+	bounds.zMax = newBounds.zMax + 1e-5f;
 }
 
 void BVHNode::Subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, unsigned int depth, std::atomic_int &poolPtr)

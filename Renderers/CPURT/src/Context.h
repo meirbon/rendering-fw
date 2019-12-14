@@ -40,6 +40,7 @@ class Context : public RenderContext
 	rfw::RenderStats getStats() const override;
 
   private:
+	rfw::RenderStats m_Stats;
 	LightCount m_LightCount;
 	std::vector<PointLight> m_PointLights;
 	std::vector<AreaLight> m_AreaLights;

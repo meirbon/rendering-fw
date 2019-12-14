@@ -27,6 +27,8 @@ class App : public rfw::Application
 	unsigned int mouseX, mouseY;
 	rfw::GeometryReference cesiumMan;
 	rfw::InstanceReference cesiumManInstance;
+	rfw::GeometryReference polly;
+	rfw::InstanceReference pollyInstance;
 	rfw::GeometryReference pica;
 	rfw::InstanceReference picaInstance;
 
@@ -45,9 +47,10 @@ class App : public rfw::Application
 
 	bool updateFocus = false;
 	bool camChanged = false;
+	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", "VulkanRTX")
+App::App() : Application(1280, 720, "RenderingFW", GLRENDERER)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getWidth(), window.getHeight());
@@ -63,6 +66,7 @@ void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	rs->setSkybox("Envmaps/sky_15.hdr");
 	cesiumMan = rs->addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+	polly = rs->addObject("Models/project_polly.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
 	pica = rs->addObject("Models/pica/scene.gltf");
 
 	auto lightMaterial = rs->addMaterial(vec3(50), 1);
@@ -76,6 +80,7 @@ void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	cesiumManInstance = rs->addInstance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
+	pollyInstance = rs->addInstance(polly, vec3(1), vec3(8, 2, 1));
 	picaInstance = rs->addInstance(pica);
 
 	picaInstance.rotate(180.0f, vec3(0, 1, 0));
@@ -85,6 +90,8 @@ void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
 void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 {
 	stats = rs->getRenderStats();
+	if (playAnimations)
+		rs->updateAnimationsTo(static_cast<float>(glfwGetTime()));
 
 	status = window.pressed(KEY_B) ? Reset : Converge;
 	auto translation = vec3(0.0f);
@@ -185,6 +192,7 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	ImGui::Begin("Stats");
+	ImGui::Checkbox("Animations", &playAnimations);
 	ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000, stats.primaryCount / (max(1.0f, stats.primaryTime * 1000000)));
 	ImGui::Text("# Secondary: %6ik (%2.1fM/s)", stats.secondaryCount / 1000, stats.secondaryCount / (max(1.0f, stats.secondaryTime * 1000000)));
 	ImGui::Text("# Deep: %6ik (%2.1fM/s)", stats.deepCount / 1000, stats.deepCount / (max(1.0f, stats.deepTime * 1000000)));
@@ -196,6 +204,8 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Text("Shadow %2.2f ms", stats.shadowTime);
 	ImGui::Text("Shade %2.2f ms", stats.shadeTime);
 	ImGui::Text("Finalize %2.2f ms", stats.finalizeTime);
+	ImGui::Text("Animation %2.2f ms", stats.animationTime);
+	ImGui::Text("Render %2.2f ms", stats.renderTime);
 
 	ImGui::Separator();
 	ImGui::BeginGroup();

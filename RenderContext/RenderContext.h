@@ -69,6 +69,9 @@ struct RenderStats
 
 	float shadeTime;
 	float finalizeTime;
+
+	float animationTime;
+	float renderTime;
 };
 
 class RenderContext

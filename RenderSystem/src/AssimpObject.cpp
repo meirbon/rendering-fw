@@ -12,17 +12,11 @@
 #include "Settings.h"
 #include "utils/Logger.h"
 #include "utils/Timer.h"
+#include "utils/Concurrency.h"
 
 #include "RenderSystem.h"
 
-#ifdef _WIN32
-#include <Windows.h>
-#include <ppl.h>
-
 #define USE_PARALLEL_FOR 1
-#else
-#define USE_PARALLEL_FOR 0
-#endif
 
 namespace rfw
 {
@@ -902,7 +896,7 @@ void AssimpObject::updateTriangles()
 	m_Triangles.resize(m_Indices.size());
 
 #if USE_PARALLEL_FOR
-	concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
+	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
 		const auto &mesh = m_Meshes[i];
 
 		for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
@@ -963,7 +957,7 @@ void rfw::AssimpObject::updateTriangles(const std::vector<glm::vec2> &uvs)
 {
 	m_Triangles.resize(m_Indices.size());
 
-	concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
+	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
 		const auto &mesh = m_Meshes[i];
 		for (size_t i = 0, s = mesh.faceCount; i < s; i++)
 		{
@@ -1096,10 +1090,9 @@ std::vector<bool> rfw::AssimpObject::getChangedMeshMatrices()
 void rfw::AssimpObject::prepareMeshes(RenderSystem &rs)
 {
 	m_RfwMeshes.reserve(m_Meshes.size());
-	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
+	for (const auto &mesh : m_Meshes)
 	{
-		const auto &mesh = m_Meshes[i];
-		auto &rfwMesh = rfw::Mesh();
+		auto rfwMesh = rfw::Mesh();
 
 		rfwMesh.vertices = &m_CurrentVertices[mesh.vertexOffset];
 		rfwMesh.normals = &m_CurrentNormals[mesh.vertexOffset];

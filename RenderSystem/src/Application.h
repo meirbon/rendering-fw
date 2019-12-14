@@ -10,6 +10,11 @@
 
 #include <ImGuiContext.h>
 
+#define VULKAN_RTX "VulkanRTX"
+#define GLRENDERER "GLRenderer"
+#define OPTIX6 "OptiX6Context"
+#define CPURT "CPURT"
+
 namespace rfw
 {
 class Application

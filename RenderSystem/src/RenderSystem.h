@@ -22,6 +22,7 @@
 #include "SceneTriangles.h"
 #include "utils/gl/GLShader.h"
 #include "utils/ThreadPool.h"
+#include "utils/Averager.h"
 
 namespace rfw
 {
@@ -297,6 +298,8 @@ class RenderSystem
 	unsigned int m_ProbedInstance = 0;
 	unsigned int m_ProbedPrimitive = 0;
 	float m_ProbeDistance = 0.0f;
+	utils::Averager<float, 32> m_AnimationStat;
+	utils::Averager<float, 32> m_RenderStat;
 
 	rfw::Skybox *m_Skybox = nullptr;
 	rfw::MaterialList *m_Materials = nullptr;

@@ -45,12 +45,18 @@ class ThreadPool
 	};
 
   public:
-	ThreadPool() { init(); }
+	ThreadPool()
+	{
+		init();
+		resize(std::thread::hardware_concurrency());
+	}
 	explicit ThreadPool(size_t threadCount)
 	{
 		init();
 		resize(threadCount);
 	}
+
+	~ThreadPool() { stop(false); }
 
 	size_t size() const { return m_Threads.size(); }
 	size_t idleCount() const { return m_WaitingThreadCount; }

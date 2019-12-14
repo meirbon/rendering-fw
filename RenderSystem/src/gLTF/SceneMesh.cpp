@@ -13,17 +13,11 @@
 #include <thread>
 #include <future>
 
-#ifdef _WIN32
-#include <Windows.h>
-#include <ppl.h>
-
-#define USE_PARALLEL_FOR 1
-#else
-#define USE_PARALLEL_FOR 0
-#endif
+#include "../utils/Concurrency.h"
 
 #define ALLOW_INDEXED_DATA 1
 #define ALLOW_INDEXED_ANIM_DATA 1
+#define USE_PARALLEL_FOR 1
 
 using namespace glm;
 
@@ -43,7 +37,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	if (flags & HAS_INDICES)
 	{
 #if USE_PARALLEL_FOR
-		concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int vIndex) {
+		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int vIndex) {
 			const uvec4 j4 = joints.at(vIndex);
 			const vec4 w4 = weights.at(vIndex);
 
@@ -85,7 +79,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	else
 	{
 #if USE_PARALLEL_FOR
-		concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int t) {
+		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int t) {
 			const auto i3 = t * 3;
 			auto &tri = triangles[t];
 
@@ -484,7 +478,7 @@ void rfw::SceneMesh::updateTriangles() const
 	if (flags & SceneMesh::HAS_INDICES)
 	{
 #if USE_PARALLEL_FOR
-		concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
+		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
 			const auto index = object->indices.at(i + faceOffset) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);
 
@@ -528,10 +522,6 @@ void rfw::SceneMesh::updateTriangles() const
 			tri.Ny = N.y;
 			tri.Nz = N.z;
 
-			tri.vN0 = n0;
-			tri.vN1 = n1;
-			tri.vN2 = n2;
-
 			tri.material = object->materialIndices.at(i + triangleOffset);
 		}
 #endif
@@ -539,7 +529,7 @@ void rfw::SceneMesh::updateTriangles() const
 	else
 	{
 #if USE_PARALLEL_FOR
-		concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
+		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
 			const auto idx = i * 3;
 			const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);

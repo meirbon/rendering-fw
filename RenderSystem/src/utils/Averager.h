@@ -2,6 +2,8 @@
 
 #include <deque>
 
+namespace rfw::utils
+{
 template <typename T, size_t COUNT> class Averager
 {
   public:
@@ -41,6 +43,21 @@ template <typename T, size_t COUNT> class Averager
 		return m_Average;
 	}
 
+	T getAverage() const
+	{
+		T average = 0;
+		if (m_Dirty)
+		{
+
+			const size_t s = m_Flipped ? std::min(COUNT, m_Samples.size()) : m_Index;
+			for (size_t i = 0; i < s; i++)
+				average += m_Samples.at(i);
+			average /= T(COUNT);
+		}
+
+		return average;
+	}
+
 	T getMininum() const { return m_Minimum; }
 
 	T getMaximum() const { return m_Maximum; }
@@ -63,3 +80,4 @@ template <typename T, size_t COUNT> class Averager
 	std::deque<T> m_Samples;
 	bool m_Flipped, m_Dirty;
 };
+} // namespace rfw::utils

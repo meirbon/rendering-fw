@@ -355,7 +355,7 @@ std::pair<Material, MaterialTexIds> HostMaterial::convertToDeviceMaterial(Materi
 				   (nm2 ? (1u << Has3rdNormalMap) : 0) +				 // has 3rd normal map
 				   (t1 ? (1u << Has2ndNormalMap) : 0) +					 // has 2nd diffuse map
 				   (t2 ? (1u << Has3rdDiffuseMap) : 0) +				 // has 3rd diffuse map
-				   ((flags & SMOOTH) ? (1u << HasSmoothNormals) : 0) +	 // has smooth normals
+				   ((flags & SMOOTH) ? (1u << HasSmoothNormals) : 0) +   // has smooth normals
 				   ((flags & HASALPHA) ? (1u << HasAlpha) : 0);			 // has alpha
 	// maps
 	if (t0) // texture layer 0

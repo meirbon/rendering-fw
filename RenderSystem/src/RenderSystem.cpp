@@ -16,18 +16,17 @@
 
 #include "utils/gl/CheckGL.h"
 #include "utils/gl/GLDraw.h"
+#include "utils/Concurrency.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#include <ppl.h>
 #include <libloaderapi.h>
 #include <utils/Timer.h>
 #elif defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
-#include <utils/gl/CheckGL.h>
 #else
 static_assert(false, "Platform not supported");
 #endif
@@ -421,9 +420,10 @@ void RenderSystem::synchronize()
 
 void RenderSystem::updateAnimationsTo(float timeInSeconds)
 {
+	Timer t = {};
 #if ENABLE_THREADING
 #if _WIN32
-	concurrency::parallel_for(0, static_cast<int>(m_Models.size()), [&](int i) {
+	rfw::utils::concurrency::parallel_for(0, static_cast<int>(m_Models.size()), [&](int i) {
 		auto object = m_Models[i];
 		if (object->isAnimated())
 		{
@@ -462,6 +462,7 @@ void RenderSystem::updateAnimationsTo(float timeInSeconds)
 		}
 	}
 #endif
+	m_AnimationStat.addSample(t.elapsed());
 }
 
 GeometryReference RenderSystem::getGeometryReference(size_t index)
@@ -674,11 +675,9 @@ void rfw::RenderSystem::renderFrame(const Camera &camera, RenderStatus status, b
 		m_UpdateThread.get();
 
 	if (m_ShouldReset)
-	{
-		m_Context->update();
 		status = Reset;
-	}
 
+	Timer t = {};
 	m_Context->renderFrame(camera, status);
 
 	if (toneMap)
@@ -704,6 +703,7 @@ void rfw::RenderSystem::renderFrame(const Camera &camera, RenderStatus status, b
 	}
 
 	m_ShouldReset = false;
+	m_RenderStat.addSample(t.elapsed());
 }
 
 LightReference RenderSystem::addPointLight(const glm::vec3 &position, const glm::vec3 &radiance)
@@ -910,7 +910,13 @@ std::vector<rfw::GeometryReference> RenderSystem::getGeometry()
 
 size_t RenderSystem::getGeometryCount() const { return m_Models.size(); }
 
-rfw::RenderStats rfw::RenderSystem::getRenderStats() const { return m_Context->getStats(); }
+rfw::RenderStats rfw::RenderSystem::getRenderStats() const
+{
+	auto stats = m_Context->getStats();
+	stats.animationTime = m_AnimationStat.getAverage();
+	stats.renderTime = m_RenderStat.getAverage();
+	return stats;
+}
 
 size_t rfw::RenderSystem::requestMeshIndex()
 {

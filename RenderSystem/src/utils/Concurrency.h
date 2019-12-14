@@ -18,7 +18,7 @@ template <typename T, typename FUNC> void parallel_for(T first, T last, const FU
 	return;
 #else
 	static ThreadPool loopPool;
-	constexpr int poolSize = loopPool.size();
+	const int poolSize = static_cast<int>(loopPool.size());
 	std::vector<std::future<void>> threads(poolSize);
 
 	const auto count = (last - first);

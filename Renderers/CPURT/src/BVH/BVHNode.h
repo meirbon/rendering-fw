@@ -22,16 +22,10 @@ struct BVHTraversal
 struct BVHNode
 {
   public:
-	union {
-		AABB bounds;
-		struct
-		{
-			glm::vec3 min;
-			int leftFirst;
-			glm::vec3 max;
-			int count;
-		};
-	};
+	AABB bounds;
+
+	glm::vec3 GetMin() const { return glm::make_vec3(bounds.bmin); }
+	glm::vec3 GetMax() const { return glm::make_vec3(bounds.bmax); }
 
 	BVHNode();
 

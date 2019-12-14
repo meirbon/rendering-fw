@@ -50,7 +50,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", GLRENDERER)
+App::App() : Application(1280, 720, "RenderingFW", VULKAN_RTX)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getWidth(), window.getHeight());
@@ -210,8 +210,8 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Separator();
 	ImGui::BeginGroup();
 	ImGui::Text("Camera");
-	ImGui::DragFloat("Contrast", &camera.contrast, 0.0001f, 0.000001f, 2.0f, "%.7f");
-	ImGui::DragFloat("Brightness", &camera.brightness, 0.0001f, 0.000001f, 10.0f, "%.7f");
+	ImGui::SliderFloat("Contrast", &camera.contrast, 0.0f, 2.0f, "%.7f");
+	ImGui::SliderFloat("Brightness", &camera.brightness, 0.0f, 2.0f, "%.7f");
 	camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");
 	camChanged |= ImGui::DragFloat("Focal dist", &camera.focalDistance, 0.0001f, 0.00001f, 1e10f, "%.7f");
 	camChanged |= ImGui::DragFloat("FOV", &camera.FOV, 0.1f, 20.0f, 120.0f);
@@ -264,17 +264,17 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Text("Material %zu", materialID);
 	ImGui::ColorEdit3("Color", value_ptr(hostMaterial.color), ImGuiColorEditFlags_DisplayRGB);
 	ImGui::ColorEdit3("Absorption", value_ptr(hostMaterial.absorption), ImGuiColorEditFlags_DisplayRGB);
-	ImGui::DragFloat("Ior", &hostMaterial.eta, 0.01f, 0.0f, 5.0f);
-	ImGui::DragFloat("Roughness", &hostMaterial.roughness, 0.05f, 0.0f, 5.0f);
-	ImGui::DragFloat("Transmission", &hostMaterial.transmission, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Metallic", &hostMaterial.metallic, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("ClearCoat", &hostMaterial.clearcoat, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("ClearCoatGloss", &hostMaterial.clearcoatGloss, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Sheen", &hostMaterial.sheen, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Sheen tint", &hostMaterial.sheenTint, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Specular", &hostMaterial.specular, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Spec tint", &hostMaterial.specularTint, 0.01f, 0.0f, 1.0f);
-	ImGui::DragFloat("Subsurface", &hostMaterial.subsurface, 0.01f, 0.0f, 1.0f);
+	ImGui::SliderFloat("Ior", &hostMaterial.eta, 0.0f, 1.0f);
+	ImGui::SliderFloat("Roughness", &hostMaterial.roughness, 0.0f, 1.0f);
+	ImGui::SliderFloat("Transmission", &hostMaterial.transmission, 0.0f, 1.0f);
+	ImGui::SliderFloat("Metallic", &hostMaterial.metallic, 0.0f, 1.0f);
+	ImGui::SliderFloat("ClearCoat", &hostMaterial.clearcoat, 0.0f, 1.0f);
+	ImGui::SliderFloat("ClearCoatGloss", &hostMaterial.clearcoatGloss, 0.0f, 1.0f);
+	ImGui::SliderFloat("Sheen", &hostMaterial.sheen, 0.0f, 1.0f);
+	ImGui::SliderFloat("Sheen tint", &hostMaterial.sheenTint, 0.0f, 10.f);
+	ImGui::SliderFloat("Specular", &hostMaterial.specular, 0.0f, 1.0f);
+	ImGui::SliderFloat("Spec tint", &hostMaterial.specularTint, 0.0f, 10.f);
+	ImGui::SliderFloat("Subsurface", &hostMaterial.subsurface, 0.0f, 1.0f);
 	ImGui::EndGroup();
 
 	ImGui::End();

@@ -36,8 +36,8 @@ class TopLevelBVH
 
 		m_PoolPtr.store(2);
 		m_Nodes[0].bounds = rootBounds;
-		m_Nodes[0].leftFirst = 0;
-		m_Nodes[0].count = transformedAABBs.size();
+		m_Nodes[0].bounds.leftFirst = 0;
+		m_Nodes[0].bounds.count = transformedAABBs.size();
 		m_Nodes[0].Subdivide(transformedAABBs.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
 
 		m_MPoolPtr.store(1);

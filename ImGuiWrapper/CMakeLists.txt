@@ -36,6 +36,7 @@ else(WIN32)
 	find_package(glfw3 REQUIRED)
 	find_package(GLEW REQUIRED)
 	set(LIBS glfw Vulkan::Vulkan GLEW::GLEW)
+	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")
 endif(WIN32)
 
 if(APPLE)

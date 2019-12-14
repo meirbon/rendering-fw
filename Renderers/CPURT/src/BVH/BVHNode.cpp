@@ -24,8 +24,8 @@ BVHNode::BVHNode(int leftFirst, int count, AABB bounds) : bounds(bounds)
 
 bool BVHNode::Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const
 {
-	const glm::vec3 t1 = (this->min - org) * dirInverse;
-	const glm::vec3 t2 = (this->max - org) * dirInverse;
+	const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+	const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
 
 	const glm::vec3 min = glm::min(t1, t2);
 	const glm::vec3 max = glm::max(t1, t2);
@@ -157,8 +157,8 @@ bool BVHNode::Partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primI
 	{
 		for (int i = 1; i < BINS; i++)
 		{
-			const auto binOffset = float(i) / float(BINS);
-			const float splitCoord = this->min[axis] + lengths[axis] * binOffset;
+			const auto binOffset = static_cast<float>(i) / static_cast<float>(BINS);
+			const float splitCoord = bounds.bmin[axis] + lengths[axis] * binOffset;
 			int leftCount = 0, rightCount = 0;
 			AABB leftBox = {vec3(1e34f), vec3(-1e34f)};
 			AABB rightBox = {vec3(1e34f), vec3(-1e34f)};
@@ -233,10 +233,10 @@ bool BVHNode::Partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primI
 	const vec3 lengths = this->bounds.Lengths();
 	for (int i = 1; i < BINS; i++)
 	{
-		const auto binOffset = float(i) / float(BINS);
+		const auto binOffset = static_cast<float>(i) / static_cast<float>(BINS);
 		for (int axis = 0; axis < 3; axis++)
 		{
-			const float splitCoord = this->min[axis] + lengths[axis] * binOffset;
+			const float splitCoord = bounds.bmin[axis] + lengths[axis] * binOffset;
 			int leftCount = 0, rightCount = 0;
 			AABB leftBox = {vec3(1e34f), vec3(-1e34f)};
 			AABB rightBox = {vec3(1e34f), vec3(-1e34f)};

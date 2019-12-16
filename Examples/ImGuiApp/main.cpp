@@ -3,11 +3,10 @@
 #define SKINNED_MESH 0
 #define CESIUMMAN 0
 #define POLLY 0
-#define PICA 0
-#define PICA_LIGHTS 0
-#define DRAGON 1
+#define PICA 1
+#define PICA_LIGHTS 1
+#define DRAGON 0
 #define SPONZA 0
-#define ANIMATE_DRAGON 0
 
 using namespace rfw;
 using namespace utils;
@@ -252,6 +251,7 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Text("Finalize %2.2f ms", stats.finalizeTime);
 	ImGui::Text("Animation %2.2f ms", stats.animationTime);
 	ImGui::Text("Render %2.2f ms", stats.renderTime);
+	ImGui::Text("FPS %4.1f ms", 1000.0f / stats.renderTime);
 
 	ImGui::Separator();
 	ImGui::BeginGroup();

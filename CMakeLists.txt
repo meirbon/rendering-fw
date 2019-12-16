@@ -8,6 +8,13 @@ project(RenderingFW)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+
+if (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang") # using Clang
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -msse4.2 -mavx2 -march=core-avx2")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2 -mavx2 -march=core-avx2")
+	set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -msse4.2 -mavx2 -march=core-avx2")
+endif ()
+
 if (WIN32)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 else (WIN32)

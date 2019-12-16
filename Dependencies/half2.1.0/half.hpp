@@ -426,6 +426,7 @@
 	#define FE_ALL_EXCEPT	(FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW|FE_UNDERFLOW|FE_INEXACT)
 #endif
 
+#include <immintrin.h>
 
 /// Main namespace for half-precision functionality.
 /// This namespace contains all the functionality provided by the library.

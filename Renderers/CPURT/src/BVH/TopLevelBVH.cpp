@@ -1,5 +1,4 @@
 #define GLM_FORCE_AVX
-#define GLM_CONFIG_SIMD 1
 #include "TopLevelBVH.h"
 
 void rfw::TopLevelBVH::constructBVH()

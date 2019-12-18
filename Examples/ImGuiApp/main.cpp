@@ -1,8 +1,8 @@
 #include <Application.h>
 
 #define SKINNED_MESH 0
-#define CESIUMMAN 0
-#define POLLY 0
+#define CESIUMMAN 1
+#define POLLY 1
 #define PICA 1
 #define PICA_LIGHTS 1
 #define DRAGON 0

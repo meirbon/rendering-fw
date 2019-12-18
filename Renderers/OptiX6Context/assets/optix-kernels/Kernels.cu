@@ -1,19 +1,15 @@
-#define GLM_FORCE_ALIGNED_GENTYPES
-
-#include <optix.h>
 #include <optix_device.h>
-#include <optix_world.h>
 #include <optixu/optixu_math_namespace.h>
-#include <optixu/optixu_matrix_namespace.h>
-#include <optixu/optixu_aabb_namespace.h>
-#include <SharedStructs.h>
-#include <Settings.h>
-
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
 
 using namespace optix;
-using namespace glm;
+
+struct PotentialContribution
+{
+	float4 Origin;
+	float4 Direction;
+	float4 Emission;
+};
+
 
 // Provided by optix
 rtDeclareVariable(uint, launch_index, rtLaunchIndex, );
@@ -25,21 +21,21 @@ rtDeclareVariable(uint, pathLength, , );
 rtDeclareVariable(uint, sampleIndex, , );
 rtDeclareVariable(uint, launch_dim, rtLaunchDim, );
 
-rtDeclareVariable(glm::vec4, payload, rtPayload, ); // Primary/secondary ray payload
-rtDeclareVariable(uint, visible, rtPayload, );		// Shadow ray payload
+rtDeclareVariable(float4, payload, rtPayload, ); // Primary/secondary ray payload
+rtDeclareVariable(uint, visible, rtPayload, );	 // Shadow ray payload
 rtDeclareVariable(float, t_hit, rtIntersectionDistance, );
 rtDeclareVariable(Ray, ray, rtCurrentRay, );
-rtDeclareVariable(glm::vec4, hit_data, attribute hit_data, );
+rtDeclareVariable(float4, hit_data, attribute hit_data, );
 
 rtDeclareVariable(uint, instanceIdx, , );
 // Triangle API data
-rtDeclareVariable(glm::vec2, barycentrics, attribute barycentrics, );
+rtDeclareVariable(float2, barycentrics, attribute barycentrics, );
 
 // Path tracing buffers
-rtBuffer<glm::vec4> accumulator;
-rtBuffer<glm::vec4> pathStates;
-rtBuffer<glm::vec4> pathOrigins;
-rtBuffer<glm::vec4> pathDirections;
+rtBuffer<float4> accumulator;
+rtBuffer<float4> pathStates;
+rtBuffer<float4> pathOrigins;
+rtBuffer<float4> pathDirections;
 rtBuffer<PotentialContribution> connectData;
 rtBuffer<uint> blueNoise;
 
@@ -95,7 +91,7 @@ RT_PROGRAM void generatePrimaryRay()
 	const int sx = pathIdx % scrsize.x;
 	const int sy = pathIdx / scrsize.x;
 
-#ifdef BLUENOISE
+#if 1
 	const float r0 = blueNoiseSampler(sx, sy, int(sampleIndex), 0);
 	const float r1 = blueNoiseSampler(sx, sy, int(sampleIndex), 1);
 	float r2 = blueNoiseSampler(sx, sy, int(sampleIndex), 2);
@@ -120,20 +116,20 @@ RT_PROGRAM void generatePrimaryRay()
 	}
 	const float xr = x1 * r2 + x2 * r3;
 	const float yr = y1 * r2 + y2 * r3;
-	const glm::vec4 posLens = glm::vec4(posLensSize.x, posLensSize.y, posLensSize.z, posLensSize.w);
-	const glm::vec3 origin = glm::vec3(posLens) + posLens.w * (glm::vec3(right.x, right.y, right.z) * xr + glm::vec3(up.x, up.y, up.z) * yr);
+	const float4 posLens = posLensSize;
+	const float3 origin = make_float3(posLens) + posLens.w * right * xr + up * yr;
 
 	const float u = (static_cast<float>(sx) + r0) * (1.0f / scrsize.x);
 	const float v = (static_cast<float>(sy) + r1) * (1.0f / scrsize.y);
-	const glm::vec3 pointOnPixel = glm::vec3(p1.x, p1.y, p1.z) + u * glm::vec3(right.x, right.y, right.z) + v * glm::vec3(up.x, up.y, up.z);
-	const glm::vec3 direction = normalize(pointOnPixel - origin);
+	const float3 pointOnPixel = p1 + u * right + v * up;
+	const float3 direction = normalize(pointOnPixel - origin);
 
 	const uint bufferIdx = pathIdx + (bufferIndex * stride);
 
-	pathOrigins[bufferIdx] = glm::vec4(origin, __uint_as_float((pathIdx << 8) + 1 /* 1 == specular */));
-	pathDirections[bufferIdx] = glm::vec4(direction, 0);
+	pathOrigins[bufferIdx] = make_float4(origin, __uint_as_float((pathIdx << 8) + 1 /* 1 == specular */));
+	pathDirections[bufferIdx] = make_float4(direction, 0);
 
-	glm::vec4 result = glm::vec4(0, 0, __int_as_float(-1), 0);
+	float4 result = make_float4(0, 0, __int_as_float(-1), 0);
 
 	const float3 O = make_float3(origin.x, origin.y, origin.z);
 	const float3 D = make_float3(direction.x, direction.y, direction.z);
@@ -148,13 +144,13 @@ RT_PROGRAM void generateSecondaryRay()
 	const uint bufferIndex = (pathLength % 2);
 	const uint bufferIdx = pathIdx + (bufferIndex * stride);
 
-	const glm::vec4 O4 = pathOrigins[bufferIdx];
-	const glm::vec4 D4 = pathDirections[bufferIdx];
+	const float4 O4 = pathOrigins[bufferIdx];
+	const float4 D4 = pathDirections[bufferIdx];
 
-	const float3 O = make_float3(O4.x, O4.y, O4.z);
-	const float3 D = make_float3(D4.x, D4.y, D4.z);
+	const float3 O = make_float3(O4);
+	const float3 D = make_float3(D4);
 
-	glm::vec4 result = glm::vec4(0, 0, __int_as_float(-1), 0);
+	float4 result = make_float4(0, 0, __int_as_float(-1), 0);
 	rtTrace(sceneRoot, make_Ray(O, D, 1u, 10.0f * geometryEpsilon, RT_DEFAULT_MAX), result);
 	pathStates[bufferIdx] = result;
 }
@@ -162,11 +158,11 @@ RT_PROGRAM void generateSecondaryRay()
 RT_PROGRAM void generateShadowRay()
 {
 	const uint pathIdx = launch_index % (scrsize.x * scrsize.y);
-	const glm::vec4 O4 = connectData[pathIdx].Origin;
-	const glm::vec4 D4 = connectData[pathIdx].Direction;
+	const float4 O4 = connectData[pathIdx].Origin;
+	const float4 D4 = connectData[pathIdx].Direction;
 
-	const float3 O = make_float3(O4.x, O4.y, O4.z);
-	const float3 D = make_float3(D4.x, D4.y, D4.z);
+	const float3 O = make_float3(O4);
+	const float3 D = make_float3(D4);
 
 	uint isVisible = 0;
 	const auto epsilon = 10.0f * geometryEpsilon;
@@ -174,9 +170,9 @@ RT_PROGRAM void generateShadowRay()
 	if (isVisible == 0)
 		return;
 
-	const glm::vec4 contribution = connectData[launch_index].Emission;
+	const float4 contribution = connectData[launch_index].Emission;
 	const uint pixelIdx = __float_as_uint(contribution.w);
-	accumulator[pixelIdx] += glm::vec4(contribution.x, contribution.y, contribution.z, 1.0f);
+	accumulator[pixelIdx] += make_float4(make_float3(contribution), 1.0f);
 }
 
 RT_PROGRAM void closestHit() { payload = hit_data; }
@@ -192,5 +188,5 @@ RT_PROGRAM void triangleAttributes()
 	const uint primIdx = rtGetPrimitiveIndex();
 	const uint barycentrics = uint(65535.0f * bary.x) + (uint(65535.0f * bary.y) << 16);
 
-	hit_data = glm::vec4(__uint_as_float(barycentrics), __uint_as_float(instanceIdx), __int_as_float(primIdx), t_hit);
+	hit_data = make_float4(__uint_as_float(barycentrics), __uint_as_float(instanceIdx), __int_as_float(primIdx), t_hit);
 }

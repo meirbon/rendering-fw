@@ -196,7 +196,7 @@ class RenderSystem
 
 	  private:
 		ProbeResult(rfw::InstanceReference reference, int meshIdx, int primIdx, Triangle *t, size_t material, float dist)
-			: object(std::move(reference)), distance(dist), meshID(meshIdx), primID(primIdx), triangle(t), materialIdx(material)
+			: object(std::move(reference)), distance(dist), materialIdx(material), meshID(meshIdx), primID(primIdx), triangle(t)
 		{
 		}
 

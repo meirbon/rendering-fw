@@ -84,7 +84,7 @@ void *LoadModule(const std::string_view &file)
 #ifdef WIN32
 	module = LoadLibrary(file.data());
 	if (!module)
-		fprintf(stderr, "Loading library \"%s\" error: %u\n", file.data(), GetLastError());
+		fprintf(stderr, "Loading library \"%s\" error: %lu\n", file.data(), GetLastError());
 #else
 	module = dlopen(file.data(), RTLD_NOW);
 	if (!module)

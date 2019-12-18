@@ -418,42 +418,33 @@ void RenderSystem::synchronize()
 	}
 }
 
-void RenderSystem::updateAnimationsTo(float timeInSeconds)
+void RenderSystem::updateAnimationsTo(const float timeInSeconds)
 {
 	Timer t = {};
 #if ENABLE_THREADING
-#if _WIN32
-	rfw::utils::concurrency::parallel_for(0, static_cast<int>(m_Models.size()), [&](int i) {
-		auto object = m_Models[i];
-		if (object->isAnimated())
-		{
-			m_Changed[ANIMATED] = true;
-			m_ShouldReset = true;
-			object->transformTo(timeInSeconds);
-		}
-	});
-#else
 	std::vector<std::future<void>> updates;
+	updates.reserve(m_Models.size());
+
 	for (SceneTriangles *object : m_Models)
 	{
 		if (object->isAnimated())
-		{
-			m_Changed[ANIMATED] = true;
-			m_ShouldReset = true;
 			updates.push_back(m_ThreadPool.push([object, timeInSeconds](int) { object->transformTo(timeInSeconds); }));
-		}
 	}
 
-	for (auto &update : updates)
+	if (!updates.empty())
 	{
-		if (update.valid())
-			update.get();
+		m_Changed[ANIMATED] = true;
+		m_ShouldReset = true;
+
+		for (std::future<void> &update : updates)
+		{
+			if (update.valid())
+				update.get();
+		}
 	}
-#endif
 #else
-	for (size_t i = 0; i < m_Models.size(); i++)
+	for (auto object : m_Models)
 	{
-		auto object = m_Models[i];
 		if (object->isAnimated())
 		{
 			m_Changed[ANIMATED] = true;

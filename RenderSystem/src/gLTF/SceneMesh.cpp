@@ -12,6 +12,7 @@
 #include <execution>
 #include <thread>
 #include <future>
+#include <ranges>
 
 #include "../utils/Concurrency.h"
 
@@ -38,8 +39,8 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	{
 #if USE_PARALLEL_FOR
 		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int vIndex) {
-			const uvec4 j4 = joints.at(vIndex);
-			const vec4 w4 = weights.at(vIndex);
+			const uvec4 j4 = joints[vIndex];
+			const vec4 w4 = weights[vIndex];
 
 			SIMDMat4 skinMatrix = skin.jointMatrices[j4.x].matrix * w4.x;
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;

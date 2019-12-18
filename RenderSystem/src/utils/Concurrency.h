@@ -8,36 +8,32 @@
 #include <ppl.h>
 #endif
 
+#include <algorithm>
+#include <execution>
+#include <numeric>
+
 namespace rfw::utils::concurrency
 {
-
+/*
+ * Parallel iterator over a range of numbers
+ */
 template <typename T, typename FUNC> void parallel_for(T first, T last, const FUNC &function)
 {
-#if defined(_WIN32) // Microsoft's library is faster than our implementation, use if available
+#ifdef _WIN32 // Microsoft's library is faster than our implementation, use if available
 	Concurrency::parallel_for(first, last, function);
 	return;
-#else
-	static ThreadPool loopPool;
-	const int poolSize = static_cast<int>(loopPool.size());
-	std::vector<std::future<void>> threads(poolSize);
-
-	const auto count = (last - first);
-	const auto threadLocalSize = static_cast<int>(ceil(static_cast<float>(count) / poolSize));
-
-	for (int i = 0; i < poolSize; i++)
-	{
-		threads[i] = loopPool.push([i, &first, &last, &threadLocalSize, &function](int) {
-			const int increment = 1;
-			const int offset = i * threadLocalSize;
-			const int start = first + offset;
-			const int end = min(start + threadLocalSize, last);
-			for (int j = start; j < end; j += increment)
-				function(j);
-		});
-	}
-
-	for (int i = 0; i < poolSize; i++)
-		threads[i].get();
 #endif
+
+	std::vector<int> r(last - first);
+	std::iota(std::begin(r), std::end(r), first); // 0 is the starting number
+	std::for_each_n(std::execution::par_unseq, r.begin(), last, [&function](T &item) { function(item); });
+}
+
+/*
+ * Parallel iterator over data
+ */
+template <typename T, typename FUNC> void parallel_each(ArrayProxy<T> data, const FUNC &function)
+{
+	std::for_each(std::execution::par_unseq, data.begin(), data.end(), [&function](auto &item) { function(item); });
 }
 } // namespace rfw::utils::concurrency

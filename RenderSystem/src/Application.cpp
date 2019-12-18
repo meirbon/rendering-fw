@@ -1,3 +1,7 @@
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #include "Application.h"
 #include "utils/gl/GLDraw.h"
 #include "utils/Timer.h"

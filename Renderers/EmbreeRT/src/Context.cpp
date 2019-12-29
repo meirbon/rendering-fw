@@ -72,10 +72,11 @@ void Context::cleanup() {}
 
 void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 {
-	//utils::Xor128 rng = {};
+	// utils::Xor128 rng = {};
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	m_Pixels = static_cast<glm::vec4 *>(glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB));
 	assert(m_Pixels);
+	CheckGL();
 
 	const auto camParams = Ray::CameraParams(camera.getView(), 0, 1e-5f, m_Width, m_Height);
 
@@ -100,15 +101,15 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	{
 		for (int tile_x = 0, wTiles = m_Width / TILE_WIDTH; tile_x < wTiles; tile_x++)
 		{
-#if 0
+#if 1
 			const int y = tile_y * TILE_HEIGHT;
 			const int x = tile_x * TILE_WIDTH;
 
-			const std::pair<int, int> pixels[4] = {{x, y}, {x + 1, y}, {x, y + 1}, {x + 1, y + 1}};
+			const int x4[4] = {x, x + 1, x, x + 1};
+			const int y4[4] = {y, y, y + 1, y + 1};
+			RTCRayHit4 query = Ray::GenerateRay4(camParams, x4, y4, &m_Rng);
 
-			RTCRayHit4 query = Ray::GenerateRay4(camParams, pixels, &rng);
-
-			int valid[16];
+			int valid[4];
 			memset(valid, -1, sizeof(valid));
 			rtcIntersect4(valid, m_Scene, &m_PrimaryContext, &query);
 
@@ -134,14 +135,14 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 				m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);
 			}
 #else
-			RTCRayHit16 query16;
-			for (int i = 0; i < 16; i++)
+			RTCRayHit4 query4;
+			for (int i = 0; i < 4; i++)
 			{
-				query16.ray.tfar[i] = 1e34f;
-				query16.ray.tnear[i] = 1e-5f;
-				query16.hit.geomID[i] = RTC_INVALID_GEOMETRY_ID;
-				query16.hit.primID[i] = RTC_INVALID_GEOMETRY_ID;
-				query16.hit.instID[0][i] = RTC_INVALID_GEOMETRY_ID;
+				query4.ray.tfar[i] = 1e34f;
+				query4.ray.tnear[i] = 1e-5f;
+				query4.hit.geomID[i] = RTC_INVALID_GEOMETRY_ID;
+				query4.hit.primID[i] = RTC_INVALID_GEOMETRY_ID;
+				query4.hit.instID[0][i] = RTC_INVALID_GEOMETRY_ID;
 			}
 
 			for (int y = 0; y < TILE_HEIGHT; y++)
@@ -157,10 +158,10 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					const int local_id = x + y * TILE_WIDTH;
 
-					float r0 = 0;
-					float r1 = 0;
-					float r2 = 0;
-					float r3 = 0;
+					float r0 = m_Rng.Rand();
+					float r1 = m_Rng.Rand();
+					float r2 = m_Rng.Rand();
+					float r3 = m_Rng.Rand();
 
 					const float blade = float(int(r0 * 9));
 					r2 = (r2 - blade * (1.0f / 9.0f)) * 9.0f;
@@ -187,42 +188,43 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const vec3 pointOnPixel = p1 + u * right + v * up;
 					const vec3 direction = normalize(pointOnPixel - origin);
 
-					query16.ray.org_x[local_id] = origin.x;
-					query16.ray.org_y[local_id] = origin.y;
-					query16.ray.org_z[local_id] = origin.z;
-					query16.ray.id[local_id] = pixel_x + y_offset;
-
-					query16.ray.dir_x[local_id] = direction.x;
-					query16.ray.dir_y[local_id] = direction.y;
-					query16.ray.dir_z[local_id] = direction.z;
+					query4.ray.org_x[local_id] = origin.x;
+					query4.ray.org_y[local_id] = origin.y;
+					query4.ray.org_z[local_id] = origin.z;
+					query4.ray.id[local_id] = pixel_x + pixel_y * camParams.scrwidth;
+					query4.ray.dir_x[local_id] = direction.x;
+					query4.ray.dir_y[local_id] = direction.y;
+					query4.ray.dir_z[local_id] = direction.z;
 				}
 			}
 
 			int valid[16];
 			memset(valid, -1, sizeof(valid));
-			rtcIntersect16(valid, m_Scene, &m_PrimaryContext, &query16);
+			rtcIntersect4(valid, m_Scene, &m_PrimaryContext, &query4);
 
-			for (int i = 0; i < 16; i++)
+			for (int i = 0; i < 4; i++)
 			{
-				const int pixel_id = query16.ray.id[i];
+				const int pixel_id = query4.ray.id[i];
 				if (pixel_id > maxPixelID)
 					break;
 
-				if (query16.hit.geomID[i] == RTC_INVALID_GEOMETRY_ID)
+				if (query4.hit.geomID[i] == RTC_INVALID_GEOMETRY_ID)
 				{
-					const vec2 uv = vec2(0.5f * (1.0f + atan(query16.ray.dir_x[i], -query16.ray.dir_z[i]) * glm::one_over_pi<float>()),
-										 acos(query16.ray.dir_y[i]) * glm::one_over_pi<float>());
-					const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
-					m_Pixels[pixel_id] = vec4(m_Skybox[clamp<int>(pUv.y * m_SkyboxWidth + pUv.x, 0, m_SkyboxWidth * m_SkyboxHeight)], 0.0f);
+					const vec2 uv = vec2(0.5f * (1.0f + atan(query4.ray.dir_x[i], -query4.ray.dir_z[i]) * glm::one_over_pi<float>()),
+										 acos(query4.ray.dir_y[i]) * glm::one_over_pi<float>());
+					const ivec2 pUv = ivec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
+					const int skyboxPixel = pUv.y * m_SkyboxWidth + pUv.x;
+					m_Pixels[pixel_id] = vec4(m_Skybox[skyboxPixel], 0.0f);
 					continue;
 				}
 
-				const auto u = query16.hit.u[i];
-				const auto v = query16.hit.v[i];
+				const auto u = query4.hit.u[i];
+				const auto v = query4.hit.v[i];
 				const auto w = 1.0f - u - v;
 
 				m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);
 			}
+
 #endif
 		}
 	}

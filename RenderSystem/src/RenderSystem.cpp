@@ -193,6 +193,8 @@ void rfw::RenderSystem::unloadRenderAPI()
 
 void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
 {
+	assert(textureID != nullptr && *textureID != 0);
+	
 	m_Context->init(textureID, width, height);
 	m_TargetID = *textureID;
 	m_TargetWidth = width;
@@ -209,6 +211,8 @@ void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
 
 void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 {
+	assert(texture != nullptr);
+	
 	if (texture == nullptr)
 		throw std::runtime_error("Invalid texture.");
 	m_Context->init(&texture->m_ID, texture->getWidth(), texture->getHeight());

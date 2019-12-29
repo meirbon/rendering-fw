@@ -18,6 +18,7 @@
 #include <embree3/rtcore_geometry.h>
 #include <embree3/rtcore_builder.h>
 #include <embree3/rtcore_device.h>
+#include "utils/Xor128.h"
 
 namespace rfw
 {
@@ -62,7 +63,7 @@ class Context : public RenderContext
 	RTCIntersectContext m_SecondaryContext;
 	RTCDevice m_Device;
 	RTCScene m_Scene;
-	
+
 	std::vector<bool> m_MeshChanged;
 	std::vector<uint> m_Instances;
 	std::vector<uint> m_InstanceMesh;
@@ -77,6 +78,8 @@ class Context : public RenderContext
 	GLuint m_TargetID = 0, m_PboID = 0;
 	int m_Width, m_Height;
 	bool m_InitializedGlew = false;
+
+	utils::Xor128 m_Rng = {};
 };
 
 } // namespace rfw

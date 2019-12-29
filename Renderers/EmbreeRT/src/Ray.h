@@ -42,8 +42,8 @@ struct Ray
 	static Ray generateFromView(const CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3);
 
 	static RTCRayHit4 GenerateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng);
-	static RTCRayHit8 GenerateRay8(const CameraParams &camera, std::array<std::pair<int, int>, 8> pixels, rfw::utils::RandomGenerator *rng);
-	static RTCRayHit16 GenerateRay16(const CameraParams &camera, std::array<std::pair<int, int>, 16> pixels, rfw::utils::RandomGenerator *rng);
+	static RTCRayHit8 GenerateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng);
+	static RTCRayHit16 GenerateRay16(const CameraParams &camera, const int x[16], const int y[16], rfw::utils::RandomGenerator *rng);
 
 	template <int N> static RTCRayHitNt<N> GenerateRayN(const CameraParams &camera, std::pair<int, int> *pixels, rfw::utils::RandomGenerator *rng)
 	{

@@ -5,6 +5,7 @@
 #include <utils/Timer.h>
 #include <utils/gl/CheckGL.h>
 
+#include <utils/Concurrency.h>
 #include <utils/Xor128.h>
 
 #ifdef _WIN32
@@ -16,6 +17,8 @@ using namespace rfw;
 rfw::RenderContext *createRenderContext() { return new Context(); }
 
 void destroyRenderContext(rfw::RenderContext *ptr) { ptr->cleanup(), delete ptr; }
+
+#define PACKET_WIDTH 8
 
 Context::~Context()
 {
@@ -72,7 +75,6 @@ void Context::cleanup() {}
 
 void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 {
-	// utils::Xor128 rng = {};
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	m_Pixels = static_cast<glm::vec4 *>(glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB));
 	assert(m_Pixels);
@@ -85,9 +87,15 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	auto timer = utils::Timer();
 
+#if PACKET_WIDTH == 4
 	constexpr int TILE_WIDTH = 2;
 	constexpr int TILE_HEIGHT = 2;
-	const int maxPixelID = m_Width * m_Height;
+#elif PACKET_WIDTH == 8
+	constexpr int TILE_WIDTH = 4;
+	constexpr int TILE_HEIGHT = 2;
+#else
+	constexpr int TILE_WIDTH = 4;
+	constexpr int TILE_HEIGHT = 4;
 
 	const float inv_width = 1.0f / float(camParams.scrwidth);
 	const float inv_height = 1.0f / float(camParams.scrheight);
@@ -96,12 +104,15 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	const vec3 right = camParams.right_spreadAngle;
 	const vec3 up = camParams.up;
 	const vec3 baseOrigin = vec3(camParams.pos_lensSize);
+#endif
+
+	const int maxPixelID = m_Width * m_Height;
 
 	for (int tile_y = 0, hTiles = m_Height / TILE_HEIGHT; tile_y < hTiles; tile_y++)
 	{
 		for (int tile_x = 0, wTiles = m_Width / TILE_WIDTH; tile_x < wTiles; tile_x++)
 		{
-#if 1
+#if PACKET_WIDTH == 4
 			const int y = tile_y * TILE_HEIGHT;
 			const int x = tile_x * TILE_WIDTH;
 
@@ -134,15 +145,101 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 				m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);
 			}
-#else
-			RTCRayHit4 query4;
-			for (int i = 0; i < 4; i++)
+#elif PACKET_WIDTH == 8
+			const int y = tile_y * TILE_HEIGHT;
+			const int x = tile_x * TILE_WIDTH;
+			int x8[8];
+			int y8[8];
+
+			int i = 0;
+			for (int iy = 0; iy < 2; iy++)
 			{
-				query4.ray.tfar[i] = 1e34f;
-				query4.ray.tnear[i] = 1e-5f;
-				query4.hit.geomID[i] = RTC_INVALID_GEOMETRY_ID;
-				query4.hit.primID[i] = RTC_INVALID_GEOMETRY_ID;
-				query4.hit.instID[0][i] = RTC_INVALID_GEOMETRY_ID;
+				for (int ix = 0; ix < 4; ix++)
+				{
+					x8[i] = ix + x;
+					y8[i] = iy + y;
+					i++;
+				}
+			}
+			RTCRayHit8 query = Ray::GenerateRay8(camParams, x8, y8, &m_Rng);
+
+			int valid[8];
+			memset(valid, -1, sizeof(valid));
+			rtcIntersect8(valid, m_Scene, &m_PrimaryContext, &query);
+
+			for (int i = 0; i < 8; i++)
+			{
+				const int pixel_id = query.ray.id[i];
+				if (pixel_id > maxPixelID)
+					break;
+
+				if (query.hit.geomID[i] == RTC_INVALID_GEOMETRY_ID)
+				{
+					const vec2 uv = vec2(0.5f * (1.0f + atan(query.ray.dir_x[i], -query.ray.dir_z[i]) * glm::one_over_pi<float>()),
+										 acos(query.ray.dir_y[i]) * glm::one_over_pi<float>());
+					const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
+					m_Pixels[pixel_id] = vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+					continue;
+				}
+
+				const auto u = query.hit.u[i];
+				const auto v = query.hit.v[i];
+				const auto w = 1.0f - u - v;
+
+				m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);
+			}
+#elif PACKET_WIDTH == 16
+			const int y = tile_y * TILE_HEIGHT;
+			const int x = tile_x * TILE_WIDTH;
+			int x16[16];
+			int y16[16];
+
+			int i = 0;
+			for (int iy = 0; iy < 4; iy++)
+			{
+				for (int ix = 0; ix < 4; ix++)
+				{
+					x16[i] = ix + x;
+					y16[i] = iy + y;
+					i++;
+				}
+			}
+			RTCRayHit16 query = Ray::GenerateRay16(camParams, x16, y16, &m_Rng);
+
+			int valid[16];
+			memset(valid, -1, sizeof(valid));
+			rtcIntersect16(valid, m_Scene, &m_PrimaryContext, &query);
+
+			for (int i = 0; i < 16; i++)
+			{
+				const int pixel_id = query.ray.id[i];
+				if (pixel_id > maxPixelID)
+					break;
+
+				if (query.hit.geomID[i] == RTC_INVALID_GEOMETRY_ID)
+				{
+					const vec2 uv = vec2(0.5f * (1.0f + atan(query.ray.dir_x[i], -query.ray.dir_z[i]) * glm::one_over_pi<float>()),
+										 acos(query.ray.dir_y[i]) * glm::one_over_pi<float>());
+					const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
+					m_Pixels[pixel_id] = vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+					continue;
+				}
+
+				const auto u = query.hit.u[i];
+				const auto v = query.hit.v[i];
+				const auto w = 1.0f - u - v;
+
+				m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);
+			}
+#else
+			RTCRayHit16 query;
+			for (int i = 0; i < 16; i++)
+			{
+				query.ray.tfar[i] = 1e34f;
+				query.ray.tnear[i] = 1e-5f;
+				query.hit.geomID[i] = RTC_INVALID_GEOMETRY_ID;
+				query.hit.primID[i] = RTC_INVALID_GEOMETRY_ID;
+				query.hit.instID[0][i] = RTC_INVALID_GEOMETRY_ID;
 			}
 
 			for (int y = 0; y < TILE_HEIGHT; y++)
@@ -188,38 +285,38 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const vec3 pointOnPixel = p1 + u * right + v * up;
 					const vec3 direction = normalize(pointOnPixel - origin);
 
-					query4.ray.org_x[local_id] = origin.x;
-					query4.ray.org_y[local_id] = origin.y;
-					query4.ray.org_z[local_id] = origin.z;
-					query4.ray.id[local_id] = pixel_x + pixel_y * camParams.scrwidth;
-					query4.ray.dir_x[local_id] = direction.x;
-					query4.ray.dir_y[local_id] = direction.y;
-					query4.ray.dir_z[local_id] = direction.z;
+					query.ray.org_x[local_id] = origin.x;
+					query.ray.org_y[local_id] = origin.y;
+					query.ray.org_z[local_id] = origin.z;
+					query.ray.id[local_id] = pixel_x + pixel_y * camParams.scrwidth;
+					query.ray.dir_x[local_id] = direction.x;
+					query.ray.dir_y[local_id] = direction.y;
+					query.ray.dir_z[local_id] = direction.z;
 				}
 			}
 
 			int valid[16];
 			memset(valid, -1, sizeof(valid));
-			rtcIntersect4(valid, m_Scene, &m_PrimaryContext, &query4);
+			rtcIntersect16(valid, m_Scene, &m_PrimaryContext, &query);
 
-			for (int i = 0; i < 4; i++)
+			for (int i = 0; i < 16; i++)
 			{
-				const int pixel_id = query4.ray.id[i];
+				const int pixel_id = query.ray.id[i];
 				if (pixel_id > maxPixelID)
 					break;
 
-				if (query4.hit.geomID[i] == RTC_INVALID_GEOMETRY_ID)
+				if (query.hit.geomID[i] == RTC_INVALID_GEOMETRY_ID)
 				{
-					const vec2 uv = vec2(0.5f * (1.0f + atan(query4.ray.dir_x[i], -query4.ray.dir_z[i]) * glm::one_over_pi<float>()),
-										 acos(query4.ray.dir_y[i]) * glm::one_over_pi<float>());
+					const vec2 uv = vec2(0.5f * (1.0f + atan(query.ray.dir_x[i], -query.ray.dir_z[i]) * glm::one_over_pi<float>()),
+										 acos(query.ray.dir_y[i]) * glm::one_over_pi<float>());
 					const ivec2 pUv = ivec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
 					const int skyboxPixel = pUv.y * m_SkyboxWidth + pUv.x;
 					m_Pixels[pixel_id] = vec4(m_Skybox[skyboxPixel], 0.0f);
 					continue;
 				}
 
-				const auto u = query4.hit.u[i];
-				const auto v = query4.hit.v[i];
+				const auto u = query.hit.u[i];
+				const auto v = query.hit.v[i];
 				const auto w = 1.0f - u - v;
 
 				m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);

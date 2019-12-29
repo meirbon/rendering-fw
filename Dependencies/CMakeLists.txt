@@ -1,3 +1,4 @@
+set(embree_DIR "${CMAKE_CURRENT_LIST_DIR}/intel-embree-3.6.1" PARENT_SCOPE)
 add_subdirectory(glm-9.9.6)
 add_subdirectory(glew-2.1.0)
 add_subdirectory(FreeImage)

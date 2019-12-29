@@ -209,7 +209,10 @@ void Context::setTextures(const std::vector<TextureData> &textures)
 void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 {
 	if (m_Meshes.size() <= index)
-		m_Meshes.push_back(new GLMesh());
+	{
+		while (m_Meshes.size() <= index)
+			m_Meshes.push_back(new GLMesh());
+	}
 	CheckGL();
 	m_Meshes.at(index)->setMesh(mesh);
 	CheckGL();

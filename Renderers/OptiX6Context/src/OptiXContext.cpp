@@ -319,27 +319,41 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 		const auto view = camera.getView();
 		*m_CameraView->getHostPointer() = view;
 		m_CameraView->copyToDeviceAsync();
-
 		const vec3 right = view.p2 - view.p1;
 		const vec3 up = view.p3 - view.p1;
+		const vec4 posLensSize = vec4(view.pos, view.aperture);
+		const int dims[3] = {m_ScrWidth, m_ScrHeight, 1};
 
 		m_Context["stride"]->setUint(static_cast<uint>(m_ScrWidth * m_ScrHeight));
-		m_Context["posLensSize"]->setFloat(view.pos.x, view.pos.y, view.pos.z, view.aperture);
-		m_Context["right"]->setFloat(right.x, right.y, right.z);
-		m_Context["up"]->setFloat(up.x, up.y, up.z);
-		m_Context["p1"]->setFloat(view.p1.x, view.p1.y, view.p1.z);
+		m_Context["posLensSize"]->set4fv(value_ptr(posLensSize));
+		m_Context["right"]->set3fv(value_ptr(right));
+		m_Context["up"]->set3fv(value_ptr(up));
+		m_Context["p1"]->set3fv(value_ptr(view.p1));
 		m_Context["geometryEpsilon"]->setFloat(m_GeometryEpsilon);
-		m_Context["scrsize"]->setInt(m_ScrWidth, m_ScrHeight, 1);
+		m_Context["scrsize"]->set3iv(dims);
+
+		CheckCUDA(cudaGetLastError());
 	}
 
 	counters->samplesTaken = m_SampleIndex;
 	m_Counters->copyToDeviceAsync();
-
 	m_Context["sampleIndex"]->setUint(m_SampleIndex);
 	m_Context["pathLength"]->setUint(0);
 
+	CheckCUDA(cudaGetLastError());
+
+	try
+	{
+		m_Context->validate();
+	}
+	catch (const std::exception &e)
+	{
+		WARNING("OptiX exception: %s", e.what());
+		throw std::runtime_error(e.what());
+	}
+
 	m_RenderStats.clear();
-	rfw::utils::Timer timer = {};
+	Timer timer = {};
 
 	try
 	{
@@ -577,7 +591,10 @@ void OptiXContext::setTextures(const std::vector<rfw::TextureData> &textures)
 void OptiXContext::setMesh(const size_t index, const rfw::Mesh &mesh)
 {
 	if (m_Meshes.size() <= index)
-		m_Meshes.push_back(new OptiXMesh(m_Context, m_AttribProgram));
+	{
+		while (m_Meshes.size() <= index)
+			m_Meshes.push_back(new OptiXMesh(m_Context, m_AttribProgram));
+	}
 
 	m_Meshes.at(index)->setData(mesh, m_Material);
 	m_Meshes.at(index)->getAcceleration()->markDirty();

@@ -23,11 +23,14 @@ class Skybox
 
 	void load(std::string_view file);
 
+	const std::string &getSource() const { return m_File; }
+
   private:
+	std::string m_File = "";
 	std::vector<glm::vec3> m_Pixels; // Sky dome pixel data
 	std ::vector<float> m_Cdf;		 // CDF for importance sampling
 	std::vector<float> m_Pdf;		 // PDF for importance sampling
-	std::vector<float> m_ColumnCdf;  // Column CDF for importance sampling
+	std::vector<float> m_ColumnCdf;	 // Column CDF for importance sampling
 	uint m_Width = 0, m_Height = 0;
 };
 

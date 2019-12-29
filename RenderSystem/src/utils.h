@@ -8,3 +8,6 @@
 #include "utils/Window.h"
 #include "utils/Averager.h"
 #include "utils/Time.h"
+#include "utils/RandomGenerator.h"
+#include "utils/Xor128.h"
+#include "utils/MersenneTwister.h"

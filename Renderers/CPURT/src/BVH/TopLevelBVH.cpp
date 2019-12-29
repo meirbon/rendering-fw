@@ -109,14 +109,14 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 		if (count > -1)
 		{
 			// leaf node
-			for (int i = 0; i < count; i++)
+			for (auto i = 0; i < count; i++)
 			{
-				const glm::uint primIdx = m_PrimIndices[leftFirst + i];
-				if (transformedAABBs[primIdx].Intersect(ray.origin, dirInverse, &t_near, &t_far) && t_near < ray.t)
+				const auto primIdx = m_PrimIndices[leftFirst + i];
+				if (transformedAABBs[primIdx].Intersect(ray.origin, dirInverse, &t_near, &t_far))
 				{
 					// Transform ray to local space for mesh BVH
-					const vec3 origin = instanceMatrices[primIdx] * org;
-					const vec3 direction = instanceMatrices3[primIdx] * ray.direction;
+					const auto origin = instanceMatrices[primIdx] * org;
+					const auto direction = instanceMatrices3[primIdx] * ray.direction;
 					const auto &mesh = accelerationStructures[primIdx];
 					if (mesh->mbvh->traverse(origin, direction, t_min, &ray.t, &ray.primIdx))
 						instIdx = primIdx;
@@ -125,12 +125,12 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 			continue;
 		}
 
-		const MBVHHit hit = m_MNodes[leftFirst].intersect(ray.origin, dirInverse, &ray.t);
-		for (int i = 3; i >= 0; i--)
+		const auto hitInfo = m_MNodes[leftFirst].intersect(ray.origin, dirInverse, &ray.t);
+		for (auto i = 3; i >= 0; i--)
 		{
 			// reversed order, we want to check best nodes first
-			const int idx = (hit.tmini[i] & 0b11);
-			if (hit.result[idx] == 1)
+			const int idx = (hitInfo.tmini[i] & 0b11);
+			if (hitInfo.result[idx] == 1)
 			{
 				stackPtr++;
 				todo[stackPtr].leftFirst = m_MNodes[leftFirst].childs[idx];

@@ -549,7 +549,10 @@ void vkc::VkContext::setMesh(size_t index, const Mesh &mesh)
 {
 	return;
 	if (m_Meshes.size() >= index)
-		m_Meshes.push_back(new vkc::VkMesh(m_Device));
+	{
+		while (m_Meshes.size() >= index)
+			m_Meshes.push_back(new vkc::VkMesh(m_Device));
+	}
 
 	m_Meshes.at(index)->setGeometry(mesh);
 }

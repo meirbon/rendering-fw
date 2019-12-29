@@ -10,10 +10,11 @@
 
 #include <ImGuiContext.h>
 
-#define VULKAN_RTX "VulkanRTX"
-#define GLRENDERER "GLRenderer"
-#define OPTIX6 "OptiX6Context"
-#define CPURT "CPURT"
+static constexpr char *VULKAN_RTX = "VulkanRTX";
+static constexpr char *GLRENDERER = "GLRenderer";
+static constexpr char *OPTIX6 = "OptiX6Context";
+static constexpr char *CPURT = "CPURT";
+static constexpr char *EMBREE = "EmbreeRT";
 
 namespace rfw
 {
@@ -23,7 +24,7 @@ class Application
 	static void run(Application *app);
 
   protected:
-	explicit Application(size_t scrWidth, size_t scrHeight, std::string_view title, std::string_view renderAPI);
+	explicit Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI);
 	~Application();
 
 	Application(const Application &) = delete;

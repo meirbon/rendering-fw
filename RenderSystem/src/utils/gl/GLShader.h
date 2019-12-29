@@ -19,7 +19,7 @@ class GLShader
 	 * @param vertexPath
 	 * @param fragmentPath
 	 */
-	explicit GLShader(const char *vertexPath, const char *fragmentPath);
+	explicit GLShader(std::string vertexPath, std::string fragmentPath);
 	~GLShader();
 
 	/**
@@ -293,10 +293,10 @@ class GLShader
 
   private:
 	GLuint m_ShaderId;
-	const char *m_VertPath;
-	const char *m_FragPath;
+	std::string m_VertPath;
+	std::string m_FragPath;
 
 	GLuint load();
-	void checkCompileErrors(const char *file, GLuint shader, std::string type);
+	void checkCompileErrors(const char *file, GLuint shader, std::string type) const;
 };
 } // namespace rfw::utils

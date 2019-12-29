@@ -2,9 +2,9 @@
 
 #define SKINNED_MESH 0
 #define CESIUMMAN 1
-#define POLLY 1
+#define POLLY 0
 #define PICA 1
-#define PICA_LIGHTS 1
+#define PICA_LIGHTS 0
 #define DRAGON 0
 #define SPONZA 0
 
@@ -64,10 +64,10 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", VULKAN_RTX)
+App::App() : Application(512, 512, "RenderingFW", EMBREE)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
-	camera.resize(window.getWidth(), window.getHeight());
+	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
 	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
 		mouseX = static_cast<uint>(x * double(window.getWidth()));
 		mouseY = static_cast<uint>(y * double(window.getHeight()));
@@ -251,7 +251,7 @@ void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Text("Finalize %2.2f ms", stats.finalizeTime);
 	ImGui::Text("Animation %2.2f ms", stats.animationTime);
 	ImGui::Text("Render %2.2f ms", stats.renderTime);
-	ImGui::Text("FPS %4.1f ms", 1000.0f / stats.renderTime);
+	ImGui::Text("FPS %4.1f", 1000.0f / stats.renderTime);
 
 	ImGui::Separator();
 	ImGui::BeginGroup();

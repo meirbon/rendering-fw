@@ -8,8 +8,7 @@
 #include "utils/File.h"
 #include "utils/Serializable.h"
 
-#define SKYCDF(x, y)                                                                                                   \
-	cdf[RadicalInverse8bit(y) + x * (IBLHEIGHT + 1)] // columns stored sequentially for better cache coherence
+#define SKYCDF(x, y) cdf[RadicalInverse8bit(y) + x * (IBLHEIGHT + 1)] // columns stored sequentially for better cache coherence
 #define COLCDF(x) columncdf[RadicalInverse9bit(x)]
 
 inline static int radicalInverse8bit(const int v)
@@ -68,6 +67,8 @@ void rfw::Skybox::load(std::string_view file)
 		char buffer[1024];
 		sprintf(buffer, "File \"%s\" does not exist.", file.data());
 	}
+
+	m_File = std::string(file.data());
 
 	m_Width = 0;
 	m_Height = 0;
@@ -164,7 +165,5 @@ void rfw::Skybox::load(std::string_view file)
 		FreeImage_Unload(dib);
 	}
 
-	char buffer[1024];
-	sprintf(buffer, "Loaded skybox \"%s\" in %3.3f seconds", filename, timer.elapsed() / 1000.0f);
-	DEBUG(buffer);
+	DEBUG("Loaded skybox \"%s\" in %3.3f seconds", filename, timer.elapsed() / 1000.0f);
 }

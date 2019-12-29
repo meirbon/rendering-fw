@@ -45,10 +45,10 @@ class RfwException : public std::exception
   public:
 	explicit RfwException(const char *format, ...)
 	{
-		std::vector<char> buffer(1024, 0);
+		std::vector<char> buffer(2048, 0);
 		va_list arg;
 		va_start(arg, format);
-		utils::string::format(buffer, format, arg);
+		utils::string::format(buffer.data(), format, arg);
 		va_end(arg);
 		m_Message = std::string(buffer.data());
 	}
@@ -212,21 +212,21 @@ class RenderSystem
 	RenderSystem();
 	~RenderSystem();
 
-	void loadRenderAPI(const std::string_view &name);
+	void loadRenderAPI(std::string name);
 	void unloadRenderAPI();
 
 	void setTarget(GLuint *textureID, uint width, uint height);
 	void setTarget(rfw::utils::GLTexture *texture);
-	void setSkybox(std::string_view filename);
+	void setSkybox(std::string filename);
 	void synchronize();
 	void updateAnimationsTo(float timeInSeconds);
 
 	rfw::GeometryReference getGeometryReference(size_t index);
 	rfw::InstanceReference getInstanceReference(size_t index);
 
-	rfw::GeometryReference addObject(std::string_view fileName, int material = -1);
-	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, int material = -1);
-	rfw::GeometryReference addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
+	rfw::GeometryReference addObject(std::string fileName, int material = -1);
+	rfw::GeometryReference addObject(std::string fileName, bool normalize, int material = -1);
+	rfw::GeometryReference addObject(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
 	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, uint material);
 	rfw::InstanceReference addInstance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f), glm::vec3 translation = glm::vec3(0.0f),
 									   float degrees = 1.0f, glm::vec3 axes = glm::vec3(1.0f));
@@ -305,7 +305,7 @@ class RenderSystem
 	utils::Averager<float, 32> m_AnimationStat;
 	utils::Averager<float, 32> m_RenderStat;
 
-	rfw::Skybox *m_Skybox = nullptr;
+	rfw::Skybox m_Skybox;
 	rfw::MaterialList *m_Materials = nullptr;
 	rfw::RenderContext *m_Context = nullptr;
 

@@ -3,6 +3,7 @@
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
 #include <utils/Timer.h>
+#include <utils/gl/CheckGL.h>
 
 #ifdef _WIN32
 #include <ppl.h>
@@ -60,43 +61,64 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	m_Stats.primaryCount = m_Width * m_Height;
 
 	auto timer = rfw::utils::Timer();
-#ifdef _WIN32
+
 	concurrency::parallel_for(0, m_Height, [&](const int y) {
-#else
-	for (int y = 0; y < m_Height; y++)
-	{
-#endif
 		const int yOffset = y * m_Width;
 
 		for (int x = 0; x < m_Width; x++)
 		{
 			const int pixelIdx = yOffset + x;
 
-			Ray ray = Ray::generateFromView(camParams, x, y, 0, 0, 0, 0);
+			auto ray = Ray::generateFromView(camParams, x, y, 0, 0, 0, 0);
 			const auto result = topLevelBVH.intersect(ray, 1e-5f);
 
-			if (result.has_value())
-			{
-				const auto &tri = result.value();
-				const vec3 N = vec3(tri.Nx, tri.Ny, tri.Nz);
-				const vec3 p = ray.origin + ray.direction * ray.t;
-				const vec3 bary = triangle::getBaryCoords(p, N, tri.vertex0, tri.vertex1, tri.vertex2);
-				const vec3 iN = normalize(bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2);
-				m_Pixels[pixelIdx] = glm::vec4(iN, 1.0f);
-			}
-			else
+			if (!result.has_value())
 			{
 				const vec2 uv = vec2(0.5f * (1.0f + atan(ray.direction.x, -ray.direction.z) * glm::one_over_pi<float>()),
 									 acos(ray.direction.y) * glm::one_over_pi<float>());
 				const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
 				m_Pixels[pixelIdx] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+				continue;
 			}
+
+			const auto &tri = result.value();
+			const vec3 N = vec3(tri.Nx, tri.Ny, tri.Nz);
+			const vec3 p = ray.origin + ray.direction * ray.t;
+			const vec3 bary = triangle::getBaryCoords(p, N, tri.vertex0, tri.vertex1, tri.vertex2);
+			const vec3 iN = normalize(bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2);
+			const auto &material = m_Materials[tri.material];
+			auto color = vec3(0);
+
+			if (material.hasFlag(HasDiffuseMap))
+			{
+				const vec2 uv = bary.x * vec2(tri.u0, tri.v0) + bary.y * vec2(tri.u1, tri.v1) + bary.z * vec2(tri.u2, tri.v2);
+				const auto &tex = m_Textures[material.texaddr0];
+				const auto pixelUV = uv * vec2(tex.width - 1, tex.height - 1);
+				const auto pixelID = static_cast<int>(pixelUV.y * tex.width + pixelUV.x);
+
+				switch (tex.type)
+				{
+				case (TextureData::FLOAT4):
+				{
+					color = vec3(reinterpret_cast<vec4 *>(tex.data)[pixelID]);
+				}
+				case (TextureData::UINT):
+				{
+					// RGBA
+					uint texel = reinterpret_cast<uint *>(tex.data)[pixelID];
+					constexpr float s = 1.0f / 256.0f;
+
+					color = vec3(texel & 0xFF, (texel >> 8) & 0xFF, (texel >> 16) & 0xFF);
+					color = s * color;
+				}
+				}
+			}
+
+			m_Pixels[pixelIdx] = vec4(material.getColor(), 1.0f);
+			// m_Pixels[pixelIdx] = glm::vec4(iN, 1.0f);
 		}
-#ifdef _WIN32
 	});
-#else
-	}
-#endif
+
 	m_Stats.primaryTime = timer.elapsed();
 
 	glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB);
@@ -110,14 +132,21 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	CheckGL();
 }
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
+void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+{
+	m_Materials.resize(materials.size());
+	memcpy(m_Materials.data(), materials.data(), materials.size() * sizeof(Material));
+}
 
-void Context::setTextures(const std::vector<rfw::TextureData> &textures) {}
+void Context::setTextures(const std::vector<rfw::TextureData> &textures) { m_Textures = textures; }
 
 void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 {
 	if (index >= m_Meshes.size())
-		m_Meshes.emplace_back();
+	{
+		while (index >= m_Meshes.size())
+			m_Meshes.emplace_back();
+	}
 
 	m_Meshes[index].setGeometry(mesh);
 }

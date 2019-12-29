@@ -10,7 +10,6 @@ struct PotentialContribution
 	float4 Emission;
 };
 
-
 // Provided by optix
 rtDeclareVariable(uint, launch_index, rtLaunchIndex, );
 rtDeclareVariable(uint, stride, , );
@@ -116,8 +115,7 @@ RT_PROGRAM void generatePrimaryRay()
 	}
 	const float xr = x1 * r2 + x2 * r3;
 	const float yr = y1 * r2 + y2 * r3;
-	const float4 posLens = posLensSize;
-	const float3 origin = make_float3(posLens) + posLens.w * right * xr + up * yr;
+	const float3 origin = make_float3(posLensSize) + posLensSize.w * (right * xr + up * yr);
 
 	const float u = (static_cast<float>(sx) + r0) * (1.0f / scrsize.x);
 	const float v = (static_cast<float>(sy) + r1) * (1.0f / scrsize.y);
@@ -131,10 +129,7 @@ RT_PROGRAM void generatePrimaryRay()
 
 	float4 result = make_float4(0, 0, __int_as_float(-1), 0);
 
-	const float3 O = make_float3(origin.x, origin.y, origin.z);
-	const float3 D = make_float3(direction.x, direction.y, direction.z);
-
-	rtTrace(sceneRoot, make_Ray(O, D, 0u, 10.0f * geometryEpsilon, RT_DEFAULT_MAX), result);
+	rtTrace(sceneRoot, make_Ray(origin, direction, 0u, 10.0f * geometryEpsilon, RT_DEFAULT_MAX), result);
 	pathStates[bufferIdx] = result;
 }
 

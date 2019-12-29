@@ -78,15 +78,15 @@ rfw::RenderSystem::~RenderSystem()
 	m_FrameBufferID = 0;
 }
 
-void *LoadModule(const std::string_view &file)
+void *LoadModule(const char *file)
 {
 	void *module = nullptr;
 #ifdef WIN32
-	module = LoadLibrary(file.data());
+	module = LoadLibrary(file);
 	if (!module)
-		fprintf(stderr, "Loading library \"%s\" error: %lu\n", file.data(), GetLastError());
+		fprintf(stderr, "Loading library \"%s\" error: %lu\n", file, GetLastError());
 #else
-	module = dlopen(file.data(), RTLD_NOW);
+	module = dlopen(file, RTLD_NOW);
 	if (!module)
 		fprintf(stderr, "%s\n", dlerror());
 #endif
@@ -103,12 +103,12 @@ void printLoadError()
 #endif
 }
 
-void *LoadModuleFunction(void *module, const std::string_view &funcName)
+void *LoadModuleFunction(void *module, const char *funcName)
 {
 #ifdef WIN32
-	return (void *)GetProcAddress((HMODULE)module, funcName.data());
+	return static_cast<void *>(GetProcAddress(HMODULE(module), funcName));
 #else
-	return (void *)dlsym(module, funcName.data());
+	return static_cast<void *>(dlsym(module, funcName.data()));
 #endif
 }
 
@@ -119,7 +119,7 @@ static_assert(sizeof(PointLight) == sizeof(DevicePointLight), "Point light struc
 static_assert(sizeof(SpotLight) == sizeof(DeviceSpotLight), "Spot light structs are not same size.");
 static_assert(sizeof(DirectionalLight) == sizeof(DeviceDirectionalLight), "Directional light structs are not same size.");
 
-void rfw::RenderSystem::loadRenderAPI(const std::string_view &name)
+void rfw::RenderSystem::loadRenderAPI(std::string name)
 {
 #ifdef WIN32
 	const std::string_view extension = ".dll"; // Windows shared library
@@ -145,17 +145,17 @@ void rfw::RenderSystem::loadRenderAPI(const std::string_view &name)
 		throw std::runtime_error("Library does not exist.");
 	}
 
-	m_ContextModule = LoadModule(libPath);
+	m_ContextModule = LoadModule(libPath.data());
 	if (!m_ContextModule)
 	{
 		const std::string message = std::string("Could not load library: ") + libPath;
-		throw std::runtime_error(message);
+		throw std::runtime_error(std::move(message));
 	}
 
-	void *createPtr = LoadModuleFunction(m_ContextModule, CREATE_RENDER_CONTEXT_FUNC_NAME);
-	void *destroyPtr = LoadModuleFunction(m_ContextModule, DESTROY_RENDER_CONTEXT_FUNC_NAME);
-	m_CreateContextFunction = (CreateContextFunction)createPtr;
-	m_DestroyContextFunction = (DestroyContextFunction)destroyPtr;
+	const auto createPtr = LoadModuleFunction(m_ContextModule, CREATE_RENDER_CONTEXT_FUNC_NAME);
+	const auto destroyPtr = LoadModuleFunction(m_ContextModule, DESTROY_RENDER_CONTEXT_FUNC_NAME);
+	m_CreateContextFunction = CreateContextFunction(createPtr);
+	m_DestroyContextFunction = DestroyContextFunction(destroyPtr);
 
 	if (!m_CreateContextFunction)
 	{
@@ -181,7 +181,7 @@ void rfw::RenderSystem::unloadRenderAPI()
 	if (m_ContextModule)
 	{
 #ifdef WIN32
-		FreeLibrary((HMODULE)m_ContextModule);
+		FreeLibrary(HMODULE(m_ContextModule));
 #else
 		dlclose(m_ContextModule);
 #endif
@@ -225,15 +225,19 @@ void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 	CheckGL();
 }
 
-void RenderSystem::setSkybox(std::string_view filename)
+void RenderSystem::setSkybox(std::string filename)
 {
-	if (!utils::file::exists(filename))
+
+	if (m_Skybox.getSource() == std::string(filename))
+		return;
+
+	if (!file::exists(filename))
 	{
 		WARNING("File: %s does not exist.", filename.data());
 		throw std::runtime_error("Skybox file does not exist.");
 	}
 
-	m_Skybox = new Skybox(filename);
+	m_Skybox.load(filename);
 	m_Changed[SKYBOX] = true;
 }
 
@@ -243,7 +247,7 @@ void RenderSystem::synchronize()
 		m_AnimationsThread.get();
 
 	if (m_Changed[SKYBOX])
-		m_Context->setSkyDome(m_Skybox->getBuffer(), m_Skybox->getWidth(), m_Skybox->getHeight());
+		m_Context->setSkyDome(m_Skybox.getBuffer(), m_Skybox.getWidth(), m_Skybox.getHeight());
 
 	if (m_Materials->isDirty())
 		m_Materials->generateDeviceMaterials();
@@ -472,17 +476,17 @@ InstanceReference RenderSystem::getInstanceReference(size_t index)
 	return m_Instances[index];
 }
 
-GeometryReference RenderSystem::addObject(std::string_view fileName, int material) { return addObject(fileName, false, glm::mat4(1.0f), material); }
+GeometryReference RenderSystem::addObject(std::string fileName, int material) { return addObject(fileName, false, glm::mat4(1.0f), material); }
 
-GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, int material)
+GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, int material)
 {
 	return addObject(fileName, normalize, glm::mat4(1.0f), material);
 }
 
-GeometryReference RenderSystem::addObject(std::string_view fileName, bool normalize, const glm::mat4 &preTransform, int material)
+GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material)
 {
 	if (!utils::file::exists(fileName))
-		throw LoadException(std::string(fileName.data()));
+		throw LoadException(std::move(fileName.data()));
 
 	const size_t idx = m_Models.size();
 	const size_t matFirst = m_Materials->getMaterials().size();

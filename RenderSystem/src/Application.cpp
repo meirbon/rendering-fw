@@ -32,7 +32,7 @@ void rfw::Application::run(Application *app)
 	app->cleanup();
 }
 
-rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string_view title, std::string_view renderAPI)
+rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI)
 	: window(static_cast<int>(scrWidth), static_cast<int>(scrHeight), title.data(), true, std::make_pair(4, 5)), m_ImGuiContext(window.getGLFW())
 {
 	m_RS = std::make_unique<rfw::RenderSystem>();
@@ -62,13 +62,14 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string_vie
 
 	try
 	{
+		DEBUG("Loading render API: %s", renderAPI.c_str());
 		m_RS->loadRenderAPI(renderAPI);
 		m_RS->setTarget(m_Target);
 		camera.resize(scrWidth, scrHeight);
 	}
 	catch (const std::exception &e)
 	{
-		FAILURE("Attempted to load given renderer \"%s\" but error occured: %s", renderAPI.data(), e.what());
+		FAILURE("Attempted to load given renderer %s but error occured: %s", renderAPI.c_str(), e.what());
 	}
 }
 

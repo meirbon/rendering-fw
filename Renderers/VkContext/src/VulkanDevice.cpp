@@ -100,7 +100,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 	indexingFeatures.descriptorBindingVariableDescriptorCount = true;
 
 	std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos{};
-	std::set<uint32_t> uniqueQueueFamilies = {m_Members->m_Indices.graphicsIdx.value(), m_Members->m_Indices.computeIdx.has_value(),
+	std::set<uint32_t> uniqueQueueFamilies = {m_Members->m_Indices.graphicsIdx.value(), m_Members->m_Indices.computeIdx.value(),
 											  m_Members->m_Indices.transferIdx.value(),
 											  surface.has_value() ? m_Members->m_Indices.presentIdx.value() : m_Members->m_Indices.graphicsIdx.value()};
 
@@ -126,7 +126,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 
 	m_Members->m_VkDevice = m_Members->m_PhysicalDevice.createDevice(createInfo);
 	if (!m_Members->m_VkDevice)
-		FAILURE(!m_Members->m_VkDevice, "Could not initialize Vulkan device.");
+		FAILURE("Could not initialize Vulkan device.");
 
 	m_Members->m_GraphicsQueue = m_Members->m_VkDevice.getQueue(m_Members->m_Indices.graphicsIdx.value(), 0);
 	m_Members->m_ComputeQueue = m_Members->m_VkDevice.getQueue(m_Members->m_Indices.computeIdx.value(), 0);

@@ -254,7 +254,7 @@ class Window
 		std::vector<char> buffer(1024);
 		va_list arg;
 		va_start(arg, format);
-		utils::string::format(buffer, format, arg);
+		utils::string::format_list(buffer.data(), format, arg);
 		va_end(arg);
 		glfwSetWindowTitle(m_Instance, buffer.data());
 	}

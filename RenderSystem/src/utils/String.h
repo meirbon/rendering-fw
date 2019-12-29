@@ -19,15 +19,14 @@ namespace utils
 namespace string
 {
 
-static void format(std::vector<char> &buffer, const char *format, va_list args)
+static void format_list(char *buffer, const char *format, va_list args) { vsprintf(buffer, format, args); }
+
+static void format(char *buffer, const char *format, ...)
 {
-	if (buffer.empty())
-		buffer.resize(8192);
-#ifdef _WIN32
-	vsprintf_s(buffer.data(), buffer.size(), format, args);
-#else
-	vsprintf(buffer.data(), format, args);
-#endif
+	va_list args;
+	va_start(args, format);
+	vsprintf(buffer, format, args);
+	va_end(args);
 }
 
 static bool ends_with(std::string_view value, std::string_view ending)

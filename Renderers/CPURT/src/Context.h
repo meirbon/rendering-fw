@@ -46,6 +46,8 @@ class Context : public RenderContext
 	std::vector<AreaLight> m_AreaLights;
 	std::vector<DirectionalLight> m_DirectionalLights;
 	std::vector<SpotLight> m_SpotLights;
+	std::vector<Material> m_Materials;
+	std::vector<TextureData> m_Textures;
 
 	TopLevelBVH topLevelBVH;
 	std::vector<CPUMesh> m_Meshes;

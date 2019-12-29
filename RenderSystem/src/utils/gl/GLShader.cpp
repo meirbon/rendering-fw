@@ -11,7 +11,10 @@
 using namespace rfw;
 using namespace utils;
 
-GLShader::GLShader(const char *vertexPath, const char *fragmentPath) : m_VertPath(vertexPath), m_FragPath(fragmentPath) { m_ShaderId = load(); }
+GLShader::GLShader(std::string vertexPath, std::string fragmentPath) : m_VertPath(std::move(vertexPath)), m_FragPath(std::move(fragmentPath))
+{
+	m_ShaderId = load();
+}
 
 GLuint GLShader::load()
 {
@@ -27,18 +30,18 @@ GLuint GLShader::load()
 
 	glShaderSource(vert_shader, 1, &vert_source, nullptr);
 	glCompileShader(vert_shader);
-	checkCompileErrors(m_VertPath, vert_shader, "VERTEX");
+	checkCompileErrors(m_VertPath.data(), vert_shader, "VERTEX");
 
 	glShaderSource(frag_shader, 1, &frag_source, nullptr);
 	glCompileShader(frag_shader);
-	checkCompileErrors(m_FragPath, frag_shader, "FRAGMENT");
+	checkCompileErrors(m_FragPath.data(), frag_shader, "FRAGMENT");
 
 	glAttachShader(program, vert_shader);
 	glAttachShader(program, frag_shader);
 
 	glLinkProgram(program);
 	glValidateProgram(program);
-	checkCompileErrors(m_VertPath, program, "PROGRAM");
+	checkCompileErrors(m_VertPath.data(), program, "PROGRAM");
 
 	glDeleteShader(vert_shader);
 	glDeleteShader(frag_shader);
@@ -46,7 +49,7 @@ GLuint GLShader::load()
 	return program;
 }
 
-void GLShader::checkCompileErrors(const char *file, GLuint shader, std::string type)
+void GLShader::checkCompileErrors(const char *file, GLuint shader, std::string type) const
 {
 	GLint success;
 	std::vector<GLchar> infoLog(2048);

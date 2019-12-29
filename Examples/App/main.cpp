@@ -39,7 +39,7 @@ class App : public rfw::Application
 App::App() : Application(1280, 720, "RenderingFW", "VulkanRTX")
 {
 	camera = rfw::Camera::deserialize("camera.bin");
-	camera.resize(window.getWidth(), window.getHeight());
+	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
 	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
 		mouseX = static_cast<uint>(x * double(window.getWidth()));
 		mouseY = static_cast<uint>(y * double(window.getHeight()));

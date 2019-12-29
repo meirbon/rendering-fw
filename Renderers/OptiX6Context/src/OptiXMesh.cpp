@@ -4,8 +4,7 @@
 
 #include <utils/Logger.h>
 
-OptiXMesh::OptiXMesh(optix::Context &context, optix::Program attribProgram)
-	: m_Context(context), m_AttribProgram(attribProgram)
+OptiXMesh::OptiXMesh(optix::Context &context, optix::Program attribProgram) : m_Context(context), m_AttribProgram(attribProgram)
 {
 	m_OptiXTriangles = m_Context->createGeometryTriangles();
 	m_Acceleration = m_Context->createAcceleration("Trbvh");
@@ -23,6 +22,9 @@ void OptiXMesh::cleanup()
 
 void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
 {
+	m_OptiXTriangles->destroy();
+	m_OptiXTriangles = m_Context->createGeometryTriangles();
+
 	if (!m_Triangles || m_Triangles->getElementCount() < mesh.triangleCount)
 	{
 		delete m_Triangles;
@@ -65,18 +67,18 @@ void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
 	m_OptiXTriangles->setPrimitiveCount(static_cast<uint>(mesh.triangleCount));
 	m_OptiXTriangles->setVertices(static_cast<uint>(mesh.vertexCount), m_VertexBuffer, 0, sizeof(vec4), RT_FORMAT_FLOAT3);
 	m_OptiXTriangles->setBuildFlags(RT_GEOMETRY_BUILD_FLAG_NONE);
-#ifndef NDEBUG
+
 	try
 	{
 		m_OptiXTriangles->validate();
+		m_VertexBuffer->validate();
+		m_OptiXTriangles->validate();
+		CheckCUDA(cudaGetLastError());
 	}
 	catch (const std::exception &e)
 	{
-		WARNING(e.what());
+		WARNING("%s", e.what());
 	}
-#else
-	m_OptiXTriangles->validate();
-#endif
 
 	m_Acceleration->markDirty();
 }

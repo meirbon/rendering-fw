@@ -516,8 +516,11 @@ void vkrtx::Context::setMesh(size_t index, const rfw::Mesh &mesh)
 {
 	if (index >= m_Meshes.size())
 	{
-		m_Meshes.push_back(new Mesh(m_Device));
-		m_MeshChanged.push_back(false);
+		while (index >= m_Meshes.size())
+		{
+			m_Meshes.push_back(new Mesh(m_Device));
+			m_MeshChanged.push_back(false);
+		}
 	}
 
 	m_Meshes[index]->setGeometry(mesh, *m_ScratchBuffer);

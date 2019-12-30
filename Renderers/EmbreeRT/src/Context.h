@@ -59,8 +59,6 @@ class Context : public RenderContext
 
 	std::vector<CPUMesh> m_Meshes;
 
-	RTCIntersectContext m_PrimaryContext;
-	RTCIntersectContext m_SecondaryContext;
 	RTCDevice m_Device;
 	RTCScene m_Scene;
 
@@ -71,7 +69,6 @@ class Context : public RenderContext
 	std::vector<mat3> m_InverseMatrices;
 
 	rfw::utils::ThreadPool m_Pool = {};
-
 	int m_SkyboxWidth = 0, m_SkyboxHeight = 0;
 	std::vector<glm::vec3> m_Skybox = {glm::vec3(0)};
 	glm::vec4 *m_Pixels = nullptr;

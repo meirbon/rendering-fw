@@ -45,11 +45,40 @@ struct Ray
 	static RTCRayHit8 GenerateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng);
 	static RTCRayHit16 GenerateRay16(const CameraParams &camera, const int x[16], const int y[16], rfw::utils::RandomGenerator *rng);
 
-	template <int N> static RTCRayHitNt<N> GenerateRayN(const CameraParams &camera, std::pair<int, int> *pixels, rfw::utils::RandomGenerator *rng)
+	template <int N> static RTCRayHitNt<N> GenerateRayN(const CameraParams &camera, int x0, int y0, int x1, int y1, rfw::utils::RandomGenerator *rng)
 	{
+		static_assert(N % 4 == 0, "Packet must be a multiple of 4 rays");
+		assert(x1 - x0 == y1 - y0);
+
 		RTCRayHitNt<N> query;
 
-		// TODO
+		int offset = 0;
+
+		for (int y = y0; y < y1; y += 4)
+		{
+			for (int x = x0; x < x1; x += 4)
+			{
+				const int xs[4] = {x, x + 1, x, x + 1};
+				const int ys[4] = {y, y, y + 1, y + 1};
+				const auto packet = GenerateRay4(camera, xs, ys, rng);
+
+				memcpy(query.hit.geomID + offset, packet.hit.geomID, 4 * sizeof(int));
+				memcpy(query.hit.instID + offset, packet.hit.instID, 4 * sizeof(int));
+				memcpy(query.hit.primID + offset, packet.hit.primID, 4 * sizeof(int));
+
+				memcpy(query.ray.org_x + offset, packet.ray.org_x, 4 * sizeof(float));
+				memcpy(query.ray.org_y + offset, packet.ray.org_y, 4 * sizeof(float));
+				memcpy(query.ray.org_z + offset, packet.ray.org_z, 4 * sizeof(float));
+
+				memcpy(query.ray.dir_x + offset, packet.ray.dir_x, 4 * sizeof(float));
+				memcpy(query.ray.dir_y + offset, packet.ray.dir_y, 4 * sizeof(float));
+				memcpy(query.ray.dir_z + offset, packet.ray.dir_z, 4 * sizeof(float));
+
+				memcpy(query.ray.id + offset, packet.ray.id, 4 * sizeof(int));
+				memcpy(query.ray.tnear + offset, packet.ray.tnear, 4 * sizeof(float));
+				memcpy(query.ray.tfar + offset, packet.ray.tfar, 4 * sizeof(float));
+			}
+		}
 
 		return query;
 	}

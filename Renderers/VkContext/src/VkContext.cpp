@@ -129,6 +129,10 @@ void VkContext::init(std::shared_ptr<utils::Window> &window)
 	createSemaphores();
 }
 
+void VkContext::init(GLuint *glTextureID, uint width, uint height)
+{
+}
+
 void VkContext::cleanup()
 {
 	if (m_DebugMessenger)

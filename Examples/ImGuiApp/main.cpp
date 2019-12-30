@@ -5,7 +5,7 @@
 #define POLLY 1
 #define PICA 1
 #define PICA_LIGHTS 1
-#define DRAGON 0
+#define DRAGON 1
 #define SPONZA 0
 
 using namespace rfw;
@@ -68,7 +68,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1024, 512, "RenderingFW", EMBREE)
+App::App() : Application(1280, 720, "RenderingFW", VULKANRTX)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -78,7 +78,10 @@ App::App() : Application(1024, 512, "RenderingFW", EMBREE)
 	});
 }
 
-void App::init() {}
+void App::init()
+{
+	// Initialization of your application
+}
 
 void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 {
@@ -111,7 +114,7 @@ void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 	material = rs->getMaterial(planeMat);
 	material.metallic = 0.2f;
 	rs->setMaterial(planeMat, material);
-	plane = rs->addQuad(vec3(0, 1, 0), vec3(0, 0, 0), 50.0f, 50.0f, planeMat);
+	plane = rs->addQuad(vec3(0, 1, 0), vec3(5, 1.47f, -2), 3.0f, 3.0f, planeMat);
 
 	rs->addPointLight(vec3(5, 10, 2), vec3(100));
 #endif
@@ -137,7 +140,7 @@ void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
 	lightQuadInstance = rs->addInstance(lightQuad);
 #endif
 #if DRAGON
-	dragonInstance = rs->addInstance(dragon, vec3(10), vec3(0, 2.83f, 0));
+	dragonInstance = rs->addInstance(dragon, vec3(1), vec3(5, 1.83f, -2));
 	planeInstance = rs->addInstance(plane);
 #endif
 }

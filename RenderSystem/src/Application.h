@@ -10,7 +10,8 @@
 
 #include <ImGuiContext.h>
 
-static constexpr char *VULKAN_RTX = "VulkanRTX";
+static constexpr char *VULKANRTX = "VulkanRTX";
+static constexpr char *VULKAN = "VkContext";
 static constexpr char *GLRENDERER = "GLRenderer";
 static constexpr char *OPTIX6 = "OptiX6Context";
 static constexpr char *CPURT = "CPURT";

@@ -54,7 +54,6 @@ void GenerateEyeRay(inout vec3 O, inout vec3 D, const uint pixelIdx, const uint 
 	const int sy = int(pixelIdx) / camera.scrwidth;
 
 	float r0, r1, r2, r3;
- #ifdef BLUENOISE
 	if (sampleIdx < 256)
 	{
 		r0 = blueNoiseSampler(sx, sy, int(sampleIdx), 0);
@@ -64,17 +63,12 @@ void GenerateEyeRay(inout vec3 O, inout vec3 D, const uint pixelIdx, const uint 
 	}
 	else
 	{
-		r0 = RandomFloat( seed );
-		r1 = RandomFloat( seed );
-		r2 = RandomFloat( seed );
-		r3 = RandomFloat( seed );
+		r0 = RandomFloat(seed);
+		r1 = RandomFloat(seed);
+		r2 = RandomFloat(seed);
+		r3 = RandomFloat(seed);
 	}
-#else
-	r0 = RandomFloat( seed );
-	r1 = RandomFloat( seed );
-	r2 = RandomFloat( seed );
-	r3 = RandomFloat( seed );
-#endif
+	
 	const float blade = int(r0 * 9);
 	r2 = (r2 - blade * (1.0f / 9.0f)) * 9.0f;
 	float x1, y1, x2, y2;

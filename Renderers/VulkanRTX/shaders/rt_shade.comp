@@ -211,7 +211,6 @@ void main()
 
         vec3 lightColor;
         float r0, r1, pickProb, lightPdf;
-#if BLUENOISE
         if (sampleIdx < 256)
         {
             const int x = int(pixelIdx % scrWidth);
@@ -224,10 +223,6 @@ void main()
             r0 = RandomFloat(seed);
             r1 = RandomFloat(seed);
         }
-#else
-		r0 = RandomFloat(seed);
-        r1 = RandomFloat(seed);
-#endif
 
         vec3 L = RandomPointOnLight(r0, r1, I, iN, pickProb, lightPdf, lightColor) - I;
         const float dist = length(L);
@@ -264,7 +259,6 @@ void main()
 
     vec3 R;
     float newBsdfPdf, r3, r4;
-#if BLUENOISE
     if (sampleIdx < 256)// Blue noise
     {
         const int x = int(pixelIdx % scrWidth) & 127;
@@ -277,10 +271,6 @@ void main()
         r3 = RandomFloat(seed);
         r4 = RandomFloat(seed);
     }
-#else
-    r3 = RandomFloat(seed);
-    r4 = RandomFloat(seed);
-#endif
 
 	bool specular = false;
     const vec3 bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, HIT_T, flip < 0, r3, r4, R, newBsdfPdf, specular);

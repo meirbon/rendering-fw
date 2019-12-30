@@ -255,7 +255,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						color = vec3((texel & 0xFF) * divider, ((texel >> 8) & 0xFF) * divider, ((texel >> 16) & 0xFF) * divider);
 					}
 
-					m_Pixels[pixel_id] = vec4(iN, 0.0f);
+					m_Pixels[pixel_id] = vec4(color, 0.0f);
 				}
 			}
 		});

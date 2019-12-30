@@ -37,6 +37,8 @@ class VkContext : public rfw::RenderContext
 		return { OPENGL_TEXTURE, WINDOW, VULKAN_TEXTURE };
 	}
 	void init(std::shared_ptr<rfw::utils::Window> &window) override;
+	void init(GLuint *glTextureID, uint width, uint height) override;
+	
 	void cleanup() override;
 
 	void renderFrame(const rfw::Camera &camera, rfw::RenderStatus status) override;

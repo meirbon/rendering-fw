@@ -19,7 +19,9 @@ project shares most of its code with the Vulkan RTX rendercore of lighthouse2.
 - OptiX 6.5 RTX path tracer
 - OpenGL Renderer
 
-### Planned renderers:
-- CPU path tracer
+## WIP Renderers
+- CPU path tracer using Embree
+
+## Planned renderers:
 - Vulkan PBR Rasterizer
 - Metal path tracer using Apple's ray-tracing framework 

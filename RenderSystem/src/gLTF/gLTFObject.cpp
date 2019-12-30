@@ -41,7 +41,11 @@ rfw::SceneNode createNode(rfw::gLTFObject &object, const tinygltf::Node &node, c
 	glm::mat4 transform = mat4(1.0f);
 
 	if (node.matrix.size() == 16)
-		transform = glm::make_mat4(node.matrix.data());
+	{
+		glm::dmat4 T;
+		memcpy(value_ptr(T), node.matrix.data(), sizeof(glm::dmat4));
+		transform = T;
+	}
 
 	if (node.translation.size() == 3)
 		T.translation = vec3(static_cast<float>(node.translation[0]), static_cast<float>(node.translation[1]), static_cast<float>(node.translation[2]));
@@ -238,7 +242,11 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 				break;
 			case (TINYGLTF_COMPONENT_TYPE_UNSIGNED_INT):
 				for (int k = 0; k < count; k++, a += byteStride)
-					tmpIndices.push_back(*((unsigned int *)a));
+				{
+					unsigned int value = 0;
+					memcpy(&value, a, sizeof(unsigned int));
+					tmpIndices.push_back(value);
+				}
 				break;
 			default:
 				break;
@@ -286,7 +294,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						{
 							for (size_t p = 0; p < count; p++, a += byteStride)
 							{
-								tmpVertices.push_back(*((glm::vec3 *)a));
+								glm::vec3 value;
+								memcpy(value_ptr(value), a, sizeof(vec3));
+								tmpVertices.push_back(value);
 							}
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
@@ -294,7 +304,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							// WARNING("%s", "Double precision positions are not supported (yet).");
 							for (size_t p = 0; p < count; p++, a += byteStride)
 							{
-								tmpVertices.emplace_back(*((glm::dvec3 *)a));
+								glm::dvec3 value;
+								memcpy(value_ptr(value), a, sizeof(dvec3));
+								tmpVertices.emplace_back(value);
 							}
 						}
 					}
@@ -342,7 +354,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 						{
 							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpUvs.push_back(*((glm::vec2 *)a));
+								glm::vec2 value;
+								memcpy(value_ptr(value), a, sizeof(glm::vec2));
+								tmpUvs.push_back(value);
 							}
 						}
 						else if (attribAccessor.componentType == TINYGLTF_COMPONENT_TYPE_DOUBLE)
@@ -350,7 +364,9 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 							// WARNING("%s", "Double precision normals are not supported (yet).");
 							for (size_t f = 0; f < count; f++, a += byteStride)
 							{
-								tmpUvs.emplace_back(*((glm::dvec2 *)a));
+								glm::dvec2 value;
+								memcpy(value_ptr(value), a, sizeof(glm::dvec2));
+								tmpUvs.emplace_back(value);
 							}
 						}
 					}
@@ -478,18 +494,6 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 
 	scene.nodes.reserve(model.nodes.size() + 1);
 	tinygltf::Scene &gltfScene = model.scenes.at(0);
-
-	if (!scene.animations.empty())
-	{
-		for (auto &mesh : meshes)
-		{
-			for (auto &prim : mesh)
-			{
-				for (auto &v : prim.normals)
-					v *= vec3(1, -1, -1);
-			}
-		}
-	}
 
 	for (size_t s = model.nodes.size(), i = 0; i < s; i++)
 	{

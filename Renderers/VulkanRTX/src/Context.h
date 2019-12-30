@@ -25,6 +25,10 @@
 #include "Image.h"
 
 #include <vk_mem_alloc.h>
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 namespace vkrtx
 {
@@ -131,7 +135,7 @@ class Context : public rfw::RenderContext
 					  const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
 	void setTextures(const std::vector<rfw::TextureData> &textures) override;
 	void setMesh(size_t index, const rfw::Mesh &mesh) override;
-	void setInstance(size_t index, size_t meshIdx, const mat4 &transform) override;
+	void setInstance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
 	void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
 	void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
 				   const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,

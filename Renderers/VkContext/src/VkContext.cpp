@@ -14,6 +14,10 @@
 #include <map>
 
 #include "CheckVK.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 const std::vector<const char *> validationLayers = {"VK_LAYER_LUNARG_standard_validation"
 #ifdef __linux__
@@ -557,7 +561,7 @@ void vkc::VkContext::setMesh(size_t index, const Mesh &mesh)
 	m_Meshes.at(index)->setGeometry(mesh);
 }
 
-void vkc::VkContext::setInstance(size_t instanceIdx, size_t mesh, const mat4 &transform) {}
+void vkc::VkContext::setInstance(size_t instanceIdx, size_t mesh, const mat4 &transform, const mat3 &inverse_transform) {}
 
 void vkc::VkContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 

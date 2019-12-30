@@ -43,6 +43,11 @@ class Application
 	rfw::Camera camera;
 	rfw::utils::Window window;
 
+	rfw::AvailableRenderSettings renderSettings;
+	std::vector<int> settingsCurrentValues;
+	std::vector<const char *> settingKeys;
+	std::vector<std::vector<const char *>> settingAvailableValues;
+	
   private:
 	rfw::utils::GLTexture *m_Target = nullptr;
 	rfw::utils::GLShader *m_Shader = nullptr;

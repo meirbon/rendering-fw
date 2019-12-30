@@ -24,6 +24,8 @@ class OptiXMesh
   private:
 	CUDABuffer<rfw::Triangle> *m_Triangles = nullptr;
 
+	uint vertexCount = 0;
+	uint triangleCount = 0;
 	optix::Context m_Context;
 	optix::Buffer m_VertexBuffer;
 	optix::Buffer m_IndexBuffer;

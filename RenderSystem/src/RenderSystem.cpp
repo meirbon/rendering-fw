@@ -194,7 +194,7 @@ void rfw::RenderSystem::unloadRenderAPI()
 void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
 {
 	assert(textureID != nullptr && *textureID != 0);
-	
+
 	m_Context->init(textureID, width, height);
 	m_TargetID = *textureID;
 	m_TargetWidth = width;
@@ -212,7 +212,7 @@ void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
 void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 {
 	assert(texture != nullptr);
-	
+
 	if (texture == nullptr)
 		throw std::runtime_error("Invalid texture.");
 	m_Context->init(&texture->m_ID, texture->getWidth(), texture->getHeight());
@@ -344,7 +344,9 @@ void RenderSystem::synchronize()
 			{
 				const auto meshID = meshes[i].first;
 				const auto instanceID = instanceMapping[i];
-				m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
+				const mat4 transform = matrix * matrices[i];
+				const mat3 inverse_transform = transpose(inverse(transform));
+				m_Context->setInstance(instanceID, meshID, transform, inverse_transform);
 			}
 
 			m_InstanceChanged[i] = false;
@@ -372,7 +374,9 @@ void RenderSystem::synchronize()
 
 				const auto meshID = meshes[i].first;
 				const auto instanceID = instanceMapping[i];
-				m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
+				const mat4 transform = matrix * matrices[i];
+				const mat3 inverse_transform = transpose(inverse(transform));
+				m_Context->setInstance(instanceID, meshID, transform, inverse_transform);
 			}
 		}
 	}
@@ -398,7 +402,9 @@ void RenderSystem::synchronize()
 			{
 				const auto meshID = meshes[i].first;
 				const auto instanceID = instanceMapping[i];
-				m_Context->setInstance(instanceID, meshID, matrix * matrices[i]);
+				const mat4 transform = matrix * matrices[i];
+				const mat3 inverse_transform = transpose(inverse(transform));
+				m_Context->setInstance(instanceID, meshID, transform, inverse_transform);
 			}
 		}
 	}
@@ -480,17 +486,17 @@ InstanceReference RenderSystem::getInstanceReference(size_t index)
 	return m_Instances[index];
 }
 
-GeometryReference RenderSystem::addObject(std::string fileName, int material) { return addObject(fileName, false, glm::mat4(1.0f), material); }
+GeometryReference RenderSystem::addObject(std::string fileName, int material) { return addObject(std::move(fileName), false, glm::mat4(1.0f), material); }
 
 GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, int material)
 {
-	return addObject(fileName, normalize, glm::mat4(1.0f), material);
+	return addObject(std::move(fileName), normalize, glm::mat4(1.0f), material);
 }
 
 GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material)
 {
 	if (!utils::file::exists(fileName))
-		throw LoadException(std::move(fileName.data()));
+		throw LoadException(fileName.data());
 
 	const size_t idx = m_Models.size();
 	const size_t matFirst = m_Materials->getMaterials().size();

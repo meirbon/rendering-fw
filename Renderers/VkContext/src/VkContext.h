@@ -20,6 +20,10 @@
 #include "FrameBuffer.h"
 #include "RenderPass.h"
 #include "VkMesh.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 namespace vkc
 {
@@ -40,7 +44,7 @@ class VkContext : public rfw::RenderContext
 					  const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
 	void setTextures(const std::vector<rfw::TextureData> &textures) override;
 	void setMesh(size_t index, const rfw::Mesh &mesh) override;
-	void setInstance(size_t instanceIdx, size_t mesh, const mat4 &transform) override;
+	void setInstance(size_t instanceIdx, size_t mesh, const mat4 &transform, const mat3 &inverse_transform) override;
 	void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
 	void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
 				   const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,

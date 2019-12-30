@@ -5,6 +5,10 @@
 #include <BlueNoise.h>
 #include <utils/gl/CheckGL.h>
 #include <utils/Timer.h>
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 #ifdef NDEBUG
 constexpr std::array<const char *, 0> VALIDATION_LAYERS = {};
@@ -527,7 +531,7 @@ void vkrtx::Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	m_MeshChanged[index] = true;
 }
 
-void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &transform)
+void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	if (index >= m_Instances.size())
 	{
@@ -555,8 +559,7 @@ void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &trans
 	// Update matrix
 	const auto tmpTransform = transpose(transform);
 	memcpy(curInstance.transform, value_ptr(tmpTransform), sizeof(curInstance.transform));
-
-	m_InvTransforms[index] = mat4(transpose(inverse(mat3(transform))));
+	m_InvTransforms[index] = mat4(inverse_transform);
 
 	// Update acceleration structure handle
 	curInstance.accelerationStructureHandle = m_Meshes.at(meshIdx)->accelerationStructure->getHandle();

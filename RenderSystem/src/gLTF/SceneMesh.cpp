@@ -46,13 +46,14 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
-			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, _mm_load_ps(value_ptr(baseVertices[vIndex])));
 			_mm_store_ps(value_ptr(vertices[vIndex]), result);
 
-			const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
-
 			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
-			result = glm_vec4_normalize(glm_mat4_mul_vec4(normalMatrix.cols, normal));
+			// transform
+			result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
+			// normalize
+			result = _mm_mul_ps(result, _mm_rsqrt_ps(_mm_dp_ps(result, result, 0x77)));
 			_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
 		});
 #else
@@ -65,13 +66,14 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
-			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, _mm_load_ps(value_ptr(baseVertices[vIndex])));
 			_mm_store_ps(value_ptr(vertices[vIndex]), result);
 
-			const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
 			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
-			result = glm_mat4_mul_vec4(normalMatrix.cols, normal);
-			result = glm_vec4_normalize(result);
+			// transform
+			result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
+			// normalize
+			result = _mm_mul_ps(result, _mm_rsqrt_ps(_mm_dp_ps(result, result, 0x77)));
 			_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
 		}
 #endif
@@ -96,9 +98,11 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, _mm_load_ps(value_ptr(baseVertices[vIndex])));
 				_mm_store_ps(value_ptr(vertices[vIndex]), result);
 
-				const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
 				const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
-				result = glm_vec4_normalize(glm_mat4_mul_vec4(normalMatrix.cols, normal));
+				// transform
+				result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
+				// normalize
+				result = _mm_mul_ps(result, _mm_rsqrt_ps(_mm_dp_ps(result, result, 0x77)));
 				_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
 
 				tri.vertex0 = vertices[vIndex];
@@ -117,9 +121,11 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, _mm_load_ps(value_ptr(baseVertices[vIndex])));
 				_mm_store_ps(value_ptr(vertices[vIndex]), result);
 
-				const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
 				const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
-				result = glm_vec4_normalize(glm_mat4_mul_vec4(normalMatrix.cols, normal));
+				// transform
+				result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
+				// normalize
+				result = _mm_mul_ps(result, _mm_rsqrt_ps(_mm_dp_ps(result, result, 0x77)));
 				_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
 
 				tri.vertex1 = vertices[vIndex];
@@ -135,12 +141,14 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 				skinMatrix = skinMatrix + skin.jointMatrices[j4.y].matrix * w4.y;
 				skinMatrix = skinMatrix + skin.jointMatrices[j4.z].matrix * w4.z;
 				skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
-				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[vIndex]));
+				__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, _mm_load_ps(value_ptr(baseVertices[vIndex])));
 				_mm_store_ps(value_ptr(vertices[vIndex]), result);
 
-				const SIMDMat4 normalMatrix = skinMatrix.inversed().transposed();
 				const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
-				result = glm_vec4_normalize(glm_mat4_mul_vec4(normalMatrix.cols, normal));
+				// transform
+				result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
+				// normalize
+				result = _mm_mul_ps(result, _mm_rsqrt_ps(_mm_dp_ps(result, result, 0x77)));
 				_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
 
 				tri.vertex2 = vertices[vIndex];
@@ -164,14 +172,14 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 			skinMatrix = skinMatrix + skin.jointMatrices[j4.w].matrix * w4.w;
 #if 0
 		vertices[i] = skinMatrix.matrix * baseVertices[i];
-		normals[i] = skinMatrix.matrix * vec4(baseNormals[i], 0);
+		normals[i] = normalize(vec4(baseNormals[i], 0) * skinMatrix.matrix);
 #else
-			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, *(__m128 *)value_ptr(baseVertices[i]));
-			_mm_store_ps(value_ptr(vertices[i]), result);
-
-			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[i]), _mm_set_epi32(0, ~0, ~0, ~0));
-			result = glm_mat4_mul_vec4(skinMatrix.cols, normal);
-			_mm_maskstore_ps(value_ptr(normals[i]), _mm_set_epi32(0, ~0, ~0, ~0), result);
+			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+			// transform
+			result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
+			// normalize
+			result = _mm_mul_ps(result, _mm_rsqrt_ps(_mm_dp_ps(result, result, 0x77)));
+			_mm_maskstore_ps(value_ptr(normals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0), result);
 #endif
 		}
 #endif
@@ -186,8 +194,12 @@ void rfw::SceneMesh::setPose(const std::vector<float> &wghts)
 	assert(wghts.size() == poses.size() - 1);
 	const auto weightCount = wghts.size();
 
+#if USE_PARALLEL_FOR
+	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int i) {
+#else
 	for (int s = static_cast<int>(vertexCount), i = 0; i < s; i++)
 	{
+#endif
 		const auto idx = i + vertexOffset;
 		object->vertices.at(idx) = vec4(poses.at(0).positions[i], 1.0f);
 		object->normals.at(idx) = poses.at(0).normals[i];
@@ -199,7 +211,11 @@ void rfw::SceneMesh::setPose(const std::vector<float> &wghts)
 			object->vertices[idx] += wghts[j - 1] * vec4(pose.positions[i], 0);
 			object->normals[idx] += wghts[j - 1] * pose.normals[i];
 		}
+#if USE_PARALLEL_FOR
+	});
+#else
 	}
+#endif
 
 	updateTriangles();
 	dirty = true;
@@ -214,11 +230,19 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 	auto normals = getNormals();
 	const auto baseNormals = getBaseNormals();
 
-	for (int i = 0; i < vertexCount; i++)
+#if USE_PARALLEL_FOR
+	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int i) {
+#else
+	for (int s = static_cast<int>(vertexCount), i = 0; i < s; i++)
 	{
+#endif
 		vertices[i] = transform * baseVertices[i];
 		normals[i] = matrix3x3 * baseNormals[i];
+#if USE_PARALLEL_FOR
+	});
+#else
 	}
+#endif
 
 	updateTriangles();
 	dirty = true;

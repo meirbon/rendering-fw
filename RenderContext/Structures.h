@@ -135,7 +135,6 @@ struct Material
 #define FLOAT_AS_UINT(x) (*(uint *)&(x))
 #endif
 	DEVICE_FUNC static bool hasFlag(const uint flags, MatPropFlags flag) { return (flags & (1u << uint(flag))); }
-
 	DEVICE_FUNC bool hasFlag(MatPropFlags flag) const { return (flags & (1u << uint(flag))); }
 	DEVICE_FUNC glm::vec3 getColor() const { return glm::vec3(diffuse_r, diffuse_g, diffuse_b); }
 	DEVICE_FUNC glm::vec3 getAbsorption() const { return glm::vec3(transmittance_r, transmittance_g, transmittance_b); }

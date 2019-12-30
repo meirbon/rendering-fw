@@ -906,13 +906,13 @@ void AssimpObject::updateTriangles()
 			Triangle &tri = m_Triangles.at(triIdx);
 			const glm::uvec3 &indices = m_Indices.at(triIdx) + mesh.vertexOffset;
 
-			tri.vN0 = m_CurrentNormals.at(indices.x);
-			tri.vN1 = m_CurrentNormals.at(indices.y);
-			tri.vN2 = m_CurrentNormals.at(indices.z);
+			tri.vN0 = m_CurrentNormals[indices.x];
+			tri.vN1 = m_CurrentNormals[indices.y];
+			tri.vN2 = m_CurrentNormals[indices.z];
 
-			tri.vertex0 = m_CurrentVertices.at(indices.x);
-			tri.vertex1 = m_CurrentVertices.at(indices.y);
-			tri.vertex2 = m_CurrentVertices.at(indices.z);
+			tri.vertex0 = m_CurrentVertices[indices.x];
+			tri.vertex1 = m_CurrentVertices[indices.y];
+			tri.vertex2 = m_CurrentVertices[indices.z];
 
 			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
@@ -933,13 +933,13 @@ void AssimpObject::updateTriangles()
 			Triangle &tri = m_Triangles.at(triIdx);
 			const glm::uvec3 &indices = m_Indices.at(triIdx) + mesh.vertexOffset;
 
-			tri.vN0 = m_CurrentNormals.at(indices.x);
-			tri.vN1 = m_CurrentNormals.at(indices.y);
-			tri.vN2 = m_CurrentNormals.at(indices.z);
+			tri.vN0 = m_CurrentNormals[indices.x];
+			tri.vN1 = m_CurrentNormals[indices.y];
+			tri.vN2 = m_CurrentNormals[indices.z];
 
-			tri.vertex0 = m_CurrentVertices.at(indices.x);
-			tri.vertex1 = m_CurrentVertices.at(indices.y);
-			tri.vertex2 = m_CurrentVertices.at(indices.z);
+			tri.vertex0 = m_CurrentVertices[indices.x];
+			tri.vertex1 = m_CurrentVertices[indices.y];
+			tri.vertex2 = m_CurrentVertices[indices.z];
 
 			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
@@ -1011,7 +1011,7 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 		for (uint i = 0; i < node->mNumMeshes; i++)
 		{
 			const auto meshIdx = node->mMeshes[i];
-			n.meshes.at(i) = meshIdx;
+			n.meshes[i] = meshIdx;
 		}
 
 		m_NodesWithMeshes.push_back(currentNodeIndex);
@@ -1027,7 +1027,7 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 	{
 		const aiNode *child = node->mChildren[i];
 		const size_t childIdx = traverseNode(child, currentIdx, storage, nodeNameMapping);
-		storage->at(currentNodeIndex).children.at(i) = static_cast<uint>(childIdx);
+		(*storage)[currentNodeIndex].children[i] = static_cast<uint>(childIdx);
 	}
 
 	return currentNodeIndex;

@@ -8,6 +8,10 @@
 #include "kernels.h"
 #include "CheckCUDA.h"
 #include <BlueNoise.h>
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 using namespace rfw;
 using namespace utils;
@@ -601,7 +605,7 @@ void OptiXContext::setMesh(const size_t index, const rfw::Mesh &mesh)
 	m_Acceleration->markDirty();
 }
 
-void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform)
+void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	bool addInsteadOfSet = false;
 	if (m_Instances.size() <= instanceIdx)
@@ -612,7 +616,6 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 	}
 
 	auto &instance = m_Instances.at(instanceIdx);
-	const auto invMat = inverse(transform);
 
 	const auto *mesh = m_Meshes.at(meshIdx);
 
@@ -626,10 +629,10 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 	group->validate();
 
 	instance->setChild(group);
-	instance->setMatrix(true, value_ptr(transform), value_ptr(invMat));
+	instance->setMatrix(true, value_ptr(transform), value_ptr(transpose(inverse_transform)));
 	instance->validate();
 
-	m_InstanceDescriptors.at(instanceIdx).invTransform = transpose(inverse(mat3(transform)));
+	m_InstanceDescriptors.at(instanceIdx).invTransform = inverse_transform;
 	m_InstanceDescriptors.at(instanceIdx).triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->getTrianglesBuffer().getDevicePointer());
 
 	if (addInsteadOfSet)

@@ -71,6 +71,19 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string tit
 	{
 		FAILURE("Attempted to load given renderer %s but error occured: %s", renderAPI.c_str(), e.what());
 	}
+
+	// Preparse renderer settings to be used with ImGui
+	renderSettings = m_RS->getAvailableSettings();
+	settingKeys.resize(renderSettings.settingKeys.size());
+	settingsCurrentValues.resize(renderSettings.settingKeys.size(), 0);
+	settingAvailableValues.resize(settingKeys.size());
+	for (int i = 0, s = static_cast<int>(renderSettings.settingKeys.size()); i < s; i++)
+	{
+		settingKeys[i] = renderSettings.settingKeys[i].c_str();
+		settingAvailableValues[i].resize(renderSettings.settingValues[i].size());
+		for (int j = 0, sj = static_cast<int>(renderSettings.settingValues[i].size()); j < sj; j++)
+			settingAvailableValues[i][j] = renderSettings.settingValues[i][j].c_str();
+	}
 }
 
 rfw::Application::~Application()

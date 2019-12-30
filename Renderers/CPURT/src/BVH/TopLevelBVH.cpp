@@ -172,7 +172,7 @@ void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, 
 		accelerationStructures.push_back(tree);
 		instanceMatrices.push_back(transform);
 		instanceMatrices3.emplace_back(transform);
-		inverseNormalMatrices.emplace_back(transpose(inverse(transform)));
+		inverseNormalMatrices.emplace_back(inverse(transform));
 	}
 	else
 	{
@@ -181,7 +181,7 @@ void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, 
 		accelerationStructures[idx] = tree;
 		instanceMatrices[idx] = transform;
 		instanceMatrices3[idx] = mat3(transform);
-		inverseNormalMatrices[idx] = transpose(inverse(transform));
+		inverseNormalMatrices[idx] = inverse(transform);
 	}
 }
 

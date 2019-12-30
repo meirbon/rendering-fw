@@ -6,6 +6,8 @@
 #include "SceneObject.h"
 #include "Skinning.h"
 
+#include <glm/gtx/quaternion.hpp>
+
 rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c, rfw::utils::ArrayProxy<int> meshIds,
 						  rfw::utils::ArrayProxy<int> skinIds, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform)
 	: object(obj), name(std::move(n))
@@ -109,7 +111,7 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 void rfw::SceneNode::calculateTransform()
 {
 	const mat4 T = translate(mat4(1.0f), translation);
-	const mat4 R = mat4_cast(rotation);
+	const mat4 R = glm::toMat4(rotation);
 	const mat4 S = glm::scale(mat4(1.0f), scale);
 
 	localTransform = T * R * S * matrix;

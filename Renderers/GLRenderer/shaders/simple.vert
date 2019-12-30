@@ -20,6 +20,6 @@ void main()
 	WPos = (InstanceMatrices[gl_InstanceID] * Vertex).xyz;
 	Pos = CamMatrix * vec4(WPos, 1.0);
 	gl_Position = Pos;
-    N = normalize((InverseMatrices[gl_InstanceID] * vec4(Normal, 0)).xyz);
+    N = normalize(mat3(InverseMatrices[gl_InstanceID]) * Normal);
 	UV = TexCoord;
 }

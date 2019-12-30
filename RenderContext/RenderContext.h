@@ -92,7 +92,7 @@ class RenderContext
 	virtual void setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) = 0;
 	virtual void setTextures(const std::vector<rfw::TextureData> &textures) = 0;
 	virtual void setMesh(size_t index, const rfw::Mesh &mesh) = 0;
-	virtual void setInstance(size_t i, size_t meshIdx, const mat4 &transform) = 0;
+	virtual void setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) = 0;
 	virtual void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) = 0;
 	virtual void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
 						   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) = 0;

@@ -4,6 +4,10 @@
 #include <utils/gl/GLTexture.h>
 #include <utils/Timer.h>
 #include <utils/gl/CheckGL.h>
+#include "BVH/AABB.h"
+#include "BVH/AABB.h"
+#include "BVH/AABB.h"
+#include "BVH/AABB.h"
 
 #ifdef _WIN32
 #include <ppl.h>
@@ -151,7 +155,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	m_Meshes[index].setGeometry(mesh);
 }
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform)
+void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	topLevelBVH.setInstance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->aabb);
 }

@@ -22,9 +22,6 @@ void OptiXMesh::cleanup()
 
 void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
 {
-	m_OptiXTriangles->destroy();
-	m_OptiXTriangles = m_Context->createGeometryTriangles();
-
 	if (!m_Triangles || m_Triangles->getElementCount() < mesh.triangleCount)
 	{
 		delete m_Triangles;
@@ -33,31 +30,21 @@ void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
 
 	m_Triangles->copyToDevice(mesh.triangles, mesh.triangleCount);
 
-	if (!m_VertexBuffer.get())
-		m_VertexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT4, mesh.vertexCount);
-	else
+	if (!m_VertexBuffer.get() || vertexCount < mesh.vertexCount)
 	{
-		RTsize size;
-		m_VertexBuffer->getSize(size);
-		if (size < mesh.vertexCount)
-			m_VertexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT4, mesh.vertexCount);
+		m_VertexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT4, mesh.vertexCount);
 	}
 
 	if (mesh.hasIndices())
 	{
-		if (!m_IndexBuffer.get())
-			m_IndexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_INT3, mesh.triangleCount);
-		else
+		if (!m_IndexBuffer.get() || triangleCount != mesh.triangleCount)
 		{
-			RTsize size;
-			m_IndexBuffer->getSize(size);
-			if (size < mesh.triangleCount)
-				m_IndexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_INT3, mesh.triangleCount);
-		}
+			m_IndexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_INT3, mesh.triangleCount);
 
-		memcpy(m_IndexBuffer->map(), mesh.indices, mesh.triangleCount * sizeof(glm::uvec3));
-		m_IndexBuffer->unmap();
-		m_OptiXTriangles->setTriangleIndices(m_IndexBuffer, RT_FORMAT_UNSIGNED_INT3);
+			memcpy(m_IndexBuffer->map(), mesh.indices, mesh.triangleCount * sizeof(glm::uvec3));
+			m_IndexBuffer->unmap();
+			m_OptiXTriangles->setTriangleIndices(m_IndexBuffer, RT_FORMAT_UNSIGNED_INT3);
+		}
 	}
 
 	memcpy(m_VertexBuffer->map(), mesh.vertices, mesh.vertexCount * sizeof(glm::vec4));
@@ -81,4 +68,7 @@ void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
 	}
 
 	m_Acceleration->markDirty();
+
+	vertexCount = mesh.vertexCount;
+	triangleCount = mesh.triangleCount;
 }

@@ -145,7 +145,6 @@ float Fr(const float VDotN, const float eio)
 	if (SinThetaT2 > 1.0f)
 		return 1.0f; // TIR
 	float LDotN = sqrt(1.0f - SinThetaT2);
-	// todo: reformulate to remove this division
 	float eta = 1.0f / eio;
 	float r1 = (VDotN - eta * LDotN) / (VDotN + eta * LDotN);
 	float r2 = (LDotN - eta * VDotN) / (LDotN + eta * VDotN);
@@ -292,7 +291,7 @@ void main()
             normal = normalize(normal * T + mapNormal * B + mapNormal * normal);
         }
 
-        finalColor += color * ambient;
+        finalColor += ambient;
         float roughness = ROUGHNESS;
 
         for (int i = 0; i < AREA_LIGHT_COUNT; i++)
@@ -306,7 +305,7 @@ void main()
 
             if (NdotL > 0 && LNdotL > 0)
             {
-                finalColor += evalLighting(color, roughness, normal, T, B, forward, L) * light.radiance * NdotL * (1.0f / dist2);
+                finalColor += evalLighting(color, roughness, normal, T, B, forward, L) * light.radiance * light.position_area.w * NdotL * (1.0f / dist2);
             }
         }
 
@@ -353,6 +352,8 @@ void main()
                 finalColor += evalLighting(color, roughness, normal, T, B, forward, L) * light.radiance * NdotL;
             }
         }
+
+        finalColor = finalColor * color;
     }
     else
     {

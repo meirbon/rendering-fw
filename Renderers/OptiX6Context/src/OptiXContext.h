@@ -25,6 +25,10 @@
 #include "TextureInterop.h"
 
 #include <utils/gl/GLShader.h>
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 class OptiXContext : public rfw::RenderContext
 {
@@ -38,7 +42,7 @@ class OptiXContext : public rfw::RenderContext
 	void setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
 	void setTextures(const std::vector<rfw::TextureData> &textures) override;
 	void setMesh(size_t index, const rfw::Mesh &mesh) override;
-	void setInstance(size_t i, size_t meshIdx, const mat4 &transform) override;
+	void setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
 	void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
 	void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
 				   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) override;

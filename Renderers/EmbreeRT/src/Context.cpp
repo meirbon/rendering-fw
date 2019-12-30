@@ -7,6 +7,10 @@
 
 #include <utils/Concurrency.h>
 #include <utils/Xor128.h>
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 #ifdef _WIN32
 #include <ppl.h>
@@ -191,8 +195,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 		});
 	}
 
-	for (int i = 0, s = static_cast<int>(threads); i < s; i++)
-		handles[i].get();
+	for (auto &handle : handles)
+		handle.get();
 
 	for (size_t i = 0; i < threads; i++)
 	{
@@ -219,18 +223,46 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						continue;
 					}
 
+					const int instID = packet.hit.instID[0][i];
+					const int primID = packet.hit.primID[i];
+
+					const mat3 &invTransform = m_InverseMatrices[instID];
+					const Triangle *tri = &m_Meshes[m_InstanceMesh[instID]].triangles[primID];
+
 					const auto u = packet.hit.u[i];
 					const auto v = packet.hit.v[i];
 					const auto w = 1.0f - u - v;
 
-					m_Pixels[pixel_id] = vec4(u, v, w, 0.0f);
+					const vec3 N = invTransform * vec3(tri->Nx, tri->Ny, tri->Nz);
+					const vec3 iN = normalize(invTransform * (w * tri->vN0 + u * tri->vN1 + v * tri->vN2));
+
+					const Material &mat = m_Materials[tri->material];
+					vec3 color = mat.getColor();
+
+					vec2 uv;
+					if (mat.hasFlag(HasDiffuseMap) || mat.hasFlag(HasNormalMap) || mat.hasFlag(HasAlphaMap) || mat.hasFlag(HasRoughnessMap) ||
+						mat.hasFlag(HasSpecularityMap))
+						uv = w * vec2(tri->u0, tri->v0) + u * vec2(tri->u1, tri->v1) + v * vec2(tri->u2, tri->v2);
+
+					if (mat.hasFlag(HasDiffuseMap))
+					{
+						const int width = mat.texwidth0;
+						const int height = mat.texheight0;
+						const vec2 UV = (uv + vec2(mat.uoffs0, mat.voffs0)) * vec2(mat.uscale0, mat.vscale0);
+						const int pixel = max(0, int(UV.y * height * width + UV.x * width));
+						const uint texel = reinterpret_cast<uint *>(m_Textures[mat.texaddr0].data)[pixel];
+						constexpr float divider = 1.0f / 255.f;
+						color = vec3((texel & 0xFF) * divider, ((texel >> 8) & 0xFF) * divider, ((texel >> 16) & 0xFF) * divider);
+					}
+
+					m_Pixels[pixel_id] = vec4(iN, 0.0f);
 				}
 			}
 		});
 	}
 
-	for (int i = 0, s = static_cast<int>(threads); i < s; i++)
-		handles[i].get();
+	for (auto &handle : handles)
+		handle.get();
 
 	m_Stats.primaryTime = timer.elapsed();
 
@@ -268,7 +300,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	m_Meshes[index].setGeometry(mesh);
 }
 
-void Context::setInstance(const size_t i, const size_t meshIdx, const mat4 &transform)
+void Context::setInstance(const size_t i, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	if (m_Instances.size() <= i)
 	{
@@ -295,7 +327,7 @@ void Context::setInstance(const size_t i, const size_t meshIdx, const mat4 &tran
 
 	m_InstanceMesh[i] = meshIdx;
 	m_InstanceMatrices[i] = transform;
-	m_InverseMatrices[i] = transpose(inverse(mat3(transform)));
+	m_InverseMatrices[i] = inverse_transform;
 }
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)

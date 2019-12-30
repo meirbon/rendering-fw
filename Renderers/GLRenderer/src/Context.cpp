@@ -2,6 +2,10 @@
 
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
+#include "../../CPURT/src/BVH/AABB.h"
 
 using namespace rfw;
 using namespace utils;
@@ -218,21 +222,19 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	CheckGL();
 }
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform)
+void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
-	const auto inverseTransform = transpose(inverse(transform));
-
 	if (m_InstanceGeometry.size() <= i)
 	{
 		m_InstanceGeometry.push_back(int(meshIdx));
 		m_InstanceMatrices.push_back(transform);
-		m_InverseInstanceMatrices.push_back(inverseTransform);
+		m_InverseInstanceMatrices.push_back(inverse_transform);
 	}
 	else
 	{
 		m_InstanceGeometry[i] = int(meshIdx);
 		m_InstanceMatrices[i] = transform;
-		m_InverseInstanceMatrices[i] = inverseTransform;
+		m_InverseInstanceMatrices[i] = inverse_transform;
 	}
 }
 
@@ -310,7 +312,7 @@ void Context::update()
 		const auto geoIdx = m_InstanceGeometry[i];
 
 		const auto &matrix = m_InstanceMatrices[i];
-		const auto &inverseMatrix = m_InstanceMatrices[i];
+		const auto &inverseMatrix = m_InverseInstanceMatrices[i];
 
 		m_Instances[geoIdx].push_back(matrix);
 		m_InverseInstances[geoIdx].push_back(inverseMatrix);

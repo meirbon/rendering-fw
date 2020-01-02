@@ -93,7 +93,7 @@ struct Counters // 14 counters
 {
 	void Reset(rfw::LightCount lightCount, uint scrwidth, uint scrheight, float ClampValue = 10.0f)
 	{
-		pathLength = 1;
+		pathLength = 0;
 		scrWidth = scrwidth;
 		scrHeight = scrheight;
 		pathCount = scrwidth * scrheight;

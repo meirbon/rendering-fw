@@ -507,18 +507,9 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 	v8[0] = _mm256_mul_ps(v8[0], scrheight4);
 	v8[1] = _mm256_mul_ps(v8[1], scrheight4);
 
-	union {
-		__m256 pixel_x4[2];
-		float pixel_x[16];
-	};
-	union {
-		__m256 pixel_y4[2];
-		float pixel_y[16];
-	};
-	union {
-		__m256 pixel_z4[2];
-		float pixel_z[16];
-	};
+	__m256 pixel_x4[2];
+	__m256 pixel_y4[2];
+	__m256 pixel_z4[2];
 
 	const __m256 p1_x4 = _mm256_set1_ps(camera.p1.x);
 	const __m256 p1_y4 = _mm256_set1_ps(camera.p1.y);

@@ -293,9 +293,9 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 			m_ProbedDist = c.probedDist;
 		}
 
-		for (uint j = 2; j <= MAXPATHLENGTH; j++)
+		for (uint j = 1; j <= MAXPATHLENGTH; j++)
 		{
-			if (pathCount > 0)
+			if (pathCount > 1)
 			{
 				m_Counters->copyToDevice(&c);
 
@@ -311,7 +311,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 				// Run command buffer
 				t.reset();
 				cmdBuffer.submit(queue, true);
-				if (j == 2)
+				if (j == 1)
 				{
 					m_Stats.secondaryTime += t.elapsed();
 					m_Stats.secondaryCount += pathCount;
@@ -350,7 +350,6 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 		if (pathCount > 0)
 		{
 			cmdBuffer.begin();
-			pushConstant[0] = c.pathLength;
 			pushConstant[1] = pathCount;
 			pushConstant[2] = STAGE_SHADOW_RAY;
 			rtPipeline->recordPushConstant(cmdBuffer.getVkCommandBuffer(), 0, 3 * sizeof(uint32_t),
@@ -578,7 +577,7 @@ void vkrtx::Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t wid
 	range.layerCount = 1;
 
 	// Set image data
-	m_SkyboxImage->setData(data, width, height);
+	m_SkyboxImage->setData(data, static_cast<uint32_t>(width), static_cast<uint32_t>(height));
 	// Create an image view that can be sampled
 	m_SkyboxImage->createImageView(vk::ImageViewType::e2D, vk::Format::eR32G32B32A32Sfloat, range);
 	// Create sampler to be used in shader

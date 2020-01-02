@@ -27,7 +27,7 @@ layout( set = 0, binding = rtBLUENOISE ) buffer blueNoiseBuffer { int blueNoise[
 layout( location = 0 ) rayPayloadNV vec4 hitData;
 layout( location = 1 ) rayPayloadNV int occluded;
 
-float blueNoiseSampler( int x, int y, int sampleIdx, int sampleDimension )
+float blueNoiseSampler(int x, int y, int sampleIdx, int sampleDimension)
 {
 	// wrap arguments
 	x &= 127;

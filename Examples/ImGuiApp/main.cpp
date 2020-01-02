@@ -1,3 +1,4 @@
+#include <RenderSystem.h>
 #include <Application.h>
 
 #define SKINNED_MESH 1

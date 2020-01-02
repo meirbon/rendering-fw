@@ -1,12 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#ifndef RENDERINGFW_VULKANRTX_SRC_INTEROPTEXTURE_H
-#define RENDERINGFW_VULKANRTX_SRC_INTEROPTEXTURE_H
-
-#include <vulkan/vulkan.hpp>
-#include "VulkanDevice.h"
+#pragma once
 
 namespace vkrtx
 {
@@ -48,5 +40,3 @@ class InteropTexture
 	uint32_t m_Width = 0, m_Height = 0;
 };
 } // namespace vkrtx
-
-#endif // RENDERINGFW_VULKANRTX_SRC_INTEROPTEXTURE_H

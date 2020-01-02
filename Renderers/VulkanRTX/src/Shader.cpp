@@ -1,10 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#include "Shader.h"
-
-#include <utils/File.h>
+#include "Context.h"
 
 using namespace vkrtx;
 

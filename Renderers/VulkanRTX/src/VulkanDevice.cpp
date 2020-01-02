@@ -1,17 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#include "VulkanDevice.h"
-
-#include <set>
-#include <map>
-#include <string>
-
-#include <utils/Logger.h>
-
-#include "CheckVK.h"
-#include "VmaBuffer.h"
+#include "Context.h"
 
 using namespace vkrtx;
 

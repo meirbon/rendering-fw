@@ -1,11 +1,5 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
-
-#include "VmaBuffer.h"
-
-#include <memory>
-
 namespace vkrtx
 {
 enum AllocLocation

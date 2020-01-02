@@ -1,11 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#include "RtxPipeline.h"
-#include "CheckVK.h"
-
-#include <utility>
+#include "Context.h"
 
 using namespace vkrtx;
 

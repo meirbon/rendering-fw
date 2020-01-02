@@ -1,8 +1,4 @@
-#include "AccelerationStructure.h"
-
-#include <MathIncludes.h>
-
-#include "CheckVK.h"
+#include "Context.h"
 
 using namespace vkrtx;
 

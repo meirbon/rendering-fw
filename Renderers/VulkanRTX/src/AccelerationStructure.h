@@ -1,18 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#ifndef RENDERINGFW_VULKANRTX_SRC_ACCELERATIONSTRUCTURE_H
-#define RENDERINGFW_VULKANRTX_SRC_ACCELERATIONSTRUCTURE_H
-
-#include <array>
-
-#include <vulkan/vulkan.hpp>
-
-#include <MathIncludes.h>
-
-#include "VulkanDevice.h"
-#include "Buffer.h"
+#pragma once
 
 namespace vkrtx
 {
@@ -140,5 +126,3 @@ class BottomLevelAS
 	VmaBuffer<glm::uvec3> m_Indices;
 };
 } // namespace vkrtx
-
-#endif // RENDERINGFW_VULKANRTX_SRC_ACCELERATIONSTRUCTURE_H

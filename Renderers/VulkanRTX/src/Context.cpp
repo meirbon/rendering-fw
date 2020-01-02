@@ -2,14 +2,6 @@
 
 #include "Bindings.h"
 
-#include <BlueNoise.h>
-#include <utils/gl/CheckGL.h>
-#include <utils/Timer.h>
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-
 #ifdef NDEBUG
 constexpr std::array<const char *, 0> VALIDATION_LAYERS = {};
 #else

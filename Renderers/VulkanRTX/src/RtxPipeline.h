@@ -1,9 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#ifndef RENDERINGFW_VULKANRTX_SRC_RTXPIPELINE_H
-#define RENDERINGFW_VULKANRTX_SRC_RTXPIPELINE_H
+#pragma once
 
 #include <vulkan/vulkan.hpp>
 #include "VulkanDevice.h"
@@ -170,5 +165,3 @@ class RTXPipeline
 	ShaderBindingTableGenerator m_SBTGenerator;
 };
 } // namespace vkrtx
-
-#endif // RENDERINGFW_VULKANRTX_SRC_RTXPIPELINE_H

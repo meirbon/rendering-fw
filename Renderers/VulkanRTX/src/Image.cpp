@@ -1,11 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#include "Image.h"
-
-#include <utils.h>
-#include "Buffer.h"
+#include "Context.h"
 
 using namespace vkrtx;
 

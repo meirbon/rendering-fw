@@ -1,10 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#include "AccelerationStructure.h"
-
-#include "CheckVK.h"
+#include "Context.h"
 
 using namespace vkrtx;
 

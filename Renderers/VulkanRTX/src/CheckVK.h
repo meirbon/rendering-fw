@@ -5,9 +5,6 @@
 #ifndef RENDERINGFW_VULKANRTX_SRC_CHECKVK_H
 #define RENDERINGFW_VULKANRTX_SRC_CHECKVK_H
 
-#include <vulkan/vulkan.hpp>
-#include <utils.h>
-
 #define CheckVK(x) _CheckVK(__LINE__, __FILE__, static_cast<vk::Result>(x))
 static void _CheckVK(int line, const char *file, vk::Result x)
 {

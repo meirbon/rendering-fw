@@ -1,9 +1,24 @@
-//
-// Created by meir on 10/25/19.
-//
+#pragma once
+#include <vulkan/vulkan.hpp>
+#include <MathIncludes.h>
+#include <vk_mem_alloc.h>
 
-#ifndef RENDERINGFW_VULKANRTX_SRC_CONTEXT_H
-#define RENDERINGFW_VULKANRTX_SRC_CONTEXT_H
+#include <array>
+#include <memory>
+#include <utility>
+#include <vector>
+#include <set>
+#include <map>
+#include <string>
+
+#include <GL/glew.h>
+
+#include <utils.h>
+#include <BlueNoise.h>
+#include <utils/gl/CheckGL.h>
+#include <utils/Timer.h>
+#include <utils/File.h>
+#include <utils/Logger.h>
 
 #include <utils/LibExport.h>
 #include <RenderContext.h>
@@ -15,7 +30,11 @@
 #include <Structures.h>
 #include <DeviceStructures.h>
 
+#include "CheckVK.h"
+
 #include "VulkanDevice.h"
+#include "Buffer.h"
+#include "VmaBuffer.h"
 #include "Mesh.h"
 #include "ComputePipeline.h"
 #include "DescriptorSet.h"
@@ -23,12 +42,8 @@
 #include "UniformObject.h"
 #include "RtxPipeline.h"
 #include "Image.h"
-
-#include <vk_mem_alloc.h>
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
+#include "AccelerationStructure.h"
+#include "Shader.h"
 
 namespace vkrtx
 {
@@ -90,8 +105,7 @@ struct Counters // 14 counters
 		probedTriid = 0;
 		probedDist = 0;
 		clampValue = ClampValue;
-		lightCounts = uvec4(lightCount.areaLightCount, lightCount.pointLightCount, lightCount.spotLightCount,
-							lightCount.directionalLightCount);
+		lightCounts = uvec4(lightCount.areaLightCount, lightCount.pointLightCount, lightCount.spotLightCount, lightCount.directionalLightCount);
 	}
 
 	uint pathLength;
@@ -131,15 +145,13 @@ class Context : public rfw::RenderContext
 
 	void cleanup() override;
 	void renderFrame(const rfw::Camera &camera, rfw::RenderStatus status) override;
-	void setMaterials(const std::vector<rfw::DeviceMaterial> &materials,
-					  const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
+	void setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
 	void setTextures(const std::vector<rfw::TextureData> &textures) override;
 	void setMesh(size_t index, const rfw::Mesh &mesh) override;
 	void setInstance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
 	void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
-	void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
-				   const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
-				   const rfw::DeviceDirectionalLight *directionalLights) override;
+	void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+				   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) override;
 	void getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const override;
 	[[nodiscard]] rfw::AvailableRenderSettings getAvailableSettings() const override;
 	void setSetting(const rfw::RenderSetting &setting) override;
@@ -237,5 +249,3 @@ class Context : public rfw::RenderContext
 };
 
 } // namespace vkrtx
-
-#endif // RENDERINGFW_VULKANRTX_SRC_CONTEXT_H

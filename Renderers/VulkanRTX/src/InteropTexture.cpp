@@ -1,12 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#include <GL/glew.h>
-#include <utils.h>
-#include <utils/gl/CheckGL.h>
-
-#include "InteropTexture.h"
+#include "Context.h"
 
 using namespace vkrtx;
 

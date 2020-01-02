@@ -1,12 +1,4 @@
-//
-// Created by meir on 10/25/19.
-//
-
-#ifndef RENDERINGFW_VULKANRTX_SRC_IMAGE_H
-#define RENDERINGFW_VULKANRTX_SRC_IMAGE_H
-
-#include <vulkan/vulkan.hpp>
-#include "VulkanDevice.h"
+#pragma once
 
 namespace vkrtx
 {
@@ -59,5 +51,3 @@ class Image
 	vk::Sampler m_Sampler = nullptr;
 };
 } // namespace vkrtx
-
-#endif // RENDERINGFW_VULKANRTX_SRC_IMAGE_H

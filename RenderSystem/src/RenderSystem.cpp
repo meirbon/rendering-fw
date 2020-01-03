@@ -108,7 +108,7 @@ void *LoadModuleFunction(void *module, const char *funcName)
 #ifdef WIN32
 	return static_cast<void *>(GetProcAddress(HMODULE(module), funcName));
 #else
-	return static_cast<void *>(dlsym(module, funcName.data()));
+	return static_cast<void *>(dlsym(module, funcName));
 #endif
 }
 
@@ -132,7 +132,7 @@ void rfw::RenderSystem::loadRenderAPI(std::string name)
 #endif
 
 	const std::string cwd = utils::file::get_working_path();
-	const std::string libName = std::string(name) + std::string(extension);
+	const std::string libName = name + std::string(extension);
 	const std::string libPath = cwd + '/' + libName;
 
 	if (m_Context)
@@ -149,7 +149,7 @@ void rfw::RenderSystem::loadRenderAPI(std::string name)
 	if (!m_ContextModule)
 	{
 		const std::string message = std::string("Could not load library: ") + libPath;
-		throw std::runtime_error(std::move(message));
+		throw std::runtime_error(message);
 	}
 
 	const auto createPtr = LoadModuleFunction(m_ContextModule, CREATE_RENDER_CONTEXT_FUNC_NAME);
@@ -496,7 +496,7 @@ GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, 
 GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material)
 {
 	if (!utils::file::exists(fileName))
-		throw LoadException(fileName.data());
+		throw LoadException(fileName);
 
 	const size_t idx = m_Models.size();
 	const size_t matFirst = m_Materials->getMaterials().size();
@@ -594,7 +594,6 @@ InstanceReference RenderSystem::addInstance(const GeometryReference &geometry, g
 {
 	m_Changed[INSTANCES] = true;
 	const size_t idx = m_Instances.size();
-	const SceneTriangles *object = m_Models[geometry.getIndex()];
 	m_InstanceChanged.push_back(true);
 
 	InstanceReference ref = InstanceReference(idx, geometry, *this);
@@ -896,9 +895,9 @@ RenderSystem::ProbeResult RenderSystem::getProbeResult()
 	const rfw::InstanceReference &reference = m_Instances.at(instanceID);
 	const SceneTriangles *object = m_Models[objectID];
 	const auto &mesh = object->getMeshes()[meshID].second;
-	Triangle *triangle = const_cast<Triangle *>(&mesh.triangles[m_ProbedPrimitive]);
+	auto *triangle = const_cast<Triangle *>(&mesh.triangles[m_ProbedPrimitive]);
 	const auto materialID = triangle->material;
-	return ProbeResult(reference, meshID, m_ProbedPrimitive, triangle, materialID, m_ProbeDistance);
+	return ProbeResult(reference, meshID, static_cast<int>(m_ProbedPrimitive), triangle, materialID, m_ProbeDistance);
 }
 
 rfw::InstanceReference *RenderSystem::getMutableInstances() { return m_Instances.data(); }

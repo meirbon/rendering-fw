@@ -12,7 +12,6 @@
 #include <execution>
 #include <thread>
 #include <future>
-#include <ranges>
 
 #include "../utils/Concurrency.h"
 
@@ -49,7 +48,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 			__m128 result = glm_mat4_mul_vec4(skinMatrix.cols, _mm_load_ps(value_ptr(baseVertices[vIndex])));
 			_mm_store_ps(value_ptr(vertices[vIndex]), result);
 
-			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0, ~0, ~0, ~0));
+			const __m128 normal = _mm_maskload_ps(value_ptr(baseNormals[vIndex]), _mm_set_epi32(0u, ~0, ~0, ~0));
 			// transform
 			result = glm_vec4_mul_mat4(normal, skinMatrix.cols);
 			// normalize

@@ -154,7 +154,7 @@ class InstanceReference
 		glm::vec3 translation = glm::vec3(0);
 		glm::quat rotation = glm::identity<glm::quat>();
 		glm::vec3 scaling = glm::vec3(1);
-		size_t index;
+		size_t index{};
 		std::vector<size_t> instanceIDs;
 		GeometryReference geomReference;
 		rfw::RenderSystem *rSystem = nullptr;

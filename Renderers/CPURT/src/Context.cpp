@@ -4,9 +4,8 @@
 #include <utils/gl/GLTexture.h>
 #include <utils/Timer.h>
 #include <utils/gl/CheckGL.h>
-#include "BVH/AABB.h"
-#include "BVH/AABB.h"
-#include "BVH/AABB.h"
+#include <utils/Concurrency.h>
+
 #include "BVH/AABB.h"
 
 #ifdef _WIN32
@@ -66,7 +65,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	auto timer = rfw::utils::Timer();
 
-	concurrency::parallel_for(0, m_Height, [&](const int y) {
+	utils::concurrency::parallel_for(0, m_Height, [&](const int y) {
 		const int yOffset = y * m_Width;
 
 		for (int x = 0; x < m_Width; x++)
@@ -112,7 +111,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					uint texel = reinterpret_cast<uint *>(tex.data)[pixelID];
 					constexpr float s = 1.0f / 256.0f;
 
-					color = vec3(texel & 0xFF, (texel >> 8) & 0xFF, (texel >> 16) & 0xFF);
+					color = vec3(texel & 0xFFu, (texel >> 8u) & 0xFFu, (texel >> 16u) & 0xFFu);
 					color = s * color;
 				}
 				}
@@ -130,7 +129,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	CheckGL();
 	glBindTexture(GL_TEXTURE_2D, m_TargetID);
-	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_Width, m_Height, GL_RGBA, GL_FLOAT, 0);
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, m_Width, m_Height, GL_RGBA, GL_FLOAT, nullptr);
 	CheckGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	CheckGL();

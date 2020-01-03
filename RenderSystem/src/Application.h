@@ -10,12 +10,12 @@
 
 #include <ImGuiContext.h>
 
-static constexpr char *VULKANRTX = "VulkanRTX";
-static constexpr char *VULKAN = "VkContext";
-static constexpr char *GLRENDERER = "GLRenderer";
-static constexpr char *OPTIX6 = "OptiX6Context";
-static constexpr char *CPURT = "CPURT";
-static constexpr char *EMBREE = "EmbreeRT";
+#define VULKANRTX "VulkanRTX"
+#define VULKAN "VkContext"
+#define GLRENDERER "GLRenderer"
+#define OPTIX6 "OptiX6Context"
+#define CPURT "CPURT"
+#define EMBREE "EmbreeRT"
 
 namespace rfw
 {
@@ -24,12 +24,12 @@ class Application
   public:
 	static void run(Application *app);
 
+	Application(const Application &) = delete;
+	Application(Application &&) = delete;
+
   protected:
 	explicit Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI);
 	~Application();
-
-	Application(const Application &) = delete;
-	Application(Application &&) = delete;
 
 	virtual void init() = 0;
 	virtual void loadScene(std::unique_ptr<rfw::RenderSystem> &rs) = 0;
@@ -48,7 +48,7 @@ class Application
 	std::vector<int> settingsCurrentValues;
 	std::vector<const char *> settingKeys;
 	std::vector<std::vector<const char *>> settingAvailableValues;
-	
+
   private:
 	rfw::utils::GLTexture *m_Target = nullptr;
 	rfw::utils::GLShader *m_Shader = nullptr;

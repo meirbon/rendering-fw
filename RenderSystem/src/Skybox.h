@@ -2,6 +2,7 @@
 
 #include <string_view>
 #include <vector>
+#include <string>
 
 #include "MathIncludes.h"
 
@@ -23,7 +24,7 @@ class Skybox
 
 	void load(std::string_view file);
 
-	const std::string &getSource() const { return m_File; }
+	[[nodiscard]] const std::string &getSource() const { return m_File; }
 
   private:
 	std::string m_File = "";

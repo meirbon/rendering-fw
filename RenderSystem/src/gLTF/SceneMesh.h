@@ -29,29 +29,29 @@ struct SceneMesh
 	};
 
 	glm::vec3 *getNormals();
-	const glm::vec3 *getNormals() const;
+	[[nodiscard]] const glm::vec3 *getNormals() const;
 	glm::vec3 *getBaseNormals();
-	const glm::vec3 *getBaseNormals() const;
+	[[nodiscard]] const glm::vec3 *getBaseNormals() const;
 	glm::vec4 *getVertices();
-	const glm::vec4 *getVertices() const;
+	[[nodiscard]] const glm::vec4 *getVertices() const;
 	glm::vec4 *getBaseVertices();
-	const glm::vec4 *getBaseVertices() const;
+	[[nodiscard]] const glm::vec4 *getBaseVertices() const;
 
 	rfw::Triangle *getTriangles();
-	const rfw::Triangle *getTriangles() const;
+	[[nodiscard]] const rfw::Triangle *getTriangles() const;
 
 	glm::uvec3 *getIndices();
-	const glm::uvec3 *getIndices() const;
+	[[nodiscard]] const glm::uvec3 *getIndices() const;
 
 	glm::vec2 *getTexCoords();
-	const glm::vec2 *getTexCoords() const;
+	[[nodiscard]] const glm::vec2 *getTexCoords() const;
 
 	void setPose(const rfw::MeshSkin &skin);
 	void setPose(const std::vector<float> &weights);
 	void setTransform(const glm::mat4 &transform);
 	void addPrimitive(const std::vector<int> &indices, const std::vector<glm::vec3> &vertices, const std::vector<glm::vec3> &normals,
 					  const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &poses, const std::vector<glm::uvec4> &joints,
-					  const std::vector<glm::vec4> &weights, const int materialIdx);
+					  const std::vector<glm::vec4> &weights, int materialIdx);
 	void updateTriangles() const;
 
 	unsigned int vertexOffset = 0;

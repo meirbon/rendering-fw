@@ -107,30 +107,27 @@ void BVHTree::refit(const glm::vec4 *vertices)
 		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
 	}
 
-	// Calculate new bounds of leaf nodes
-	for (auto &node : m_BVHPool)
-	{
-		if (!node.IsLeaf())
-			continue;
-		node.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
-	}
-
-	// Calculate new bounds of bvh nodes
 	for (int i = static_cast<int>(m_BVHPool.size()) - 1; i >= 0; i--)
 	{
 		auto &node = m_BVHPool[i];
 
+		// Calculate new bounds of leaf nodes
 		if (node.IsLeaf())
-			continue;
-		const auto &leftNode = m_BVHPool[node.GetLeftFirst()];
-		const auto &rightNode = m_BVHPool[node.GetLeftFirst() + 1];
+		{
+			node.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
+		}
+		else // Calculate new bounds of bvh nodes
+		{
+			const auto &leftNode = m_BVHPool[node.GetLeftFirst()];
+			const auto &rightNode = m_BVHPool[node.GetLeftFirst() + 1];
 
-		auto aabb = AABB();
-		aabb.Grow(leftNode.bounds);
-		aabb.Grow(rightNode.bounds);
+			auto aabb = AABB();
+			aabb.Grow(leftNode.bounds);
+			aabb.Grow(rightNode.bounds);
 
-		memcpy(node.bounds.bmin, aabb.bmin, 3 * sizeof(float));
-		memcpy(node.bounds.bmax, aabb.bmax, 3 * sizeof(float));
+			memcpy(node.bounds.bmin, aabb.bmin, 3 * sizeof(float));
+			memcpy(node.bounds.bmax, aabb.bmax, 3 * sizeof(float));
+		}
 	}
 }
 
@@ -146,26 +143,25 @@ void BVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
 	}
 
-	for (auto &node : m_BVHPool)
-	{
-		if (!node.IsLeaf())
-			continue;
-		node.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
-	}
-
 	for (int i = static_cast<int>(m_BVHPool.size()) - 1; i >= 0; i--)
 	{
 		auto &node = m_BVHPool[i];
+		// Calculate new bounds of leaf nodes
 		if (node.IsLeaf())
-			continue;
-		const auto &leftNode = m_BVHPool[node.GetLeftFirst()];
-		const auto &rightNode = m_BVHPool[node.GetLeftFirst() + 1];
+		{
+			node.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
+		}
+		else // Calculate new bounds of bvh nodes
+		{
+			const auto &leftNode = m_BVHPool[node.GetLeftFirst()];
+			const auto &rightNode = m_BVHPool[node.GetLeftFirst() + 1];
 
-		auto aabb = AABB();
-		aabb.Grow(leftNode.bounds);
-		aabb.Grow(rightNode.bounds);
-		memcpy(node.bounds.bmin, aabb.bmin, 3 * sizeof(float));
-		memcpy(node.bounds.bmax, aabb.bmax, 3 * sizeof(float));
+			auto aabb = AABB();
+			aabb.Grow(leftNode.bounds);
+			aabb.Grow(rightNode.bounds);
+			memcpy(node.bounds.bmin, aabb.bmin, 3 * sizeof(float));
+			memcpy(node.bounds.bmax, aabb.bmax, 3 * sizeof(float));
+		}
 	}
 }
 

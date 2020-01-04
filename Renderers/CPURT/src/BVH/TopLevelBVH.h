@@ -46,6 +46,8 @@ class TopLevelBVH
 	std::vector<SIMDMat4> inverseMatrices;
 	std::vector<glm::mat3> instanceMatrices3;
 	std::vector<glm::mat3> inverseMatrices3;
+
+	bool instanceCountChanged = true;
 };
 
 } // namespace rfw

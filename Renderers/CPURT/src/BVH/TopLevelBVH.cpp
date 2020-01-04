@@ -5,48 +5,59 @@
 
 void rfw::TopLevelBVH::constructBVH()
 {
-	m_Nodes.clear();
-	AABB rootBounds = {};
-	for (const auto &aabb : transformedAABBs)
-		rootBounds.Grow(aabb);
-
-	m_Nodes.resize(boundingBoxes.size() * 2);
-	m_PrimIndices.resize(boundingBoxes.size());
-	for (uint i = 0, s = static_cast<uint>(m_PrimIndices.size()); i < s; i++)
-		m_PrimIndices[i] = i;
-
-	m_PoolPtr.store(2);
-	m_Nodes[0].bounds = rootBounds;
-	m_Nodes[0].bounds.leftFirst = 0;
-	m_Nodes[0].bounds.count = static_cast<int>(transformedAABBs.size());
-	m_Nodes[0].Subdivide(transformedAABBs.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
-	if (m_PoolPtr > 2)
+	if (instanceCountChanged) // (Re)build
 	{
-		m_Nodes[0].bounds.count = -1;
-		m_Nodes[0].SetLeftFirst(2);
-	}
-	else
-	{
+		m_Nodes.clear();
+		AABB rootBounds = {};
+		for (const auto &aabb : transformedAABBs)
+			rootBounds.Grow(aabb);
+
+		m_Nodes.resize(boundingBoxes.size() * 2);
+		m_PrimIndices.resize(boundingBoxes.size());
+		for (uint i = 0, s = static_cast<uint>(m_PrimIndices.size()); i < s; i++)
+			m_PrimIndices[i] = i;
+
+		m_PoolPtr.store(2);
+		m_Nodes[0].bounds = rootBounds;
+		m_Nodes[0].bounds.leftFirst = 0;
 		m_Nodes[0].bounds.count = static_cast<int>(transformedAABBs.size());
-		m_Nodes[0].SetLeftFirst(0);
-	}
-
-	if (m_PoolPtr <= 4) // Original tree first in single MBVH node
-	{
-		m_MNodes.resize(1);
-		MBVHNode &mRootNode = m_MNodes[0];
-
-		for (int i = 0, s = m_PoolPtr; i < s; i++)
+		m_Nodes[0].Subdivide(transformedAABBs.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
+		if (m_PoolPtr > 2)
 		{
-			BVHNode &curNode = m_Nodes[i];
+			m_Nodes[0].bounds.count = -1;
+			m_Nodes[0].SetLeftFirst(2);
+		}
+		else
+		{
+			m_Nodes[0].bounds.count = static_cast<int>(transformedAABBs.size());
+			m_Nodes[0].SetLeftFirst(0);
+		}
 
-			if (curNode.IsLeaf())
+		if (m_PoolPtr <= 4) // Original tree first in single MBVH node
+		{
+			m_MNodes.resize(1);
+			MBVHNode &mRootNode = m_MNodes[0];
+
+			for (int i = 0, s = m_PoolPtr; i < s; i++)
 			{
-				mRootNode.childs[i] = curNode.GetLeftFirst();
-				mRootNode.counts[i] = curNode.GetCount();
-				mRootNode.SetBounds(i, curNode.bounds);
+				BVHNode &curNode = m_Nodes[i];
+
+				if (curNode.IsLeaf())
+				{
+					mRootNode.childs[i] = curNode.GetLeftFirst();
+					mRootNode.counts[i] = curNode.GetCount();
+					mRootNode.SetBounds(i, curNode.bounds);
+				}
+				else
+				{
+					mRootNode.childs[i] = 0;
+					mRootNode.counts[i] = 0;
+					const AABB invalidAABB = {glm::vec3(1e34f), glm::vec3(-1e34f)};
+					mRootNode.SetBounds(i, invalidAABB);
+				}
 			}
-			else
+
+			for (int i = m_PoolPtr; i < 4; i++)
 			{
 				mRootNode.childs[i] = 0;
 				mRootNode.counts[i] = 0;
@@ -54,20 +65,56 @@ void rfw::TopLevelBVH::constructBVH()
 				mRootNode.SetBounds(i, invalidAABB);
 			}
 		}
-
-		for (int i = m_PoolPtr; i < 4; i++)
+		else
 		{
-			mRootNode.childs[i] = 0;
-			mRootNode.counts[i] = 0;
-			const AABB invalidAABB = {glm::vec3(1e34f), glm::vec3(-1e34f)};
-			mRootNode.SetBounds(i, invalidAABB);
+			m_MPoolPtr.store(1);
+			m_MNodes.resize(m_Nodes.size()); // We'll store at most the original nodes in terms of size
+			m_MNodes[0].MergeNodes(m_Nodes[0], m_Nodes.data(), m_MNodes.data(), m_MPoolPtr);
 		}
+
+		instanceCountChanged = false;
 	}
-	else
+	else // Refit
 	{
-		m_MPoolPtr.store(1);
-		m_MNodes.resize(m_Nodes.size()); // We'll store at most the original nodes in terms of size
-		m_MNodes[0].MergeNodes(m_Nodes[0], m_Nodes.data(), m_MNodes.data(), m_MPoolPtr);
+		AABB rootBounds = {};
+		for (const auto &aabb : transformedAABBs)
+			rootBounds.Grow(aabb);
+
+		for (int i = static_cast<int>(m_MNodes.size()) - 1; i >= 0; i--)
+		{
+			auto &node = m_MNodes[i];
+			for (int j = 0; j < 4; j++)
+			{
+				if (node.counts[j] == 0)
+					continue;
+
+				if (node.counts[j] >= 0 || node.childs[j] < i /* Child node cannot be at an earlier index */) // Calculate new bounds of leaf nodes
+				{
+					auto aabb = AABB(vec3(1e34f), vec3(-1e34f));
+					for (int k = node.childs[j], s = node.childs[j] + node.counts[j]; k < s; k++)
+						aabb.Grow(transformedAABBs[m_PrimIndices[k]]);
+
+					node.bminx[j] = aabb.bmin[0];
+					node.bminy[j] = aabb.bmin[1];
+					node.bminz[j] = aabb.bmin[2];
+
+					node.bmaxx[j] = aabb.bmax[0];
+					node.bmaxy[j] = aabb.bmax[1];
+					node.bmaxz[j] = aabb.bmax[2];
+				}
+				else // Calculate new bounds of bvh nodes
+				{
+					const auto &childNode = m_MNodes[node.childs[j]];
+					node.bminx[j] = min(childNode.bminx[0], min(childNode.bminx[1], childNode.bminx[2]));
+					node.bminy[j] = min(childNode.bminy[0], min(childNode.bminy[1], childNode.bminy[2]));
+					node.bminz[j] = min(childNode.bminz[0], min(childNode.bminz[1], childNode.bminz[2]));
+
+					node.bmaxx[j] = max(childNode.bmaxx[0], max(childNode.bmaxx[1], childNode.bmaxx[2]));
+					node.bmaxy[j] = max(childNode.bmaxy[0], max(childNode.bmaxy[1], childNode.bmaxy[2]));
+					node.bmaxz[j] = max(childNode.bmaxz[0], max(childNode.bmaxz[1], childNode.bmaxz[2]));
+				}
+			}
+		}
 	}
 }
 
@@ -186,6 +233,7 @@ void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, 
 {
 	if (idx >= static_cast<int>(accelerationStructures.size()))
 	{
+		instanceCountChanged = true;
 		transformedAABBs.emplace_back();
 		boundingBoxes.emplace_back();
 		accelerationStructures.emplace_back();
@@ -228,5 +276,12 @@ AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const gl
 	transformedAABB.Grow(p6);
 	transformedAABB.Grow(p7);
 	transformedAABB.Grow(p8);
+
+	for (int i = 0; i < 3; i++)
+	{
+		transformedAABB.bmin[i] -= 1e-5f;
+		transformedAABB.bmax[i] -= 1e-5f;
+	}
+
 	return transformedAABB;
 }

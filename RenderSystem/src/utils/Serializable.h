@@ -106,10 +106,9 @@ template <typename T, unsigned int Dimensions> class Serializable
 		for (uint i = 1; i < dims.size(); i++)
 			count *= dims[i];
 
-		assert(count * sizeof(T) <= data.size());
-		assert(count > 0);
 		std::vector<T> d(count);
-		memcpy(d.data(), data.data() + ((Dimensions + 1) * charsInUint), count * sizeof(T));
+		if (data.size() > 0)
+			memcpy(d.data(), data.data() + ((Dimensions + 1) * charsInUint), min(count * sizeof(T), data.size()));
 
 		return Serializable<T, Dimensions>(d, dims);
 	}

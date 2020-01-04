@@ -20,9 +20,6 @@
 #include <embree3/rtcore_device.h>
 #include "utils/Xor128.h"
 #include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
 
 namespace rfw
 {
@@ -78,6 +75,10 @@ class Context : public RenderContext
 	glm::vec4 *m_Pixels = nullptr;
 	GLuint m_TargetID = 0, m_PboID = 0;
 	int m_Width, m_Height;
+	glm::uvec2 m_ProbePos = glm::uvec2(0);
+	unsigned int m_ProbedInstance = 0;
+	unsigned int m_ProbedTriangle = 0;
+	float m_ProbedDist = -1.0f;
 	bool m_InitializedGlew = false;
 
 	utils::Xor128 m_Rng = {};

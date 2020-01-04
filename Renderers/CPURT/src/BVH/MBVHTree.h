@@ -17,7 +17,11 @@ class MBVHTree
 	BVHTree *m_OriginalTree;
 	std::vector<MBVHNode> m_Tree;
 	std::vector<unsigned int> m_PrimitiveIndices{};
-	void constructBVH();
+	void constructBVH(bool printBuildTime = false);
+
+	void refit(const glm::vec4 *vertices);
+	void refit(const glm::vec4 *vertices, const glm::uvec3 *indices);
+
 	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
 
 	AABB aabb;

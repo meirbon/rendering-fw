@@ -20,8 +20,8 @@ class TopLevelBVH
 
 	void constructBVH();
 
-	// (Optionally) returns hit triangle, transform, inverse transform
-	std::optional<const rfw::Triangle> intersect(Ray &ray, float t_min = 0.0f) const;
+	// (Optionally) returns hit triangle
+	std::optional<const rfw::Triangle> intersect(Ray &ray, float t_min, uint &instID) const;
 
 	CPUMesh *getMesh(const int ID) { return accelerationStructures[ID]; }
 
@@ -42,9 +42,10 @@ class TopLevelBVH
 
 	// Instance data
 	std::vector<CPUMesh *> accelerationStructures;
-	std::vector<glm::mat4> instanceMatrices;
+	std::vector<SIMDMat4> instanceMatrices;
+	std::vector<SIMDMat4> inverseMatrices;
 	std::vector<glm::mat3> instanceMatrices3;
-	std::vector<glm::mat3> inverseNormalMatrices;
+	std::vector<glm::mat3> inverseMatrices3;
 };
 
 } // namespace rfw

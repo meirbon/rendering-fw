@@ -76,40 +76,24 @@ void MBVHNode::MergeNodesMT(const BVHNode &node, const BVHNode *bvhPool, MBVHNod
 	// invalidate any remaining children
 	for (int idx = numChildren; idx < 4; idx++)
 	{
-		this->SetBounds(idx, vec3(1e34f), vec3(-1e34f));
-		this->counts[idx] = 0;
+		SetBounds(idx, vec3(1e34f), vec3(-1e34f));
+		counts[idx] = 0;
 	}
 
 	for (int idx = 0; idx < numChildren; idx++)
 	{
-		if (this->counts[idx] == -1)
-		{ // not a leaf
-			const BVHNode *curNode = &bvhPool[this->childs[idx]];
+		if (counts[idx] < 0) // not a leaf
+		{
+			const BVHNode *curNode = &bvhPool[childs[idx]];
 
-			if (curNode->IsLeaf())
-			{
-				this->counts[idx] = curNode->GetCount();
-				this->childs[idx] = curNode->GetLeftFirst();
-				this->SetBounds(idx, curNode->bounds);
+			if (counts[idx] >= 0) // Node is leaf node, no need to subdivide
 				continue;
-			}
 
 			const auto newIdx = poolPtr.fetch_add(1);
-
 			MBVHNode *newNode = &bvhTree[newIdx];
-			this->childs[idx] = newIdx; // replace BVHNode idx with MBVHNode idx
-			this->counts[idx] = -1;
-			this->SetBounds(idx, curNode->bounds);
-
-			if (!thread || threadCount.load() >= std::thread::hardware_concurrency())
-			{
-				newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, poolPtr, threadCount, !thread);
-			}
-			else
-			{
-				threadCount.fetch_add(1);
-				threads.push_back(std::async([&]() { newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, poolPtr, threadCount); }));
-			}
+			childs[idx] = newIdx; // replace BVHNode idx with MBVHNode idx
+			SetBounds(idx, curNode->bounds);
+			newNode->MergeNodesMT(*curNode, bvhPool, bvhTree, poolPtr, threadCount, !thread);
 		}
 	}
 
@@ -126,48 +110,84 @@ void MBVHNode::GetBVHNodeInfo(const BVHNode &node, const BVHNode *pool, int &num
 
 	if (node.IsLeaf())
 	{
-		std::cout << "This node shouldn't be a leaf."
-				  << "MBVHNode" << std::endl;
+		throw std::runtime_error("This node shouldn't be a leaf");
 		return;
 	}
 
-	const BVHNode &leftNode = pool[node.GetLeftFirst()];
-	const BVHNode &rightNode = pool[node.GetLeftFirst() + 1];
+	const BVHNode &orgLeftNode = pool[node.GetLeftFirst()];
+	const BVHNode &orgRightNode = pool[node.GetLeftFirst() + 1];
 
-	if (leftNode.IsLeaf())
+	if (orgLeftNode.IsLeaf()) // Node is a leaf
 	{
-		// node only has a single child
 		const int idx = numChildren++;
-		SetBounds(idx, leftNode.bounds);
-		childs[idx] = leftNode.GetLeftFirst();
-		counts[idx] = leftNode.GetCount();
+		SetBounds(idx, orgLeftNode.bounds);
+
+		childs[idx] = orgLeftNode.GetLeftFirst();
+		counts[idx] = orgLeftNode.GetCount();
 	}
-	else
+	else // Node has children
 	{
-		// Node has 2 children
 		const int idx1 = numChildren++;
 		const int idx2 = numChildren++;
-		childs[idx1] = leftNode.GetLeftFirst();
-		childs[idx2] = leftNode.GetLeftFirst() + 1;
+
+		const int left = orgLeftNode.GetLeftFirst();
+		const int right = orgLeftNode.GetLeftFirst() + 1;
+
+		const BVHNode &leftNode = pool[left];
+		const BVHNode &rightNode = pool[right];
+
+		SetBounds(idx1, leftNode.bounds);
+		SetBounds(idx2, rightNode.bounds);
+
+		if (leftNode.IsLeaf())
+			childs[idx1] = leftNode.GetLeftFirst();
+		else
+			childs[idx1] = left;
+
+		if (rightNode.IsLeaf())
+			childs[idx2] = rightNode.GetLeftFirst();
+		else
+			childs[idx2] = right;
+
+		counts[idx1] = leftNode.GetCount();
+		counts[idx2] = rightNode.GetCount();
 	}
 
-	if (rightNode.IsLeaf())
+	if (orgRightNode.IsLeaf())
 	{
 		// Node only has a single child
 		const int idx = numChildren++;
-		SetBounds(idx, rightNode.bounds);
-		childs[idx] = rightNode.GetLeftFirst();
-		counts[idx] = rightNode.GetCount();
+		SetBounds(idx, orgRightNode.bounds);
+
+		childs[idx] = orgRightNode.GetLeftFirst();
+		counts[idx] = orgRightNode.GetCount();
 	}
 	else
 	{
-		// Node has 2 children
 		const int idx1 = numChildren++;
 		const int idx2 = numChildren++;
-		SetBounds(idx1, pool[rightNode.GetLeftFirst()].bounds);
-		SetBounds(idx2, pool[rightNode.GetLeftFirst() + 1].bounds);
-		childs[idx1] = rightNode.GetLeftFirst();
-		childs[idx2] = rightNode.GetLeftFirst() + 1;
+
+		const int left = orgRightNode.GetLeftFirst();
+		const int right = orgRightNode.GetLeftFirst() + 1;
+
+		const BVHNode &leftNode = pool[left];
+		const BVHNode &rightNode = pool[right];
+
+		SetBounds(idx1, leftNode.bounds);
+		SetBounds(idx2, rightNode.bounds);
+
+		if (leftNode.IsLeaf())
+			childs[idx1] = leftNode.GetLeftFirst();
+		else
+			childs[idx1] = left;
+
+		if (rightNode.IsLeaf())
+			childs[idx2] = rightNode.GetLeftFirst();
+		else
+			childs[idx2] = right;
+
+		counts[idx1] = leftNode.GetCount();
+		counts[idx2] = rightNode.GetCount();
 	}
 }
 
@@ -203,12 +223,16 @@ bool MBVHNode::traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_
 		const int count = todo[stackptr].count;
 		stackptr--;
 
-		if (count > -1)
-		{ // leaf node
+		if (count == 0)
+			continue;
+
+		if (count > 0)
+		{
+			// leaf node
 			for (int i = 0; i < count; i++)
 			{
-				const glm::uint primIdx = primIndices[leftFirst + i];
-				const glm::uvec3 &idx = indices[primIdx];
+				const uint primIdx = primIndices[leftFirst + i];
+				const uvec3 &idx = indices[primIdx];
 
 				if (rfw::triangle::intersect(org, dir, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z]))
 				{
@@ -350,8 +374,8 @@ bool MBVHNode::traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, fl
 		struct MBVHTraversal mTodo = todo[stackptr];
 		stackptr--;
 
-		if (mTodo.count > -1)
-		{ // leaf node
+		if (mTodo.count > -1) // leaf node
+		{
 			for (int i = 0; i < mTodo.count; i++)
 			{
 				const int primIdx = primIndices[mTodo.leftFirst + i];
@@ -381,4 +405,28 @@ bool MBVHNode::traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, fl
 
 	// Nothing occluding
 	return false;
+}
+
+void MBVHNode::validate(MBVHNode *nodes, unsigned maxPrimID, unsigned maxPoolPtr)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (childs[i] < 0) // Unused nodes
+			break;
+
+		if (counts[i] >= 0)
+		{
+			for (int j = 0; j < counts[i]; j++)
+			{
+				if (childs[i] + j >= maxPrimID)
+					throw std::runtime_error("Invalid node: PrimID is larger than maximum.");
+			}
+		}
+		else
+		{
+			if (childs[i] >= maxPoolPtr)
+				throw std::runtime_error("Invalid node: PoolPtr is larger than maximum.");
+			nodes[childs[i]].validate(nodes, maxPrimID, maxPoolPtr);
+		}
+	}
 }

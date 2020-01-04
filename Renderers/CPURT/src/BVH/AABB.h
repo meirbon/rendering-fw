@@ -11,10 +11,16 @@ class AABB
   public:
 	AABB()
 	{
-		for (int i = 0; i < 4; i++)
-		{
-			this->bmax[i] = this->bmin[i] = 0.0f;
-		}
+		memset(&this->bmin4, 0, sizeof(glm::vec4));
+		memset(&this->bmax4, 0, sizeof(glm::vec4));
+
+		this->bmin[0] = 1e34f;
+		this->bmin[1] = 1e34f;
+		this->bmin[2] = 1e34f;
+
+		this->bmax[0] = -1e34f;
+		this->bmax[1] = -1e34f;
+		this->bmax[2] = -1e34f;
 	};
 
 	AABB(__m128 mi, __m128 ma)

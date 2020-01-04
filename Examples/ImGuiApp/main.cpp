@@ -3,10 +3,10 @@
 
 #define SKINNED_MESH 1
 #define CESIUMMAN 1
-#define POLLY 1
+#define POLLY 0
 #define PICA 1
 #define PICA_LIGHTS 1
-#define DRAGON 1
+#define DRAGON 0
 #define SPONZA 0
 
 using namespace rfw;
@@ -69,7 +69,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", VULKANRTX)
+App::App() : Application(512, 512, "RenderingFW", CPURT)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -221,11 +221,18 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 	{
 		updateFocus = true;
 		rs->setProbeIndex(uvec2(mouseX, mouseY));
-		probe = rs->getProbeResult();
-		instanceID = probe.object.getIndex();
-		materialID = probe.materialIdx;
+		try
+		{
+			probe = rs->getProbeResult();
+			instanceID = probe.object.getIndex();
+			materialID = probe.materialIdx;
 
-		hostMaterial = rs->getMaterial(materialID);
+			hostMaterial = rs->getMaterial(materialID);
+		}
+		catch (const std::exception &e)
+		{
+			WARNING("Exception: %s", e.what());
+		}
 	}
 
 	camera.aperture = max(camera.aperture, 0.00001f);

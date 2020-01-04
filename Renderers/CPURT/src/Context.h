@@ -6,15 +6,13 @@
 #include <optional>
 #include <utils/Window.h>
 #include <utils/LibExport.h>
+#include <utils/ThreadPool.h>
+#include <utils/Xor128.h>
 
 #include <GL/glew.h>
 
 #include "Mesh.h"
 #include "BVH/TopLevelBVH.h"
-#include "BVH/AABB.h"
-#include "BVH/AABB.h"
-#include "BVH/AABB.h"
-#include "BVH/AABB.h"
 
 namespace rfw
 {
@@ -53,6 +51,10 @@ class Context : public RenderContext
 	std::vector<Material> m_Materials;
 	std::vector<TextureData> m_Textures;
 
+	utils::ThreadPool m_Pool = {};
+	std::vector<std::future<void>> m_Handles;
+	std::vector<utils::Xor128> m_RNGs;
+
 	TopLevelBVH topLevelBVH;
 	std::vector<CPUMesh> m_Meshes;
 
@@ -61,6 +63,11 @@ class Context : public RenderContext
 	glm::vec4 *m_Pixels = nullptr;
 	GLuint m_TargetID = 0, m_PboID = 0;
 	int m_Width, m_Height;
+	glm::uvec2 m_ProbePos = glm::uvec2(0);
+	unsigned int m_ProbedInstance = 0;
+	unsigned int m_ProbedTriangle = 0;
+	float m_ProbedDist = -1.0f;
+
 	bool m_InitializedGlew = false;
 };
 

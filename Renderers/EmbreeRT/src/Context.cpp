@@ -7,10 +7,6 @@
 
 #include <utils/Concurrency.h>
 #include <utils/Xor128.h>
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
 
 #ifdef _WIN32
 #include <ppl.h>
@@ -195,12 +191,14 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 		});
 	}
 
+	const int probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
+
 	for (auto &handle : handles)
 		handle.get();
 
 	for (size_t i = 0; i < threads; i++)
 	{
-		handles[i] = m_Pool.push([i, packetsPerThread, maxPixelID, &packets, this](int tID) {
+		handles[i] = m_Pool.push([i, packetsPerThread, maxPixelID, &packets, &probe_id, this](int tID) {
 			const int start = static_cast<int>(i * packetsPerThread);
 			const int end = static_cast<int>((i + 1) * packetsPerThread);
 
@@ -225,6 +223,13 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					const int instID = packet.hit.instID[0][i];
 					const int primID = packet.hit.primID[i];
+
+					if (pixel_id == probe_id)
+					{
+						m_ProbedDist = packet.ray.tfar[i];
+						m_ProbedInstance = instID;
+						m_ProbedTriangle = primID;
+					}
 
 					const mat3 &invTransform = m_InverseMatrices[instID];
 					const Triangle *tri = &m_Meshes[m_InstanceMesh[instID]].triangles[primID];
@@ -359,7 +364,12 @@ void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *
 		memcpy(m_SpotLights.data(), spotLights, m_SpotLights.size() * sizeof(SpotLight));
 }
 
-void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
+void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
+{
+	*instanceIndex = m_ProbedInstance;
+	*primitiveIndex = m_ProbedTriangle;
+	*distance = m_ProbedDist;
+}
 
 rfw::AvailableRenderSettings Context::getAvailableSettings() const { return {}; }
 
@@ -380,6 +390,6 @@ void Context::update()
 	rtcCommitScene(m_Scene);
 }
 
-void Context::setProbePos(glm::uvec2 probePos) {}
+void Context::setProbePos(glm::uvec2 probePos) { m_ProbePos = probePos; }
 
 rfw::RenderStats Context::getStats() const { return m_Stats; }

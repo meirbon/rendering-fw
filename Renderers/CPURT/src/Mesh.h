@@ -9,8 +9,10 @@ namespace rfw
 class CPUMesh
 {
   public:
-	CPUMesh() = default;
-
+	CPUMesh();
+	CPUMesh(const CPUMesh &other);
+	~CPUMesh();
+	
 	void setGeometry(const Mesh &mesh);
 
 	BVHTree *bvh = nullptr;

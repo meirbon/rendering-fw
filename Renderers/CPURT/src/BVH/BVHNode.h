@@ -33,7 +33,7 @@ struct BVHNode
 
 	~BVHNode() = default;
 
-	[[nodiscard]] inline bool IsLeaf() const noexcept { return bounds.count > -1; }
+	[[nodiscard]] inline bool IsLeaf() const noexcept { return bounds.count >= 0; }
 
 	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const;
 
@@ -47,24 +47,34 @@ struct BVHNode
 
 	void Subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, unsigned int depth, std::atomic_int &poolPtr);
 
-	void SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::mutex *threadMutex, std::mutex *partitionMutex,
-					 unsigned int *threadCount, unsigned int depth, std::atomic_int &poolPtr);
+	void SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::mutex *threadMutex, unsigned int *threadCount, unsigned int depth,
+					 std::atomic_int &poolPtr);
 
-	bool Partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::mutex *partitionMutex, int &left, int &right, std::atomic_int &poolPtr);
-
-	bool Partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, int &left, int &right, std::atomic_int &poolPtr);
+	bool Partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, int *left, int *right, std::atomic_int &poolPtr);
 
 	void CalculateBounds(const AABB *aabbs, const unsigned int *primitiveIndices);
 
-	static void traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
-							const unsigned int *primIndices, const glm::uvec3 *indices, const glm::vec3 *vertices);
+	static bool traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
+							const unsigned int *primIndices, const glm::vec3 *vertices, const glm::uvec3 *indices);
 
-	static void traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
+	static bool traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
 							const unsigned int *primIndices, const glm::vec3 *vertices);
 
+	static bool traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
+							const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
+
+	static bool traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
+							const unsigned int *primIndices, const glm::vec4 *vertices);
+
 	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
-								  const glm::uvec3 *indices, const glm::vec3 *vertices);
+								  const glm::vec3 *vertices, const glm::uvec3 *indices);
 
 	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
 								  const glm::vec3 *vertices);
+
+	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
+								  const glm::vec4 *vertices, const glm::uvec3 *indices);
+
+	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
+								  const glm::vec4 *vertices);
 };

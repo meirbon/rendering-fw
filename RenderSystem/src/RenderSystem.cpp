@@ -888,7 +888,7 @@ glm::uvec2 rfw::RenderSystem::getProbeIndex() const { return m_ProbeIndex; }
 RenderSystem::ProbeResult RenderSystem::getProbeResult()
 {
 	m_Context->getProbeResults(&m_ProbedInstance, &m_ProbedPrimitive, &m_ProbeDistance);
-	const std::tuple<int, int, int> result = m_InverseInstanceMapping[m_ProbedInstance];
+	const std::tuple<int, int, int> result = m_InverseInstanceMapping.at(m_ProbedInstance);
 	const int instanceID = std::get<0>(result);
 	const int objectID = std::get<1>(result);
 	const int meshID = std::get<2>(result);

@@ -1,17 +1,9 @@
-//
-// Created by Mèir Noordermeer on 2019-08-20.
-//
-
-#ifndef RENDERING_FW_SRC_MATERIALLIST_HPP
-#define RENDERING_FW_SRC_MATERIALLIST_HPP
+#pragma once
 
 #include <map>
 #include <mutex>
 #include <string>
-#include <string_view>
 #include <vector>
-
-#include <MathIncludes.h>
 
 #include <Texture.h>
 
@@ -87,7 +79,7 @@ class HostMaterial
 class MaterialList
 {
   public:
-	  ~MaterialList();
+	~MaterialList();
 
 	uint add(const HostMaterial &mat);
 	uint add(const aiMaterial *aiMat, const std::string_view &basedir);
@@ -124,4 +116,3 @@ class MaterialList
 	std::map<std::string, int> m_TexMapping;
 };
 } // namespace rfw
-#endif // RENDERING_FW_SRC_MATERIALLIST_HPP

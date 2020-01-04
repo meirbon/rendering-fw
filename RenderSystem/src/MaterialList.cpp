@@ -1,7 +1,3 @@
-//
-// Created by Mèir Noordermeer on 2019-08-20.
-//
-
 #include "MaterialList.h"
 
 #include <assimp/material.h>
@@ -9,9 +5,9 @@
 
 using namespace rfw;
 
-inline static float RoughnessToAlpha(float roughness)
+static float RoughnessToAlpha(float roughness)
 {
-	roughness = fmaxf(roughness, 1e-3f);
+	roughness = fmaxf(roughness, 1e-4f);
 	const float x = logf(roughness);
 	return fminf(1.0f, (1.62142f + 0.819955f * x + 0.1734f * x * x + 0.0171201f * x * x * x + 0.000640711f * x * x * x * x));
 }
@@ -67,23 +63,17 @@ uint MaterialList::add(const aiMaterial *aiMat, const std::string_view &basedir)
 		mat.specular = shininessStrength;
 	else
 		mat.specular = 0.0f;
+
 	if (shininess > 0.0f)
-	{
-		const float f = sqrt(min(shininess, 1024.0f) / 1024.0f);
-		mat.roughness = max(0.0f, 1.0f - f);
-	}
+		mat.roughness = max(0.0f, 1.0f - sqrt(min(shininess, 1024.0f) / 1024.0f));
 	else
-	{
 		mat.roughness = 1.0f;
-	}
-	// if (eta > 1.0f)
-	//{
-	//	mat.eta = eta;
-	//}
-	// if (opacity != 0.0f)
-	//{
-	//	mat.transmission = 1.0f - max(opacity, 0.0f);
-	//}
+
+	if (eta > 1.0f)
+		mat.eta = eta;
+
+	if (opacity != 0.0f)
+		mat.transmission = 1.0f - max(opacity, 0.0f);
 
 	mat.setFlag(MatPropFlags::HasSmoothNormals);
 
@@ -355,7 +345,7 @@ std::pair<Material, MaterialTexIds> HostMaterial::convertToDeviceMaterial(Materi
 				   (nm2 ? (1u << Has3rdNormalMap) : 0) +				 // has 3rd normal map
 				   (t1 ? (1u << Has2ndNormalMap) : 0) +					 // has 2nd diffuse map
 				   (t2 ? (1u << Has3rdDiffuseMap) : 0) +				 // has 3rd diffuse map
-				   ((flags & SMOOTH) ? (1u << HasSmoothNormals) : 0) +   // has smooth normals
+				   ((flags & SMOOTH) ? (1u << HasSmoothNormals) : 0) +	 // has smooth normals
 				   ((flags & HASALPHA) ? (1u << HasAlpha) : 0);			 // has alpha
 	// maps
 	if (t0) // texture layer 0

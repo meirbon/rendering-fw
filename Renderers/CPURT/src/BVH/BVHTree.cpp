@@ -2,8 +2,6 @@
 #include "utils/Timer.h"
 #include "../Triangle.h"
 
-#define PRINT_BUILD_TIME 1
-
 using namespace glm;
 using namespace rfw;
 
@@ -12,31 +10,48 @@ BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount) : m_VertexCount(ver
 	m_Indices = nullptr;
 	m_PoolPtr.store(0);
 	reset();
-	setVertices(vertices);
+	m_Vertices = vertices;
+
+	aabb = AABB(vec3(1e34f), vec3(-1e34f));
+
+	for (int i = 0; i < m_VertexCount; i++)
+		aabb.Grow(m_Vertices[i]);
+
+	m_AABBs.resize(m_FaceCount);
+	for (int i = 0; i < m_FaceCount; i++)
+	{
+		const uvec3 idx = uvec3(i * 3) + uvec3(0, 1, 2);
+		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+	}
 }
 
 BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount, const glm::uvec3 *indices, int faceCount) : m_VertexCount(vertexCount), m_FaceCount(faceCount)
 {
-	m_Indices = indices;
 	m_PoolPtr.store(0);
 	reset();
-	setVertices(vertices);
+	m_Vertices = vertices;
+	m_Indices = indices;
+
+	aabb = AABB(vec3(1e34f), vec3(-1e34f));
+
+	for (int i = 0; i < m_VertexCount; i++)
+		aabb.Grow(m_Vertices[i]);
+
+	m_AABBs.resize(m_FaceCount);
+	for (int i = 0; i < m_FaceCount; i++)
+	{
+		const uvec3 &idx = m_Indices[i];
+		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+	}
 }
 
-void BVHTree::constructBVH()
+void BVHTree::constructBVH(bool printBuildTime)
 {
 	assert(m_Vertices);
-	buildBVH();
-}
 
-void BVHTree::buildBVH()
-{
 	if (m_FaceCount > 0)
 	{
-#if PRINT_BUILD_TIME
-		rfw::utils::Timer t;
-		t.reset();
-#endif
+		utils::Timer t = {};
 		m_PoolPtr = 2;
 		m_BVHPool.emplace_back();
 		m_BVHPool.emplace_back();
@@ -46,17 +61,24 @@ void BVHTree::buildBVH()
 		rootNode.bounds.count = static_cast<int>(m_FaceCount);
 		rootNode.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
 
-		rootNode.SubdivideMT(m_AABBs.data(), m_BVHPool.data(), m_PrimitiveIndices.data(), &m_ThreadMutex, &m_PoolPtrMutex, &m_BuildingThreads, 1, m_PoolPtr);
+		// rootNode.Subdivide(m_AABBs.data(), m_BVHPool.data(), m_PrimitiveIndices.data(), 1, m_PoolPtr);
+		rootNode.SubdivideMT(m_AABBs.data(), m_BVHPool.data(), m_PrimitiveIndices.data(), &m_ThreadMutex, &m_BuildingThreads, 1, m_PoolPtr);
 
 		if (m_PoolPtr > 2)
-			rootNode.bounds.count = -1, rootNode.SetLeftFirst(2);
+		{
+			rootNode.bounds.count = -1;
+			rootNode.SetLeftFirst(2);
+		}
 		else
+		{
 			rootNode.bounds.count = static_cast<int>(m_FaceCount);
+			rootNode.SetLeftFirst(0);
+		}
 
 		m_BVHPool.resize(m_PoolPtr);
-#if PRINT_BUILD_TIME
-		std::cout << "Building BVH took: " << t.elapsed() << " ms. Poolptr: " << m_PoolPtr << std::endl;
-#endif
+
+		if (printBuildTime)
+			std::cout << "Building BVH took: " << t.elapsed() << " ms for " << m_FaceCount << " triangles. Poolptr: " << m_PoolPtr << std::endl;
 	}
 }
 
@@ -73,29 +95,83 @@ void BVHTree::reset()
 	}
 }
 
-void BVHTree::setVertices(const glm::vec4 *vertices)
+void BVHTree::refit(const glm::vec4 *vertices)
 {
 	m_Vertices = vertices;
-	aabb = AABB(vec3(1e34f), vec3(-1e34f));
 
-	for (int i = 0; i < m_VertexCount; i++)
-		aabb.Grow(m_Vertices[i]);
-
+	// Recalculate AABBs
 	m_AABBs.resize(m_FaceCount);
+	for (int i = 0; i < m_FaceCount; i++)
+	{
+		const uvec3 idx = uvec3(i * 3) + uvec3(0, 1, 2);
+		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+	}
+
+	// Calculate new bounds of leaf nodes
+	for (auto &node : m_BVHPool)
+	{
+		if (!node.IsLeaf())
+			continue;
+		node.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
+	}
+
+	// Calculate new bounds of bvh nodes
+	for (int i = static_cast<int>(m_BVHPool.size()) - 1; i >= 0; i--)
+	{
+		auto &node = m_BVHPool[i];
+
+		if (node.IsLeaf())
+			continue;
+		const auto &leftNode = m_BVHPool[node.GetLeftFirst()];
+		const auto &rightNode = m_BVHPool[node.GetLeftFirst() + 1];
+
+		auto aabb = AABB();
+		aabb.Grow(leftNode.bounds);
+		aabb.Grow(rightNode.bounds);
+
+		memcpy(node.bounds.bmin, aabb.bmin, 3 * sizeof(float));
+		memcpy(node.bounds.bmax, aabb.bmax, 3 * sizeof(float));
+	}
+}
+
+void BVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
+{
+	m_Vertices = vertices;
+	m_Indices = indices;
+
+	// Recalculate AABBs
+	for (int i = 0; i < m_FaceCount; i++)
+	{
+		const uvec3 &idx = m_Indices[i];
+		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+	}
+
+	for (auto &node : m_BVHPool)
+	{
+		if (!node.IsLeaf())
+			continue;
+		node.CalculateBounds(m_AABBs.data(), m_PrimitiveIndices.data());
+	}
+
+	for (int i = static_cast<int>(m_BVHPool.size()) - 1; i >= 0; i--)
+	{
+		auto &node = m_BVHPool[i];
+		if (node.IsLeaf())
+			continue;
+		const auto &leftNode = m_BVHPool[node.GetLeftFirst()];
+		const auto &rightNode = m_BVHPool[node.GetLeftFirst() + 1];
+
+		auto aabb = AABB();
+		aabb.Grow(leftNode.bounds);
+		aabb.Grow(rightNode.bounds);
+		memcpy(node.bounds.bmin, aabb.bmin, 3 * sizeof(float));
+		memcpy(node.bounds.bmax, aabb.bmax, 3 * sizeof(float));
+	}
+}
+
+bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx)
+{
 	if (m_Indices)
-	{
-		for (int i = 0; i < m_FaceCount; i++)
-		{
-			const uvec3 &idx = m_Indices[i];
-			m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
-		}
-	}
-	else
-	{
-		for (int i = 0; i < m_FaceCount; i++)
-		{
-			const uvec3 idx = uvec3(i * 3) + uvec3(0, 1, 2);
-			m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
-		}
-	}
+		return BVHNode::traverseBVH(origin, dir, t_min, t, primIdx, m_BVHPool.data(), m_PrimitiveIndices.data(), m_Vertices, m_Indices);
+	return BVHNode::traverseBVH(origin, dir, t_min, t, primIdx, m_BVHPool.data(), m_PrimitiveIndices.data(), m_Vertices);
 }

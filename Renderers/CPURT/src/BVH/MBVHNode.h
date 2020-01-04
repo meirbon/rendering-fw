@@ -183,4 +183,6 @@ class MBVHNode
 								   const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
 	static bool traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
 								   const unsigned int *primIndices, const glm::vec4 *vertices);
+
+	void validate(MBVHNode* nodes, unsigned int maxPrimID, unsigned int maxPoolPtr);
 };

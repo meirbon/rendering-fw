@@ -1,10 +1,6 @@
 #ifndef DEVICE_STRUCTURES_H
 #define DEVICE_STRUCTURES_H
 
-#ifdef __CUDACC__
-#define GLM_FORCE_ALIGNED_GENTYPES
-#endif
-
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 

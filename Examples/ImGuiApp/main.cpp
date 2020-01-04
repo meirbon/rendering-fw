@@ -2,7 +2,7 @@
 #include <Application.h>
 
 #define SKINNED_MESH 1
-#define CESIUMMAN 1
+#define CESIUMMAN 0
 #define POLLY 0
 #define PICA 1
 #define PICA_LIGHTS 1

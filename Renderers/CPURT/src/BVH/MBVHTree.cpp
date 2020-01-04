@@ -11,7 +11,6 @@ MBVHTree::MBVHTree(BVHTree *orgTree)
 {
 	this->m_PrimitiveIndices = orgTree->m_PrimitiveIndices;
 	this->m_OriginalTree = orgTree;
-	this->aabb = orgTree->aabb;
 }
 
 void MBVHTree::constructBVH(bool printBuildTime)
@@ -77,13 +76,21 @@ void MBVHTree::constructBVH(bool printBuildTime)
 void MBVHTree::refit(const glm::vec4 *vertices)
 {
 	m_OriginalTree->m_Vertices = vertices;
+	m_OriginalTree->aabb = AABB();
 
 	// Recalculate AABBs
 	m_OriginalTree->m_AABBs.resize(m_OriginalTree->m_FaceCount);
 	rfw::utils::concurrency::parallel_for(0, m_OriginalTree->m_FaceCount, [&](int i) {
 		const glm::uvec3 idx = glm::uvec3(i * 3) + glm::uvec3(0, 1, 2);
 		m_OriginalTree->m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+		m_OriginalTree->aabb.Grow(m_OriginalTree->m_AABBs[i]);
 	});
+
+	for (int i = 0; i < 3; i++)
+	{
+		m_OriginalTree->aabb.bmin[i] -= 1e-5f;
+		m_OriginalTree->aabb.bmax[i] += 1e-5f;
+	}
 
 	for (int i = static_cast<int>(m_Tree.size()) - 1; i >= 0; i--)
 	{
@@ -127,20 +134,19 @@ void MBVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 	m_OriginalTree->m_Vertices = vertices;
 	m_OriginalTree->m_Indices = indices;
 
+	m_OriginalTree->aabb = AABB();
+
 	// Recalculate AABBs
 	rfw::utils::concurrency::parallel_for(0, m_OriginalTree->m_FaceCount, [&](int i) {
 		const glm::uvec3 &idx = m_OriginalTree->m_Indices[i];
 		m_OriginalTree->m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+		m_OriginalTree->aabb.Grow(m_OriginalTree->m_AABBs[i]);
 	});
 
-	// Calculate new bounds of leaf nodes
-	for (auto &node : m_Tree)
+	for (int i = 0; i < 3; i++)
 	{
-		for (int j = 0; j < 4; j++)
-		{
-			if (node.counts[j] <= 0)
-				continue;
-		}
+		m_OriginalTree->aabb.bmin[i] -= 1e-5f;
+		m_OriginalTree->aabb.bmax[i] += 1e-5f;
 	}
 
 	// Calculate new bounds of bvh nodes

@@ -149,8 +149,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						}
 					}
 
-					m_Pixels[pixelIdx] = vec4(material.getColor(), 1.0f);
-					// m_Pixels[pixelIdx] = glm::vec4(iN, 1.0f);
+					// m_Pixels[pixelIdx] = vec4(material.getColor(), 1.0f);
+					m_Pixels[pixelIdx] = glm::vec4(iN, 1.0f);
 				}
 				y += s;
 			}
@@ -194,7 +194,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 
 void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
-	topLevelBVH.setInstance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->aabb);
+	topLevelBVH.setInstance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->getAABB());
 }
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)

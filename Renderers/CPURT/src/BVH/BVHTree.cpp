@@ -99,12 +99,15 @@ void BVHTree::refit(const glm::vec4 *vertices)
 {
 	m_Vertices = vertices;
 
+	aabb = AABB();
+
 	// Recalculate AABBs
 	m_AABBs.resize(m_FaceCount);
 	for (int i = 0; i < m_FaceCount; i++)
 	{
 		const uvec3 idx = uvec3(i * 3) + uvec3(0, 1, 2);
 		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+		aabb.Grow(m_AABBs[i]);
 	}
 
 	for (int i = static_cast<int>(m_BVHPool.size()) - 1; i >= 0; i--)
@@ -136,11 +139,14 @@ void BVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 	m_Vertices = vertices;
 	m_Indices = indices;
 
+	aabb = AABB();
+
 	// Recalculate AABBs
 	for (int i = 0; i < m_FaceCount; i++)
 	{
 		const uvec3 &idx = m_Indices[i];
 		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+		aabb.Grow(m_AABBs[i]);
 	}
 
 	for (int i = static_cast<int>(m_BVHPool.size()) - 1; i >= 0; i--)

@@ -37,6 +37,7 @@ void rfw::TopLevelBVH::constructBVH()
 		{
 			m_MNodes.resize(1);
 			MBVHNode &mRootNode = m_MNodes[0];
+			const AABB invalidAABB = AABB();
 
 			for (int i = 0, s = m_PoolPtr; i < s; i++)
 			{
@@ -52,7 +53,6 @@ void rfw::TopLevelBVH::constructBVH()
 				{
 					mRootNode.childs[i] = 0;
 					mRootNode.counts[i] = 0;
-					const AABB invalidAABB = {glm::vec3(1e34f), glm::vec3(-1e34f)};
 					mRootNode.SetBounds(i, invalidAABB);
 				}
 			}
@@ -61,7 +61,6 @@ void rfw::TopLevelBVH::constructBVH()
 			{
 				mRootNode.childs[i] = 0;
 				mRootNode.counts[i] = 0;
-				const AABB invalidAABB = {glm::vec3(1e34f), glm::vec3(-1e34f)};
 				mRootNode.SetBounds(i, invalidAABB);
 			}
 		}
@@ -105,13 +104,13 @@ void rfw::TopLevelBVH::constructBVH()
 				else // Calculate new bounds of bvh nodes
 				{
 					const auto &childNode = m_MNodes[node.childs[j]];
-					node.bminx[j] = min(childNode.bminx[0], min(childNode.bminx[1], childNode.bminx[2]));
-					node.bminy[j] = min(childNode.bminy[0], min(childNode.bminy[1], childNode.bminy[2]));
-					node.bminz[j] = min(childNode.bminz[0], min(childNode.bminz[1], childNode.bminz[2]));
+					node.bminx[j] = min(childNode.bminx[0], min(childNode.bminx[1], min(childNode.bminx[2], childNode.bminx[3]))) - 1e-5f;
+					node.bminy[j] = min(childNode.bminy[0], min(childNode.bminy[1], min(childNode.bminy[2], childNode.bminy[3]))) - 1e-5f;
+					node.bminz[j] = min(childNode.bminz[0], min(childNode.bminz[1], min(childNode.bminz[2], childNode.bminz[3]))) - 1e-5f;
 
-					node.bmaxx[j] = max(childNode.bmaxx[0], max(childNode.bmaxx[1], childNode.bmaxx[2]));
-					node.bmaxy[j] = max(childNode.bmaxy[0], max(childNode.bmaxy[1], childNode.bmaxy[2]));
-					node.bmaxz[j] = max(childNode.bmaxz[0], max(childNode.bmaxz[1], childNode.bmaxz[2]));
+					node.bmaxx[j] = max(childNode.bmaxx[0], max(childNode.bmaxx[1], max(childNode.bmaxx[2], childNode.bmaxx[3]))) + 1e-5f;
+					node.bmaxy[j] = max(childNode.bmaxy[0], max(childNode.bmaxy[1], max(childNode.bmaxy[2], childNode.bmaxy[3]))) + 1e-5f;
+					node.bmaxz[j] = max(childNode.bmaxz[0], max(childNode.bmaxz[1], max(childNode.bmaxz[2], childNode.bmaxz[3]))) + 1e-5f;
 				}
 			}
 		}
@@ -183,7 +182,7 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 		{
 			// reversed order, we want to check best nodes first
 			const int idx = (hitInfo.tmini[i] & 0b11);
-			if (hitInfo.result[idx] == 1)
+			if (hitInfo.result[idx])
 			{
 				stackPtr++;
 				todo[stackPtr].leftFirst = m_MNodes[leftFirst].childs[idx];
@@ -204,9 +203,9 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 		tri.vertex1 = glm::make_vec4(reinterpret_cast<const float *>(&glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex1)));
 		tri.vertex2 = glm::make_vec4(reinterpret_cast<const float *>(&glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex2)));
 
-		const __m128 vN0 = glm_mat4_mul_vec4(inverseMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN0), mask));
-		const __m128 vN1 = glm_mat4_mul_vec4(inverseMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN1), mask));
-		const __m128 vN2 = glm_mat4_mul_vec4(inverseMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN2), mask));
+		const __m128 vN0 = glm_mat4_mul_vec4(inverseNormalMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN0), mask));
+		const __m128 vN1 = glm_mat4_mul_vec4(inverseNormalMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN1), mask));
+		const __m128 vN2 = glm_mat4_mul_vec4(inverseNormalMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN2), mask));
 
 		_mm_maskstore_ps(value_ptr(tri.vN0), mask, vN0);
 		_mm_maskstore_ps(value_ptr(tri.vN1), mask, vN1);
@@ -231,41 +230,38 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 
 void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, AABB boundingBox)
 {
-	if (idx >= static_cast<int>(accelerationStructures.size()))
+	while (idx >= static_cast<int>(accelerationStructures.size()))
 	{
 		instanceCountChanged = true;
 		transformedAABBs.emplace_back();
 		boundingBoxes.emplace_back();
 		accelerationStructures.emplace_back();
 		instanceMatrices.emplace_back();
-		instanceMatrices3.emplace_back();
+		inverseNormalMatrices.emplace_back();
 		inverseMatrices.emplace_back();
-		inverseMatrices3.emplace_back();
 	}
 
 	boundingBoxes[idx] = boundingBox;
-	transformedAABBs[idx] = calculateWorldBounds(boundingBox, transform);
 	accelerationStructures[idx] = tree;
 	instanceMatrices[idx] = transform;
-	instanceMatrices3[idx] = mat3(transform);
 	inverseMatrices[idx] = inverse(transform);
-	inverseMatrices3[idx] = mat3(transpose(inverse(transform)));
+	inverseNormalMatrices[idx] = transpose(inverse(transform));
+	transformedAABBs[idx] = calculateWorldBounds(boundingBox, instanceMatrices[idx]);
 }
 
-AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const glm::mat4 &matrix)
+AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const SIMDMat4 &matrix)
 {
-	const auto transform = matrix;
+	const __m128 p1 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmin[0], originalBounds.bmin[1], originalBounds.bmin[2], 1.f));
+	const __m128 p5 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmax[0], originalBounds.bmax[1], originalBounds.bmax[2], 1.f));
 
-	const vec4 p1 = vec4(glm::make_vec3(originalBounds.bmin), 1.f);
-	const vec4 p5 = vec4(glm::make_vec3(originalBounds.bmax), 1.f);
+	const __m128 p2 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmax[0], originalBounds.bmin[1], originalBounds.bmin[2], 1.f));
+	const __m128 p3 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmin[0], originalBounds.bmax[1], originalBounds.bmax[2], 1.f));
 
-	const vec4 p2 = transform * vec4(p1.x, p1.y, p5.z, 1.f);
-	const vec4 p3 = transform * vec4(p1.x, p5.y, p1.z, 1.f);
-	const vec4 p4 = transform * vec4(p5.x, p1.y, p1.z, 1.f);
+	const __m128 p4 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmin[0], originalBounds.bmin[1], originalBounds.bmax[2], 1.f));
+	const __m128 p6 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmax[0], originalBounds.bmax[1], originalBounds.bmin[2], 1.f));
 
-	const vec4 p6 = transform * vec4(p5.x, p5.y, p1.z, 1.f);
-	const vec4 p7 = transform * vec4(p5.x, p1.y, p5.z, 1.f);
-	const vec4 p8 = transform * vec4(p1.x, p5.y, p5.z, 1.f);
+	const __m128 p7 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmin[0], originalBounds.bmax[1], originalBounds.bmin[2], 1.f));
+	const __m128 p8 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmax[0], originalBounds.bmin[1], originalBounds.bmax[2], 1.f));
 
 	AABB transformedAABB = {};
 	transformedAABB.Grow(p1);
@@ -277,11 +273,9 @@ AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const gl
 	transformedAABB.Grow(p7);
 	transformedAABB.Grow(p8);
 
-	for (int i = 0; i < 3; i++)
-	{
-		transformedAABB.bmin[i] -= 1e-5f;
-		transformedAABB.bmax[i] -= 1e-5f;
-	}
+	const __m128 epsilon4 = _mm_set1_ps(1e-5f);
+	transformedAABB.bmin4 = _mm_sub_ps(transformedAABB.bmin4, epsilon4);
+	transformedAABB.bmax4 = _mm_sub_ps(transformedAABB.bmax4, epsilon4);
 
 	return transformedAABB;
 }

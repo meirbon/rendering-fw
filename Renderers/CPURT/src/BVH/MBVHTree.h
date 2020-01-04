@@ -24,7 +24,7 @@ class MBVHTree
 
 	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
 
-	AABB aabb;
+	AABB getAABB() const { return m_OriginalTree->aabb; }
 
   private:
 	std::atomic_int m_BuildingThreads = 0;

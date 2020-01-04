@@ -110,21 +110,36 @@ glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::
 
 AABB getBounds(const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2)
 {
-	const vec3 min = glm::min(p0, glm::min(p1, p2));
-	const vec3 max = glm::max(p0, glm::max(p1, p2));
+	const vec3 mi = glm::min(p0, glm::min(p1, p2));
+	const vec3 ma = glm::max(p0, glm::max(p1, p2));
 
-	return {min - 0.001f, max + 0.01f};
+	auto aabb = AABB();
+	for (int i = 0; i < 3; i++)
+	{
+		aabb.bmin[i] = mi[i] - 1e-5f;
+		aabb.bmax[i] = ma[i] + 1e-5f;
+	}
+
+	return aabb;
 }
+
 AABB getBounds(const glm::vec4 &p04, const glm::vec4 &p14, const glm::vec4 &p24)
 {
 	const vec3 p0 = vec3(p04);
 	const vec3 p1 = vec3(p14);
 	const vec3 p2 = vec3(p24);
 
-	const vec3 min = glm::min(p0, glm::min(p1, p2));
-	const vec3 max = glm::max(p0, glm::max(p1, p2));
+	const vec3 mi = glm::min(p0, glm::min(p1, p2));
+	const vec3 ma = glm::max(p0, glm::max(p1, p2));
 
-	return {min - 0.001f, max + 0.01f};
+	auto aabb = AABB();
+	for (int i = 0; i < 3; i++)
+	{
+		aabb.bmin[i] = mi[i] - 1e-5f;
+		aabb.bmax[i] = ma[i] + 1e-5f;
+	}
+
+	return aabb;
 }
 
 glm::vec3 getRandomPointOnSurface(const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2, float r1, float r2)

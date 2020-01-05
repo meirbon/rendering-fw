@@ -2,13 +2,22 @@
 
 #include "RandomGenerator.h"
 
+#include <random>
+
 namespace rfw::utils
 {
 
 class Xor128 : public rfw::utils::RandomGenerator
 {
   public:
-	unsigned int RandomUint() override final 
+	Xor128() = default;
+	Xor128(unsigned int seed)
+	{
+		std::random_device mt_rd;
+		x = mt_rd() * seed;
+	}
+
+	unsigned int RandomUint() override final
 	{
 		uint t;
 		t = x ^ (x << 11);

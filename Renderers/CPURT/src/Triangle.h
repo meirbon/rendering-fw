@@ -3,6 +3,8 @@
 #include <glm/glm.hpp>
 #include "BVH/AABB.h"
 
+#include "Ray.h"
+
 #define EPSILON_TRIANGLE 0.0001f
 
 namespace rfw::triangle
@@ -12,6 +14,11 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 			   float epsilon = EPSILON_TRIANGLE);
 bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2,
 			   float epsilon = EPSILON_TRIANGLE);
+bool intersect_opt(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec3 &p0, const glm::vec3 &e1, const glm::vec3 &e2);
+
+int intersect4(cpurt::RayPacket4 &packet, const glm::vec3 &p0, const glm::vec3 &edge1, const glm::vec3 &edge2, __m128 *store_mask,
+			   float epsilon = EPSILON_TRIANGLE);
+int intersect8(cpurt::RayPacket8 &packet, const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2, float epsilon = EPSILON_TRIANGLE);
 
 glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2);
 glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2);

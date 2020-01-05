@@ -5,6 +5,68 @@
 #include <DeviceStructures.h>
 #include <Camera.h>
 
+#include <utils/RandomGenerator.h>
+
+namespace cpurt
+{
+
+template <int N> struct RayPacket
+{
+	RayPacket()
+	{
+		static_assert(N % 4 == 0, "Ray packet must consist of a multiple of 4 rays.");
+
+		memset(origin_x, 0, sizeof(origin_x));
+		memset(origin_y, 0, sizeof(origin_y));
+		memset(origin_z, 0, sizeof(origin_z));
+
+		memset(direction_x, 0, sizeof(direction_x));
+		memset(direction_y, 0, sizeof(direction_y));
+		memset(direction_z, 0, sizeof(direction_z));
+
+		memset(pixelID, -1, sizeof(pixelID));
+		memset(primID, -1, sizeof(primID));
+		memset(instID, -1, sizeof(instID));
+		for (int i = 0; i < N; i++)
+			t[i] = 1e34f;
+	}
+
+	union {
+		float origin_x[N];
+		__m128 origin_x4[N / 4];
+	};
+	union {
+		float origin_y[N];
+		__m128 origin_y4[N / 4];
+	};
+	union {
+		float origin_z[N];
+		__m128 origin_z4[N / 4];
+	};
+
+	union {
+		float direction_x[N];
+		__m128 direction_x4[N / 4];
+	};
+	union {
+		float direction_y[N];
+		__m128 direction_y4[N / 4];
+	};
+	union {
+		float direction_z[N];
+		__m128 direction_z4[N / 4];
+	};
+
+	int pixelID[N];
+	int primID[N];
+	int instID[N];
+
+	float t[N];
+};
+
+using RayPacket4 = RayPacket<4>;
+using RayPacket8 = RayPacket<8>;
+
 struct Ray
 {
 	struct CameraParams
@@ -36,4 +98,7 @@ struct Ray
 	}
 
 	static Ray generateFromView(const CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3);
+	static RayPacket4 generateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng);
+	static RayPacket8 generateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng);
 };
+} // namespace cpurt

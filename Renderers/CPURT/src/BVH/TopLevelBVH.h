@@ -21,7 +21,11 @@ class TopLevelBVH
 	void constructBVH();
 
 	// (Optionally) returns hit triangle
-	std::optional<const rfw::Triangle> intersect(Ray &ray, float t_min, uint &instID) const;
+	std::optional<const rfw::Triangle> intersect(cpurt::Ray &ray, float t_min, uint &instID) const;
+
+	std::optional<const rfw::Triangle> intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, float t_min, uint &instID) const;
+
+	void intersect(cpurt::RayPacket4 &packet, float t_min) const;
 
 	CPUMesh *getMesh(const int ID) { return accelerationStructures[ID]; }
 
@@ -29,9 +33,13 @@ class TopLevelBVH
 
 	static AABB calculateWorldBounds(const AABB &originalBounds, const SIMDMat4 &matrix);
 
-  private:
-	// Top level BVH structure data
-	std::atomic_int m_PoolPtr = 0;
+	const rfw::Triangle &get_triangle(int instID, int primID) const;
+	const SIMDMat4 &get_normal_matrix(int instID) const;
+	const SIMDMat4 &get_instance_matrix(int instID) const;
+
+	private :
+		// Top level BVH structure data
+		std::atomic_int m_PoolPtr = 0;
 	std::atomic_int m_MPoolPtr = 0;
 	std::atomic_int m_MThreadCount = 0;
 	std::vector<BVHNode> m_Nodes;

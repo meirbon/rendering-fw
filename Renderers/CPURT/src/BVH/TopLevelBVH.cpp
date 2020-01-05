@@ -1,7 +1,7 @@
 #define GLM_FORCE_AVX
 #include "TopLevelBVH.h"
 
-#define USE_MBVH 1
+#define USE_MBVH 0
 
 void rfw::TopLevelBVH::constructBVH()
 {
@@ -117,12 +117,17 @@ void rfw::TopLevelBVH::constructBVH()
 	}
 }
 
-std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t_min, uint &instID) const
+std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(cpurt::Ray &ray, float t_min, uint &instID) const
+{
+	return intersect(ray.origin, ray.direction, &ray.t, &ray.primIdx, t_min, instID);
+}
+
+std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, const vec3 &dir, float *t, int *primID, float t_min, uint &instID) const
 {
 	const auto mask = _mm_set_epi32(0, ~0, ~0, ~0);
 
 	int stackPtr = 0;
-	const vec3 dirInverse = 1.0f / ray.direction;
+	const vec3 dirInverse = 1.0f / dir;
 
 	MBVHTraversal todo[32];
 	todo[0].leftFirst = 0;
@@ -133,16 +138,16 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 		vec4 origin;
 		__m128 org4;
 	};
-	origin = vec4(ray.origin, 1);
+	origin = vec4(org, 1);
 
 	union {
 		vec4 direction;
 		__m128 dir4;
 	};
-	direction = vec4(ray.direction, 0);
+	direction = vec4(dir, 0);
 
-	vec3 org;
-	vec3 dir;
+	vec3 tmp_org;
+	vec3 tmp_dir;
 
 	while (stackPtr >= 0)
 	{
@@ -156,20 +161,20 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 			for (int i = 0; i < count; i++)
 			{
 				const auto primIdx = m_PrimIndices[leftFirst + i];
-				if (transformedAABBs[primIdx].Intersect(ray.origin, dirInverse, &t_near, &t_far))
+				if (transformedAABBs[primIdx].Intersect(org, dirInverse, &t_near, &t_far, t_min))
 				{
 					const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
 					const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
 
-					_mm_maskstore_ps(value_ptr(org), mask, origin4);
-					_mm_maskstore_ps(value_ptr(dir), mask, direction4);
+					_mm_maskstore_ps(value_ptr(tmp_org), mask, origin4);
+					_mm_maskstore_ps(value_ptr(tmp_dir), mask, direction4);
 
 					const CPUMesh *mesh = accelerationStructures[primIdx];
 #if USE_MBVH
-					if (mesh->mbvh->traverse(org, dir, t_min, &ray.t, &ray.primIdx))
+					if (mesh->mbvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
 						instID = primIdx;
 #else
-					if (mesh->bvh->traverse(org, dir, t_min, &ray.t, &ray.primIdx))
+					if (mesh->bvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
 						instID = primIdx;
 #endif
 				}
@@ -177,7 +182,7 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 			continue;
 		}
 
-		const auto hitInfo = m_MNodes[leftFirst].intersect(ray.origin, dirInverse, &ray.t);
+		const auto hitInfo = m_MNodes[leftFirst].intersect(origin, dirInverse, t, t_min);
 		for (auto i = 3; i >= 0; i--)
 		{
 			// reversed order, we want to check best nodes first
@@ -191,9 +196,9 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 		}
 	}
 
-	if (ray.isValid())
+	if (*t < 1e33f)
 	{
-		auto tri = accelerationStructures[instID]->triangles[ray.primIdx];
+		auto tri = accelerationStructures[instID]->triangles[*primID];
 
 		const __m128 vertex0 = _mm_load_ps(value_ptr(tri.vertex0));
 		const __m128 vertex1 = _mm_load_ps(value_ptr(tri.vertex1));
@@ -228,6 +233,178 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(Ray &ray, float t
 	return std::nullopt;
 }
 
+void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
+{
+	int stackPtr = 0;
+	cpurt::RayPacket4 transformedPacket = {};
+
+#if USE_MBVH
+	MBVHTraversal todo[32];
+	todo[0].leftFirst = 0;
+	todo[0].count = -1;
+
+	while (stackPtr >= 0)
+	{
+		const int leftFirst = todo[stackPtr].leftFirst;
+		const int count = todo[stackPtr].count;
+		stackPtr--;
+
+		if (count > -1)
+		{
+			// leaf node
+			for (int i = 0; i < count; i++)
+			{
+				__m128 tNear1, tFar1;
+				const auto inst_id = m_PrimIndices[leftFirst + i];
+				if (transformedAABBs[inst_id].intersect(packet, &tNear1, &tFar1, t_min))
+				{
+					const auto &matrix = inverseMatrices[inst_id];
+
+					for (int i = 0; i < 4; i++)
+					{
+						union {
+							__m128 org4;
+							float org[4];
+						};
+						org4 = _mm_setr_ps(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i], 1.0f);
+						union {
+							__m128 dir4;
+							float dir[4];
+						};
+						dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
+
+						org4 = glm_mat4_mul_vec4(matrix.cols, org4);
+						dir4 = glm_mat4_mul_vec4(matrix.cols, dir4);
+						dir4 = glm_vec4_normalize(dir4);
+
+						transformedPacket.origin_x[i] = org[0];
+						transformedPacket.origin_y[i] = org[1];
+						transformedPacket.origin_z[i] = org[2];
+
+						transformedPacket.direction_x[i] = dir[0];
+						transformedPacket.direction_y[i] = dir[1];
+						transformedPacket.direction_z[i] = dir[2];
+					}
+
+					__m128 hit_mask = _mm_setzero_ps();
+					const auto mesh = accelerationStructures[inst_id];
+					mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
+					const __m128i storage_mask = _mm_castps_si128(hit_mask);
+					_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
+					_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
+					_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
+				}
+			}
+			continue;
+		}
+
+		const MBVHHit hit = m_MNodes[leftFirst].intersect4(packet, t_min);
+		for (int i = 3; i >= 0; i--)
+		{ // reversed order, we want to check best nodes first
+			const int idx = (hit.tmini[i] & 0b11);
+			if (hit.result[idx] == 1)
+			{
+				stackPtr++;
+				todo[stackPtr].leftFirst = m_MNodes[leftFirst].childs[idx];
+				todo[stackPtr].count = m_MNodes[leftFirst].counts[idx];
+			}
+		}
+	}
+#else
+	BVHTraversal todo[32];
+	__m128 tNear1, tFar1;
+	__m128 tNear2, tFar2;
+	todo[stackPtr].nodeIdx = 0;
+	while (stackPtr >= 0)
+	{
+		const auto &node = m_Nodes[todo[stackPtr].nodeIdx];
+		stackPtr--;
+
+		if (node.GetCount() > -1)
+		{
+			for (int i = 0; i < node.GetCount(); i++)
+			{
+				const auto inst_id = m_PrimIndices[node.GetLeftFirst() + i];
+
+				if (transformedAABBs[inst_id].intersect(packet, &tNear1, &tFar1, t_min))
+				{
+					const auto &matrix = inverseMatrices[inst_id];
+
+					for (int i = 0; i < 4; i++)
+					{
+						union {
+							__m128 org4;
+							float org[4];
+						};
+						org4 = _mm_setr_ps(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i], 1.0f);
+						union {
+							__m128 dir4;
+							float dir[4];
+						};
+						dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
+
+						org4 = glm_mat4_mul_vec4(matrix.cols, org4);
+						dir4 = glm_mat4_mul_vec4(matrix.cols, dir4);
+						dir4 = glm_vec4_normalize(dir4);
+
+						transformedPacket.origin_x[i] = org[0];
+						transformedPacket.origin_y[i] = org[1];
+						transformedPacket.origin_z[i] = org[2];
+
+						transformedPacket.direction_x[i] = dir[0];
+						transformedPacket.direction_y[i] = dir[1];
+						transformedPacket.direction_z[i] = dir[2];
+					}
+
+					__m128 hit_mask = _mm_setzero_ps();
+					const auto mesh = accelerationStructures[inst_id];
+					if (mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask))
+					{
+						const __m128i storage_mask = _mm_castps_si128(hit_mask);
+						_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
+						_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
+						_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
+					}
+				}
+			}
+		}
+		else
+		{
+			const bool hitLeft = m_Nodes[node.GetLeftFirst()].intersect(packet, &tNear1, &tFar1, t_min);
+			const bool hitRight = m_Nodes[node.GetLeftFirst() + 1].intersect(packet, &tNear2, &tFar2, t_min);
+
+			if (hitLeft && hitRight)
+			{
+				if (_mm_movemask_ps(_mm_cmplt_ps(tNear1, tNear2)) > _mm_movemask_ps(_mm_cmpge_ps(tNear1, tNear2)) /* tNear1 < tNear2*/)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+				}
+				else
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+				}
+			}
+			else if (hitLeft)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst()};
+			}
+			else if (hitRight)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
+			}
+		}
+	}
+#endif
+}
+
 void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, AABB boundingBox)
 {
 	while (idx >= static_cast<int>(accelerationStructures.size()))
@@ -245,7 +422,7 @@ void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, 
 	accelerationStructures[idx] = tree;
 	instanceMatrices[idx] = transform;
 	inverseMatrices[idx] = inverse(transform);
-	inverseNormalMatrices[idx] = transpose(inverse(transform));
+	inverseNormalMatrices[idx] = mat4(transpose(inverse(mat3(transform))));
 	transformedAABBs[idx] = calculateWorldBounds(boundingBox, instanceMatrices[idx]);
 }
 
@@ -279,3 +456,9 @@ AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const SI
 
 	return transformedAABB;
 }
+
+const rfw::Triangle &rfw::TopLevelBVH::get_triangle(int instID, int primID) const { return accelerationStructures[instID]->triangles[primID]; }
+
+const SIMDMat4 &rfw::TopLevelBVH::get_normal_matrix(int instID) const { return inverseNormalMatrices[instID]; }
+
+const SIMDMat4 &rfw::TopLevelBVH::get_instance_matrix(int instID) const { return instanceMatrices[instID]; }

@@ -506,13 +506,13 @@ void rfw::SceneMesh::updateTriangles() const
 			const auto index = object->indices.at(i + faceOffset) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);
 
-			tri.vertex0 = object->vertices.at(index.x);
-			tri.vertex1 = object->vertices.at(index.y);
-			tri.vertex2 = object->vertices.at(index.z);
+			tri.vertex0 = object->vertices[index.x];
+			tri.vertex1 = object->vertices[index.y];
+			tri.vertex2 = object->vertices[index.z];
 
-			tri.vN0 = object->normals.at(index.x);
-			tri.vN1 = object->normals.at(index.y);
-			tri.vN2 = object->normals.at(index.z);
+			tri.vN0 = object->normals[index.x];
+			tri.vN1 = object->normals[index.y];
+			tri.vN2 = object->normals[index.z];
 
 			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
@@ -530,13 +530,13 @@ void rfw::SceneMesh::updateTriangles() const
 			const auto index = object->indices.at(i + faceOffset) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);
 
-			tri.vertex0 = object->vertices.at(index.x);
-			tri.vertex1 = object->vertices.at(index.y);
-			tri.vertex2 = object->vertices.at(index.z);
+			tri.vertex0 = object->vertices[index.x];
+			tri.vertex1 = object->vertices[index.y];
+			tri.vertex2 = object->vertices[index.z];
 
-			tri.vN0 = object->normals.at(index.x);
-			tri.vN1 = object->normals.at(index.y);
-			tri.vN2 = object->normals.at(index.z);
+			tri.vN0 = object->normals[index.x];
+			tri.vN1 = object->normals[index.y];
+			tri.vN2 = object->normals[index.z];
 
 			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)

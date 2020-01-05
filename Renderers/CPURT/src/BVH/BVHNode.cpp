@@ -22,38 +22,68 @@ BVHNode::BVHNode(int leftFirst, int count, AABB bounds) : bounds(bounds)
 	SetCount(-1);
 }
 
-bool BVHNode::Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const
+bool BVHNode::Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, const float min_t) const
 {
-	const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
-	const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+	return bounds.Intersect(org, dirInverse, t_min, t_max, min_t);
+}
+
+bool BVHNode::intersect(cpurt::RayPacket4 &packet4, __m128 *tmin_4, __m128 *tmax_4, const float min_t) const
+{
+	return bounds.intersect(packet4, tmin_4, tmax_4, min_t);
+}
+
+bool BVHNode::intersect(cpurt::RayPacket8 &packet8, float min_t) const
+{
+	static const __m256 one8 = _mm256_set1_ps(1.0f);
+
+	// const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+	const __m256 origin_x8 = _mm256_load_ps(packet8.origin_x);
+	const __m256 origin_y8 = _mm256_load_ps(packet8.origin_y);
+	const __m256 origin_z8 = _mm256_load_ps(packet8.origin_z);
+
+	// const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+	const __m256 inv_direction_x8 = _mm256_div_ps(one8, _mm256_load_ps(packet8.direction_x));
+	const __m256 inv_direction_y8 = _mm256_div_ps(one8, _mm256_load_ps(packet8.direction_y));
+	const __m256 inv_direction_z8 = _mm256_div_ps(one8, _mm256_load_ps(packet8.direction_z));
 
 	// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+	const __m256 t1_8_x = _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(bounds.bmin[0]), origin_x8), inv_direction_x8);
+	const __m256 t1_8_y = _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(bounds.bmin[1]), origin_y8), inv_direction_y8);
+	const __m256 t1_8_z = _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(bounds.bmin[2]), origin_z8), inv_direction_z8);
+
 	// const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
-	const __m128 t1 = _mm_mul_ps(_mm_sub_ps(bounds.bmin4, origin), dirInv);
-	const __m128 t2 = _mm_mul_ps(_mm_sub_ps(bounds.bmax4, origin), dirInv);
-
-	union {
-		__m128 tmin4;
-		float tmin[4];
-	};
-
-	union {
-		__m128 tmax4;
-		float tmax[4];
-	};
+	const __m256 t2_8_x = _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(bounds.bmax[0]), origin_x8), inv_direction_x8);
+	const __m256 t2_8_y = _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(bounds.bmax[1]), origin_y8), inv_direction_y8);
+	const __m256 t2_8_z = _mm256_mul_ps(_mm256_sub_ps(_mm256_set1_ps(bounds.bmax[2]), origin_z8), inv_direction_z8);
 
 	// const glm::vec3 min = glm::min(t1, t2);
+	const __m256 tmin_x8 = _mm256_min_ps(t1_8_x, t2_8_x);
+	const __m256 tmin_y8 = _mm256_min_ps(t1_8_y, t2_8_y);
+	const __m256 tmin_z8 = _mm256_min_ps(t1_8_z, t2_8_z);
+
 	// const glm::vec3 max = glm::max(t1, t2);
-	tmin4 = _mm_min_ps(t1, t2);
-	tmax4 = _mm_max_ps(t1, t2);
+	const __m256 tmax_x8 = _mm256_max_ps(t1_8_x, t2_8_x);
+	const __m256 tmax_y8 = _mm256_max_ps(t1_8_y, t2_8_y);
+	const __m256 tmax_z8 = _mm256_max_ps(t1_8_z, t2_8_z);
 
 	//*t_min = glm::max(min.x, glm::max(min.y, min.z));
+	const __m256 tmin_8 = _mm256_max_ps(tmin_x8, _mm256_max_ps(tmin_y8, tmin_z8));
 	//*t_max = glm::min(max.x, glm::min(max.y, max.z));
-	*t_min = glm::max(tmin[0], glm::max(tmin[1], tmin[2]));
-	*t_max = glm::min(tmax[0], glm::min(tmax[1], tmax[2]));
+	const __m256 tmax_8 = _mm256_min_ps(tmax_x8, _mm256_min_ps(tmax_y8, tmax_z8));
 
-	// return *t_max >= 0.0f && *t_min < *t_max;
-	return *t_max >= 0.0f && *t_min < *t_max;
+	const __m128 min_t4 = _mm_set1_ps(min_t);
+
+	const __m128 tmin_4_0 = _mm256_extractf128_ps(tmin_8, 0);
+	const __m128 tmin_4_1 = _mm256_extractf128_ps(tmin_8, 1);
+
+	const __m128 tmax_4_0 = _mm256_extractf128_ps(tmax_8, 0);
+	const __m128 tmax_4_1 = _mm256_extractf128_ps(tmax_8, 1);
+
+	const __m128 mask4_0 = _mm_and_ps(_mm_cmpge_ps(tmax_4_0, min_t4), _mm_cmplt_ps(tmin_4_0, tmax_4_0));
+	const __m128 mask4_1 = _mm_and_ps(_mm_cmpge_ps(tmax_4_1, min_t4), _mm_cmplt_ps(tmin_4_1, tmax_4_1));
+
+	// return *t_max >= min_t && *t_min < *t_max;
+	return _mm_movemask_ps(mask4_0) > 0 || _mm_movemask_ps(mask4_1) > 0;
 }
 
 void BVHNode::CalculateBounds(const AABB *aabbs, const unsigned int *primitiveIndices)
@@ -102,8 +132,8 @@ void BVHNode::Subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primI
 	}
 }
 
-void BVHNode::SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::mutex *threadMutex, unsigned int *threadCount,
-						  unsigned int depth, std::atomic_int &poolPtr)
+void BVHNode::SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::atomic_int &threadCount, unsigned int depth,
+						  std::atomic_int &poolPtr)
 {
 	depth++;
 	if (GetCount() < MAX_PRIMS || depth >= MAX_DEPTH)
@@ -124,35 +154,43 @@ void BVHNode::SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *pri
 	const bool subLeft = leftNode->GetCount() > 0;
 	const bool subRight = rightNode->GetCount() > 0;
 
-	if ((*threadCount) < std::thread::hardware_concurrency())
+	if (threadCount < std::thread::hardware_concurrency()) // Check if we need to create threads
 	{
 		if (subLeft && subRight)
 		{
-			auto lock = std::lock_guard(*threadMutex);
-			(*threadCount)++;
+			threadCount.fetch_add(1);
+			auto leftThread = std::async([&]() {
+				leftNode->CalculateBounds(aabbs, primIndices);
+				leftNode->SubdivideMT(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+			});
+
+			rightNode->CalculateBounds(aabbs, primIndices);
+			rightNode->SubdivideMT(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+			leftThread.get();
 		}
-
-		auto leftThread = std::async([&]() {
+		else if (subLeft)
+		{
 			leftNode->CalculateBounds(aabbs, primIndices);
-			leftNode->SubdivideMT(aabbs, bvhTree, primIndices, threadMutex, threadCount, depth, poolPtr);
-		});
-
-		rightNode->CalculateBounds(aabbs, primIndices);
-		rightNode->SubdivideMT(aabbs, bvhTree, primIndices, threadMutex, threadCount, depth, poolPtr);
-		leftThread.get();
+			leftNode->SubdivideMT(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+		}
+		else if (subRight)
+		{
+			rightNode->CalculateBounds(aabbs, primIndices);
+			rightNode->SubdivideMT(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+		}
 	}
-	else
+	else // No more need to create more threads
 	{
 		if (subLeft)
 		{
 			leftNode->CalculateBounds(aabbs, primIndices);
-			leftNode->SubdivideMT(aabbs, bvhTree, primIndices, threadMutex, threadCount, depth, poolPtr);
+			leftNode->Subdivide(aabbs, bvhTree, primIndices, depth, poolPtr);
 		}
 
 		if (subRight)
 		{
 			rightNode->CalculateBounds(aabbs, primIndices);
-			rightNode->SubdivideMT(aabbs, bvhTree, primIndices, threadMutex, threadCount, depth, poolPtr);
+			rightNode->Subdivide(aabbs, bvhTree, primIndices, depth, poolPtr);
 		}
 	}
 }
@@ -274,27 +312,27 @@ bool BVHNode::traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_mi
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
@@ -342,27 +380,27 @@ bool BVHNode::traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_mi
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
@@ -409,27 +447,27 @@ bool BVHNode::traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_mi
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
@@ -476,31 +514,169 @@ bool BVHNode::traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_mi
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
 	return valid;
+}
+
+bool BVHNode::traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes, const unsigned *primIndices,
+						  const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s)
+{
+	bool valid = false;
+	BVHTraversal todo[32];
+	int stackPtr = 0;
+	float tNear1, tFar1;
+	float tNear2, tFar2;
+
+	const auto dirInverse = 1.0f / dir;
+
+	todo[stackPtr].nodeIdx = 0;
+	while (stackPtr >= 0)
+	{
+		const auto &node = nodes[todo[stackPtr].nodeIdx];
+		stackPtr--;
+
+		if (node.GetCount() > -1)
+		{
+			for (int i = 0; i < node.GetCount(); i++)
+			{
+				const auto primIdx = primIndices[node.GetLeftFirst() + i];
+				const auto idx = uvec3(primIdx * 3) + uvec3(0, 1, 2);
+				if (rfw::triangle::intersect_opt(org, dir, t_min, t, p0s[primIdx], edge1s[primIdx], edge2s[primIdx]))
+				{
+					valid = true;
+					*hit_idx = primIdx;
+				}
+			}
+		}
+		else
+		{
+			bool hitLeft = nodes[node.GetLeftFirst()].Intersect(org, dirInverse, &tNear1, &tFar1);
+			bool hitRight = nodes[node.GetLeftFirst() + 1].Intersect(org, dirInverse, &tNear2, &tFar2);
+
+			if (hitLeft && hitRight)
+			{
+				if (tNear1 < tNear2)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+				}
+				else
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+				}
+			}
+			else if (hitLeft)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst()};
+			}
+			else if (hitRight)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
+			}
+		}
+	}
+	return valid;
+}
+
+int BVHNode::traverseBVH(cpurt::RayPacket4 &packet, float t_min, const BVHNode *nodes, const unsigned *primIndices, const glm::vec3 *p0s,
+						 const glm::vec3 *edge1s, const glm::vec3 *edge2s, __m128 *hit_mask)
+{
+	bool valid = false;
+	BVHTraversal todo[32];
+	int stackPtr = 0;
+	int hitMask = 0;
+	__m128 tNear1, tFar1;
+	__m128 tNear2, tFar2;
+
+	__m128 store_mask = _mm_setzero_ps();
+
+	todo[stackPtr].nodeIdx = 0;
+	while (stackPtr >= 0)
+	{
+		const auto &node = nodes[todo[stackPtr].nodeIdx];
+		stackPtr--;
+
+		if (node.GetCount() > -1)
+		{
+			for (int i = 0; i < node.GetCount(); i++)
+			{
+				const auto primIdx = primIndices[node.GetLeftFirst() + i];
+				const auto idx = uvec3(primIdx * 3) + uvec3(0, 1, 2);
+				const int mask = rfw::triangle::intersect4(packet, p0s[primIdx], edge1s[primIdx], edge2s[primIdx], &store_mask);
+				if (mask != 0)
+				{
+					hitMask |= mask;
+					*hit_mask = _mm_or_ps(*hit_mask, store_mask);
+					_mm_maskstore_epi32(packet.primID, _mm_castps_si128(store_mask), _mm_set1_epi32(primIdx));
+				}
+			}
+		}
+		else
+		{
+			const bool hitLeft = nodes[node.GetLeftFirst()].intersect(packet, &tNear1, &tFar1, t_min);
+			const bool hitRight = nodes[node.GetLeftFirst() + 1].intersect(packet, &tNear2, &tFar2, t_min);
+
+			if (hitLeft && hitRight)
+			{
+				if (_mm_movemask_ps(_mm_cmplt_ps(tNear1, tNear2)) > 0 /* tNear1 < tNear2*/)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+				}
+				else
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+				}
+			}
+			else if (hitLeft)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst()};
+			}
+			else if (hitRight)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
+			}
+		}
+	}
+
+	return hitMask;
 }
 
 bool BVHNode::traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
@@ -539,27 +715,27 @@ bool BVHNode::traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, floa
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
@@ -603,27 +779,27 @@ bool BVHNode::traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, floa
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
@@ -667,27 +843,27 @@ bool BVHNode::traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, floa
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}
@@ -731,27 +907,91 @@ bool BVHNode::traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, floa
 				if (tNear1 < tNear2)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+					todo[stackPtr] = {node.GetLeftFirst()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst(), tNear1};
+				todo[stackPtr] = {node.GetLeftFirst()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1, tNear2};
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
+			}
+		}
+	}
+
+	return false;
+}
+
+bool BVHNode::traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned *primIndices,
+								const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s)
+{
+	BVHTraversal todo[32];
+	int stackPtr = 0;
+	float tNear1, tFar1;
+	float tNear2, tFar2;
+
+	const auto dirInverse = 1.0f / dir;
+
+	todo[stackPtr].nodeIdx = 0;
+	while (stackPtr >= 0)
+	{
+		const auto &node = nodes[todo[stackPtr].nodeIdx];
+		stackPtr--;
+
+		if (node.GetCount() > -1)
+		{
+			for (int i = 0; i < node.GetCount(); i++)
+			{
+				const auto primIdx = primIndices[node.GetLeftFirst() + i];
+				const auto idx = uvec3(primIndices[primIdx] * 3) + uvec3(0, 1, 2);
+				if (rfw::triangle::intersect_opt(org, dir, t_min, &maxDist, p0s[primIdx], edge1s[primIdx], edge2s[primIdx]))
+					return true;
+			}
+		}
+		else
+		{
+			bool hitLeft = nodes[node.GetLeftFirst()].Intersect(org, dirInverse, &tNear1, &tFar1);
+			bool hitRight = nodes[node.GetLeftFirst() + 1].Intersect(org, dirInverse, &tNear2, &tFar2);
+
+			if (hitLeft && hitRight)
+			{
+				if (tNear1 < tNear2)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+				}
+				else
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst() + 1};
+					stackPtr++;
+					todo[stackPtr] = {node.GetLeftFirst()};
+				}
+			}
+			else if (hitLeft)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst()};
+			}
+			else if (hitRight)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.GetLeftFirst() + 1};
 			}
 		}
 	}

@@ -22,7 +22,13 @@ namespace rfw
 struct Triangle
 {
 #ifndef __CUDACC__
-	Triangle() { memset(this, 0, sizeof(Triangle)); }
+	Triangle()
+	{
+		memset(this, 0, sizeof(Triangle));
+		dummy1 = 1.0f;
+		dummy2 = 1.0f;
+		dummy3 = 1.0f;
+	}
 #endif
 	float u0, u1, u2; // 12
 #ifndef __CUDACC__
@@ -32,12 +38,12 @@ struct Triangle
 #endif
 
 	float v0, v1, v2; // 28
-	uint material;	// 32
-	glm::vec3 vN0;	// 44
+	uint material;	  // 32
+	glm::vec3 vN0;	  // 44
 	float Nx;		  // 48
-	glm::vec3 vN1;	// 60
+	glm::vec3 vN1;	  // 60
 	float Ny;		  // 64
-	glm::vec3 vN2;	// 76
+	glm::vec3 vN2;	  // 76
 	float Nz;		  // 80
 	glm::vec3 T;	  // 92
 	float area;		  // 96
@@ -45,13 +51,13 @@ struct Triangle
 	float LOD;		  // 112
 
 	glm::vec3 vertex0; // 124
-	float dummy1;	  // 128
+	float dummy1;	   // 128
 	glm::vec3 vertex1; // 140
-	float dummy2;	  // 144
+	float dummy2;	   // 144
 	glm::vec3 vertex2; // 156
-	float dummy3;	  // 160 bytes.
+	float dummy3;	   // 160 bytes.
 
-	static float calculateArea(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2)
+	static float calculateArea(const glm::vec3 &v0, const glm::vec3 &v1, const glm::vec3 &v2)
 	{
 		const float a = length(v1 - v0);
 		const float b = length(v2 - v1);
@@ -60,10 +66,7 @@ struct Triangle
 		return sqrtf(s * (s - a) * (s - b) * (s - c)); // Heron's formula
 	}
 
-	void updateArea()
-	{
-		area = calculateArea(vertex0, vertex1, vertex2);
-	}
+	void updateArea() { area = calculateArea(vertex0, vertex1, vertex2); }
 };
 
 enum MatPropFlags

@@ -7,6 +7,8 @@ using namespace rfw;
 #include <utils/Timer.h>
 #include <utils/Concurrency.h>
 
+#define EDGE_INTERSECTION 1
+
 MBVHTree::MBVHTree(BVHTree *orgTree)
 {
 	this->m_PrimitiveIndices = orgTree->m_PrimitiveIndices;
@@ -75,22 +77,8 @@ void MBVHTree::constructBVH(bool printBuildTime)
 
 void MBVHTree::refit(const glm::vec4 *vertices)
 {
-	m_OriginalTree->m_Vertices = vertices;
-	m_OriginalTree->aabb = AABB();
-
 	// Recalculate AABBs
-	m_OriginalTree->m_AABBs.resize(m_OriginalTree->m_FaceCount);
-	rfw::utils::concurrency::parallel_for(0, m_OriginalTree->m_FaceCount, [&](int i) {
-		const glm::uvec3 idx = glm::uvec3(i * 3) + glm::uvec3(0, 1, 2);
-		m_OriginalTree->m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
-		m_OriginalTree->aabb.Grow(m_OriginalTree->m_AABBs[i]);
-	});
-
-	for (int i = 0; i < 3; i++)
-	{
-		m_OriginalTree->aabb.bmin[i] -= 1e-5f;
-		m_OriginalTree->aabb.bmax[i] += 1e-5f;
-	}
+	m_OriginalTree->set_vertices(vertices);
 
 	for (int i = static_cast<int>(m_Tree.size()) - 1; i >= 0; i--)
 	{
@@ -131,23 +119,7 @@ void MBVHTree::refit(const glm::vec4 *vertices)
 
 void MBVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
-	m_OriginalTree->m_Vertices = vertices;
-	m_OriginalTree->m_Indices = indices;
-
-	m_OriginalTree->aabb = AABB();
-
-	// Recalculate AABBs
-	rfw::utils::concurrency::parallel_for(0, m_OriginalTree->m_FaceCount, [&](int i) {
-		const glm::uvec3 &idx = m_OriginalTree->m_Indices[i];
-		m_OriginalTree->m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
-		m_OriginalTree->aabb.Grow(m_OriginalTree->m_AABBs[i]);
-	});
-
-	for (int i = 0; i < 3; i++)
-	{
-		m_OriginalTree->aabb.bmin[i] -= 1e-5f;
-		m_OriginalTree->aabb.bmax[i] += 1e-5f;
-	}
+	m_OriginalTree->set_vertices(vertices, indices);
 
 	// Calculate new bounds of bvh nodes
 	for (int i = static_cast<int>(m_Tree.size()) - 1; i >= 0; i--)
@@ -189,8 +161,19 @@ void MBVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 
 bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx)
 {
+#if EDGE_INTERSECTION
+	return MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->p0s.data(),
+								  m_OriginalTree->edge1s.data(), m_OriginalTree->edge2s.data());
+#else
 	if (m_OriginalTree->m_Indices)
 		return MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->m_Vertices,
 									  m_OriginalTree->m_Indices);
 	return MBVHNode::traverseMBVH(origin, dir, t_min, t, primIdx, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->m_Vertices);
+#endif
+}
+
+int MBVHTree::traverse(cpurt::RayPacket4 &packet, float t_min, __m128 *hit_mask)
+{
+	return MBVHNode::traverseMBVH(packet, t_min, m_Tree.data(), m_PrimitiveIndices.data(), m_OriginalTree->p0s.data(), m_OriginalTree->edge1s.data(),
+								  m_OriginalTree->edge2s.data(), hit_mask);
 }

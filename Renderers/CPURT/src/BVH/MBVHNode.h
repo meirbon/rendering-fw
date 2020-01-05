@@ -15,6 +15,12 @@ struct MBVHTraversal
 
 struct MBVHHit
 {
+	MBVHHit()
+	{
+		t_min = _mm_set1_ps(1e34f);
+		result = glm::bvec4(false, false, false, false);
+	}
+
 	union {
 		__m128 t_min;
 		__m128i t_mini;
@@ -73,7 +79,8 @@ class MBVHNode
 
 	void SetBounds(unsigned int nodeIdx, const AABB &bounds);
 
-	MBVHHit intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t) const;
+	MBVHHit intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t, float t_min) const;
+	MBVHHit intersect4(cpurt::RayPacket4 &packet, float t_min) const;
 
 	void MergeNodes(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr);
 
@@ -88,11 +95,17 @@ class MBVHNode
 							 const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
 	static bool traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
 							 const unsigned int *primIndices, const glm::vec4 *vertices);
+	static bool traverseMBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
+							 const unsigned int *primIndices, const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s);
+	static int traverseMBVH(cpurt::RayPacket4 &packet, float t_min, const MBVHNode *nodes, const unsigned int *primIndices, const glm::vec3 *p0s,
+							const glm::vec3 *edge1s, const glm::vec3 *edge2s, __m128 *hit_mask);
 
 	static bool traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
 								   const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
 	static bool traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
 								   const unsigned int *primIndices, const glm::vec4 *vertices);
+	static bool traverseMBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
+								   const unsigned int *primIndices, const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s);
 
 	void validate(MBVHNode *nodes, unsigned int maxPrimID, unsigned int maxPoolPtr);
 };

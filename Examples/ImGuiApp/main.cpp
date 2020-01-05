@@ -2,12 +2,12 @@
 #include <Application.h>
 
 #define SKINNED_MESH 1
-#define CESIUMMAN 0
+#define CESIUMMAN 1
 #define POLLY 0
-#define PICA 1
+#define PICA 0
+#define SPONZA 1
 #define PICA_LIGHTS 1
 #define DRAGON 0
-#define SPONZA 0
 
 using namespace rfw;
 using namespace utils;
@@ -42,6 +42,9 @@ class App : public rfw::Application
 #if PICA
 	rfw::GeometryReference pica;
 	rfw::InstanceReference picaInstance;
+#elif SPONZA
+	rfw::GeometryReference sponza;
+	rfw::InstanceReference sponzaInstance;
 #endif
 #if DRAGON
 	rfw::GeometryReference dragon;
@@ -91,13 +94,15 @@ void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 	skinnedMesh = rs->addObject("Models/capture.DAE");
 #endif
 #if CESIUMMAN
-	cesiumMan = rs->addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+	cesiumMan = rs->addObject("Models/CesiumMan.glb", false);
 #endif
 #if POLLY
 	polly = rs->addObject("Models/project_polly.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
 #endif
 #if PICA
 	pica = rs->addObject("Models/pica/scene.gltf");
+#elif SPONZA
+	sponza = rs->addObject("Models/sponza/sponza.obj");
 #endif
 #if PICA_LIGHTS
 	auto lightMaterial = rs->addMaterial(vec3(50), 1);
@@ -127,7 +132,7 @@ void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
 	skinnedMeshInstance = rs->addInstance(skinnedMesh, vec3(4));
 #endif
 #if CESIUMMAN
-	cesiumManInstance = rs->addInstance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
+	cesiumManInstance = rs->addInstance(cesiumMan, vec3(3), vec3(10, 0.2f, 3));
 #endif
 #if POLLY
 	pollyInstance = rs->addInstance(polly, vec3(1), vec3(8, 2, 1));
@@ -136,6 +141,8 @@ void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
 	picaInstance = rs->addInstance(pica);
 	picaInstance.rotate(180.0f, vec3(0, 1, 0));
 	picaInstance.update();
+#elif SPONZA
+	sponzaInstance = rs->addInstance(sponza, vec3(0.2f));
 #endif
 #if PICA_LIGHTS
 	lightQuadInstance = rs->addInstance(lightQuad);

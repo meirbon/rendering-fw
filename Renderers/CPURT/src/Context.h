@@ -14,6 +14,8 @@
 #include "Mesh.h"
 #include "BVH/TopLevelBVH.h"
 
+#define PACKET_WIDTH 4
+
 namespace rfw
 {
 
@@ -54,6 +56,12 @@ class Context : public RenderContext
 	utils::ThreadPool m_Pool = {};
 	std::vector<std::future<void>> m_Handles;
 	std::vector<utils::Xor128> m_RNGs;
+
+#if PACKET_WIDTH == 4
+	std::vector<cpurt::RayPacket4> m_Packets;
+#elif PACKET_WIDTH == 8
+	std::vector<cpurt::RayPacket8> m_Packets;
+#endif
 
 	TopLevelBVH topLevelBVH;
 	std::vector<CPUMesh> m_Meshes;

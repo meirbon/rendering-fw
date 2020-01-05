@@ -128,8 +128,9 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	const int maxPixelID = m_Width * m_Height;
 
-	for (int tile_y = 0; tile_y < hTiles; tile_y++)
-	{
+	utils::concurrency::parallel_for(0, hTiles, [&](int tile_y) {
+		// for (int tile_y = 0; tile_y < hTiles; tile_y++)
+		//{
 		for (int tile_x = 0; tile_x < wTiles; tile_x++)
 		{
 #if PACKET_WIDTH == 4
@@ -161,7 +162,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			packets[tile_id] = Ray::GenerateRay16(camParams, x16, y16, &m_Rng);
 #endif
 		}
-	}
+	});
+	//}
 
 	const auto threads = m_Pool.size();
 	const auto packetsPerThread = packets.size() / threads;
@@ -234,30 +236,56 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const mat3 &invTransform = m_InverseMatrices[instID];
 					const Triangle *tri = &m_Meshes[m_InstanceMesh[instID]].triangles[primID];
 
-					const auto u = packet.hit.u[i];
-					const auto v = packet.hit.v[i];
-					const auto w = 1.0f - u - v;
+					const vec3 bary = vec3(packet.hit.u[i], packet.hit.v[i], 1.0f - packet.hit.u[i] - packet.hit.v[i]);
 
 					const vec3 N = invTransform * vec3(tri->Nx, tri->Ny, tri->Nz);
-					const vec3 iN = normalize(invTransform * (w * tri->vN0 + u * tri->vN1 + v * tri->vN2));
+					const vec3 iN = normalize(invTransform * (bary.z * tri->vN0 + bary.x * tri->vN1 + bary.y * tri->vN2));
 
-					const Material &mat = m_Materials[tri->material];
-					vec3 color = mat.getColor();
+					const Material &material = m_Materials[tri->material];
+					vec3 color = material.getColor();
 
-					vec2 uv;
-					if (mat.hasFlag(HasDiffuseMap) || mat.hasFlag(HasNormalMap) || mat.hasFlag(HasAlphaMap) || mat.hasFlag(HasRoughnessMap) ||
-						mat.hasFlag(HasSpecularityMap))
-						uv = w * vec2(tri->u0, tri->v0) + u * vec2(tri->u1, tri->v1) + v * vec2(tri->u2, tri->v2);
-
-					if (mat.hasFlag(HasDiffuseMap))
+					float tu, tv;
+					if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) || material.hasFlag(HasRoughnessMap) ||
+						material.hasFlag(HasAlphaMap) || material.hasFlag(HasSpecularityMap))
 					{
-						const int width = mat.texwidth0;
-						const int height = mat.texheight0;
-						const vec2 UV = (uv + vec2(mat.uoffs0, mat.voffs0)) * vec2(mat.uscale0, mat.vscale0);
-						const int pixel = max(0, int(UV.y * height * width + UV.x * width));
-						const uint texel = reinterpret_cast<uint *>(m_Textures[mat.texaddr0].data)[pixel];
-						constexpr float divider = 1.0f / 255.f;
-						color = vec3((texel & 0xFF) * divider, ((texel >> 8) & 0xFF) * divider, ((texel >> 16) & 0xFF) * divider);
+						tu = bary.x * tri->u0 + bary.y * tri->u1 + bary.z * tri->u2;
+						tv = bary.x * tri->v0 + bary.y * tri->v1 + bary.z * tri->v2;
+					}
+
+					if (material.hasFlag(HasDiffuseMap))
+					{
+						const float u = (tu + material.uoffs0) * material.uscale0;
+						const float v = (tv + material.voffs0) * material.vscale0;
+
+						float x = fmod(u, 1.0f);
+						float y = fmod(v, 1.0f);
+
+						if (x < 0)
+							x = 1 + x;
+						if (y < 0)
+							y = 1 + y;
+
+						const auto &tex = m_Textures[material.texaddr0];
+
+						const uint ix = uint(x * (tex.width - 1));
+						const uint iy = uint(y * (tex.height - 1));
+						const auto pixelID = static_cast<int>(iy * tex.width + ix);
+
+						switch (tex.type)
+						{
+						case (TextureData::FLOAT4):
+						{
+							color = color * vec3(reinterpret_cast<vec4 *>(tex.data)[pixelID]);
+						}
+						case (TextureData::UINT):
+						{
+							// RGBA
+							const uint texel = reinterpret_cast<uint *>(tex.data)[pixelID];
+							constexpr float s = 1.0f / 256.0f;
+
+							color = color * s * vec3(texel & 0xFFu, (texel >> 8u) & 0xFFu, (texel >> 16u) & 0xFFu);
+						}
+						}
 					}
 
 					m_Pixels[pixel_id] = vec4(color, 0.0f);

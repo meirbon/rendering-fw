@@ -5,6 +5,7 @@
 #include <glm/ext.hpp>
 
 #include <glm/simd/geometric.h>
+#include "../Ray.h"
 
 class AABB
 {
@@ -43,7 +44,7 @@ class AABB
 		bmax[3] = 0;
 	}
 
-	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const
+	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const
 	{
 #if 0
 		const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
@@ -79,8 +80,48 @@ class AABB
 		*t_min = glm::max(tmin[0], glm::max(tmin[1], tmin[2]));
 		*t_max = glm::min(tmax[0], glm::min(tmax[1], tmax[2]));
 
-		return *t_max >= 0.0f && *t_min < *t_max;
+		return *t_max >= min_t && *t_min < *t_max;
 #endif
+	}
+
+	bool intersect(cpurt::RayPacket4 &packet4, __m128 *tmin_4, __m128 *tmax_4, float min_t = 1e-6f) const
+	{
+		static const __m128 one4 = _mm_set1_ps(1.0f);
+
+		// const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+		// const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+		const __m128 inv_direction_x4 = _mm_div_ps(one4, packet4.direction_x4[0]);
+		const __m128 inv_direction_y4 = _mm_div_ps(one4, packet4.direction_y4[0]);
+		const __m128 inv_direction_z4 = _mm_div_ps(one4, packet4.direction_z4[0]);
+
+		// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+		const __m128 t1_4_x = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(bmin[0]), packet4.origin_x4[0]), inv_direction_x4);
+		const __m128 t1_4_y = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(bmin[1]), packet4.origin_y4[0]), inv_direction_y4);
+		const __m128 t1_4_z = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(bmin[2]), packet4.origin_z4[0]), inv_direction_z4);
+
+		// const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
+		const __m128 t2_4_x = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(bmax[0]), packet4.origin_x4[0]), inv_direction_x4);
+		const __m128 t2_4_y = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(bmax[1]), packet4.origin_y4[0]), inv_direction_y4);
+		const __m128 t2_4_z = _mm_mul_ps(_mm_sub_ps(_mm_set1_ps(bmax[2]), packet4.origin_z4[0]), inv_direction_z4);
+
+		// const glm::vec3 min = glm::min(t1, t2);
+		const __m128 tmin_x4 = _mm_min_ps(t1_4_x, t2_4_x);
+		const __m128 tmin_y4 = _mm_min_ps(t1_4_y, t2_4_y);
+		const __m128 tmin_z4 = _mm_min_ps(t1_4_z, t2_4_z);
+
+		// const glm::vec3 max = glm::max(t1, t2);
+		const __m128 tmax_x4 = _mm_max_ps(t1_4_x, t2_4_x);
+		const __m128 tmax_y4 = _mm_max_ps(t1_4_y, t2_4_y);
+		const __m128 tmax_z4 = _mm_max_ps(t1_4_z, t2_4_z);
+
+		//*t_min = glm::max(min.x, glm::max(min.y, min.z));
+		*tmin_4 = _mm_max_ps(tmin_x4, _mm_max_ps(tmin_y4, tmin_z4));
+		//*t_max = glm::min(max.x, glm::min(max.y, max.z));
+		*tmax_4 = _mm_min_ps(tmax_x4, _mm_min_ps(tmax_y4, tmax_z4));
+
+		// return *t_max >= min_t && *t_min < *t_max;
+		const __m128 mask_4 = _mm_and_ps(_mm_cmpge_ps(*tmax_4, _mm_set1_ps(min_t)), _mm_cmplt_ps(*tmin_4, *tmax_4));
+		return _mm_movemask_ps(mask_4) > 0;
 	}
 
 	inline void Reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }

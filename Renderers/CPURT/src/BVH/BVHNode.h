@@ -7,16 +7,16 @@
 #include <future>
 
 #include "BVH/AABB.h"
+#include "../Ray.h"
 
 class BVHTree;
 
 struct BVHTraversal
 {
 	int nodeIdx{};
-	float tNear{};
 
 	BVHTraversal(){};
-	BVHTraversal(int nIdx, float t) : nodeIdx(nIdx), tNear(t) {}
+	BVHTraversal(int nIdx) : nodeIdx(nIdx) {}
 };
 
 struct BVHNode
@@ -35,7 +35,11 @@ struct BVHNode
 
 	[[nodiscard]] inline bool IsLeaf() const noexcept { return bounds.count >= 0; }
 
-	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max) const;
+	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t = 1e-6f) const;
+
+	bool intersect(cpurt::RayPacket4 &packet4, __m128 *tmin_4, __m128 *tmax_4, float min_t = 1e-6f) const;
+
+	bool intersect(cpurt::RayPacket8 &packet8, float min_t = 1e-6f) const;
 
 	inline void SetCount(int value) noexcept { bounds.count = value; }
 
@@ -47,7 +51,7 @@ struct BVHNode
 
 	void Subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, unsigned int depth, std::atomic_int &poolPtr);
 
-	void SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::mutex *threadMutex, unsigned int *threadCount, unsigned int depth,
+	void SubdivideMT(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::atomic_int &threadCount, unsigned int depth,
 					 std::atomic_int &poolPtr);
 
 	bool Partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, int *left, int *right, std::atomic_int &poolPtr);
@@ -66,6 +70,12 @@ struct BVHNode
 	static bool traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
 							const unsigned int *primIndices, const glm::vec4 *vertices);
 
+	static bool traverseBVH(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
+							const unsigned int *primIndices, const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s);
+
+	static int traverseBVH(cpurt::RayPacket4 &packet, float t_min, const BVHNode *nodes, const unsigned int *primIndices, const glm::vec3 *p0s,
+						   const glm::vec3 *edge1s, const glm::vec3 *edge2s, __m128 *hit_mask);
+
 	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
 								  const glm::vec3 *vertices, const glm::uvec3 *indices);
 
@@ -77,4 +87,7 @@ struct BVHNode
 
 	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
 								  const glm::vec4 *vertices);
+
+	static bool traverseBVHShadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes, const unsigned int *primIndices,
+								  const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s);
 };

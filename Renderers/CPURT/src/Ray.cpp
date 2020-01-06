@@ -857,14 +857,15 @@ cpurt::RayPacket4 cpurt::Ray::generateRay4(const CameraParams &camera, const int
 	const __m128 pixel_y4 = _mm_add_ps(p1_y4, _mm_add_ps(_mm_mul_ps(u4, right_y4), _mm_mul_ps(v4, up_y4)));
 	const __m128 pixel_z4 = _mm_add_ps(p1_z4, _mm_add_ps(_mm_mul_ps(u4, right_z4), _mm_mul_ps(v4, up_z4)));
 
+	// ray.direction = pointOnPixel - ray.origin;
 	__m128 dir_x4 = _mm_sub_ps(pixel_x4, org_x4);
 	__m128 dir_y4 = _mm_sub_ps(pixel_y4, org_y4);
 	__m128 dir_z4 = _mm_sub_ps(pixel_z4, org_z4);
 
-	__m128 length_squared_4 = _mm_dp_ps(dir_x4, dir_x4, 0xFF);
-	length_squared_4 = _mm_add_ps(_mm_dp_ps(dir_y4, dir_y4, 0xFF), length_squared_4);
-	length_squared_4 = _mm_add_ps(_mm_dp_ps(dir_z4, dir_z4, 0xFF), length_squared_4);
-
+	// ray.direction = normalize(ray.direction);
+	__m128 length_squared_4 = _mm_mul_ps(dir_x4, dir_x4);
+	length_squared_4 = _mm_add_ps(_mm_mul_ps(dir_y4, dir_y4), length_squared_4);
+	length_squared_4 = _mm_add_ps(_mm_mul_ps(dir_z4, dir_z4), length_squared_4);
 	const __m128 inv_length = _mm_div_ps(one4, _mm_sqrt_ps(length_squared_4));
 	dir_x4 = _mm_mul_ps(dir_x4, inv_length);
 	dir_y4 = _mm_mul_ps(dir_y4, inv_length);
@@ -1043,9 +1044,9 @@ cpurt::RayPacket8 cpurt::Ray::generateRay8(const CameraParams &camera, const int
 	dir_y4 = _mm256_sub_ps(pixel_y4, org_y4);
 	dir_z4 = _mm256_sub_ps(pixel_z4, org_z4);
 
-	__m256 length_squared_4 = _mm256_dp_ps(dir_x4, dir_x4, 0xFF);
-	length_squared_4 = _mm256_add_ps(_mm256_dp_ps(dir_y4, dir_y4, 0xFF), length_squared_4);
-	length_squared_4 = _mm256_add_ps(_mm256_dp_ps(dir_z4, dir_z4, 0xFF), length_squared_4);
+	__m256 length_squared_4 = _mm256_mul_ps(dir_x4, dir_x4);
+	length_squared_4 = _mm256_add_ps(_mm256_mul_ps(dir_y4, dir_y4), length_squared_4);
+	length_squared_4 = _mm256_add_ps(_mm256_mul_ps(dir_z4, dir_z4), length_squared_4);
 
 	const __m256 inv_length = _mm256_div_ps(one8, _mm256_sqrt_ps(length_squared_4));
 	dir_x4 = _mm256_mul_ps(dir_x4, inv_length);

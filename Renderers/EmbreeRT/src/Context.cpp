@@ -236,7 +236,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const mat3 &invTransform = m_InverseMatrices[instID];
 					const Triangle *tri = &m_Meshes[m_InstanceMesh[instID]].triangles[primID];
 
-					const vec3 bary = vec3(packet.hit.u[i], packet.hit.v[i], 1.0f - packet.hit.u[i] - packet.hit.v[i]);
+					const vec3 bary = vec3(1.0f - packet.hit.u[i] - packet.hit.v[i], packet.hit.u[i], packet.hit.v[i]);
 
 					const vec3 N = invTransform * vec3(tri->Nx, tri->Ny, tri->Nz);
 					const vec3 iN = normalize(invTransform * (bary.z * tri->vN0 + bary.x * tri->vN1 + bary.y * tri->vN2));
@@ -269,18 +269,18 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 						const uint ix = uint(x * (tex.width - 1));
 						const uint iy = uint(y * (tex.height - 1));
-						const auto pixelID = static_cast<int>(iy * tex.width + ix);
+						const auto texelID = static_cast<int>(iy * tex.width + ix);
 
 						switch (tex.type)
 						{
 						case (TextureData::FLOAT4):
 						{
-							color = color * vec3(reinterpret_cast<vec4 *>(tex.data)[pixelID]);
+							color = color * vec3(reinterpret_cast<vec4 *>(tex.data)[texelID]);
 						}
 						case (TextureData::UINT):
 						{
 							// RGBA
-							const uint texel = reinterpret_cast<uint *>(tex.data)[pixelID];
+							const uint texel = reinterpret_cast<uint *>(tex.data)[texelID];
 							constexpr float s = 1.0f / 256.0f;
 
 							color = color * s * vec3(texel & 0xFFu, (texel >> 8u) & 0xFFu, (texel >> 16u) & 0xFFu);

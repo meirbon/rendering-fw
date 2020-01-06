@@ -13,7 +13,7 @@ class BVHTree
 	BVHTree(const glm::vec4 *vertices, int vertexCount);
 	BVHTree(const glm::vec4 *vertices, int vertexCount, const glm::uvec3 *indices, int faceCount);
 
-	void constructBVH(bool printBuildTime = false);
+	void construct_bvh(bool printBuildTime = false);
 	void reset();
 	void refit(const glm::vec4 *vertices);
 	void refit(const glm::vec4 *vertices, const glm::uvec3 *indices);

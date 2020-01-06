@@ -57,11 +57,23 @@ template <int N> struct RayPacket
 		__m128 direction_z4[N / 4];
 	};
 
-	int pixelID[N];
-	int primID[N];
-	int instID[N];
+	union {
+		int pixelID[N];
+		__m128 pixelID4[N / 4];
+	};
+	union {
+		int primID[N];
+		__m128i primID4[N / 4];
+	};
+	union {
+		int instID[N];
+		__m128i instID4[N / 4];
+	};
 
-	float t[N];
+	union {
+		float t[N];
+		__m128 t4[N / 4];
+	};
 };
 
 using RayPacket4 = RayPacket<4>;

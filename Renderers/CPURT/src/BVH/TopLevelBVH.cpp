@@ -1,16 +1,20 @@
 #define GLM_FORCE_AVX
 #include "TopLevelBVH.h"
 
+#define USE_TOP_MBVH 1
 #define USE_MBVH 0
+#define REFIT 0
 
 void rfw::TopLevelBVH::constructBVH()
 {
+#if REFIT
 	if (instanceCountChanged) // (Re)build
 	{
+#endif
 		m_Nodes.clear();
 		AABB rootBounds = {};
 		for (const auto &aabb : transformedAABBs)
-			rootBounds.Grow(aabb);
+			rootBounds.grow(aabb);
 
 		m_Nodes.resize(boundingBoxes.size() * 2);
 		m_PrimIndices.resize(boundingBoxes.size());
@@ -21,99 +25,70 @@ void rfw::TopLevelBVH::constructBVH()
 		m_Nodes[0].bounds = rootBounds;
 		m_Nodes[0].bounds.leftFirst = 0;
 		m_Nodes[0].bounds.count = static_cast<int>(transformedAABBs.size());
-		m_Nodes[0].Subdivide(transformedAABBs.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
+
+		// Use less split bins to speed up construction
+		// allow only 1 primitive per node as intersecting nodes is cheaper than intersecting bottom level BVHs
+		m_Nodes[0].subdivide<7, 32, 1>(transformedAABBs.data(), m_Nodes.data(), m_PrimIndices.data(), 1, m_PoolPtr);
 		if (m_PoolPtr > 2)
 		{
 			m_Nodes[0].bounds.count = -1;
-			m_Nodes[0].SetLeftFirst(2);
+			m_Nodes[0].set_left_first(2);
 		}
 		else
 		{
 			m_Nodes[0].bounds.count = static_cast<int>(transformedAABBs.size());
-			m_Nodes[0].SetLeftFirst(0);
+			m_Nodes[0].set_left_first(0);
 		}
 
-		if (m_PoolPtr <= 4) // Original tree first in single MBVH node
-		{
-			m_MNodes.resize(1);
-			MBVHNode &mRootNode = m_MNodes[0];
-			const AABB invalidAABB = AABB();
-
-			for (int i = 0, s = m_PoolPtr; i < s; i++)
-			{
-				BVHNode &curNode = m_Nodes[i];
-
-				if (curNode.IsLeaf())
-				{
-					mRootNode.childs[i] = curNode.GetLeftFirst();
-					mRootNode.counts[i] = curNode.GetCount();
-					mRootNode.SetBounds(i, curNode.bounds);
-				}
-				else
-				{
-					mRootNode.childs[i] = 0;
-					mRootNode.counts[i] = 0;
-					mRootNode.SetBounds(i, invalidAABB);
-				}
-			}
-
-			for (int i = m_PoolPtr; i < 4; i++)
-			{
-				mRootNode.childs[i] = 0;
-				mRootNode.counts[i] = 0;
-				mRootNode.SetBounds(i, invalidAABB);
-			}
-		}
-		else
-		{
-			m_MPoolPtr.store(1);
-			m_MNodes.resize(m_Nodes.size()); // We'll store at most the original nodes in terms of size
-			m_MNodes[0].MergeNodes(m_Nodes[0], m_Nodes.data(), m_MNodes.data(), m_MPoolPtr);
-		}
-
+#if REFIT
 		instanceCountChanged = false;
 	}
 	else // Refit
 	{
 		AABB rootBounds = {};
 		for (const auto &aabb : transformedAABBs)
-			rootBounds.Grow(aabb);
+			rootBounds.grow(aabb);
 
-		for (int i = static_cast<int>(m_MNodes.size()) - 1; i >= 0; i--)
+		m_Nodes[0].refit(m_Nodes.data(), m_PrimIndices.data(), transformedAABBs.data());
+	}
+#endif
+
+	if (m_PoolPtr <= 4) // Original tree first in single MBVH node
+	{
+		m_MNodes.resize(1);
+		MBVHNode &mRootNode = m_MNodes[0];
+		const AABB invalidAABB = AABB();
+
+		for (int i = 0, s = m_PoolPtr; i < s; i++)
 		{
-			auto &node = m_MNodes[i];
-			for (int j = 0; j < 4; j++)
+			BVHNode &curNode = m_Nodes[i];
+
+			if (curNode.is_leaf())
 			{
-				if (node.counts[j] == 0)
-					continue;
-
-				if (node.counts[j] >= 0 || node.childs[j] < i /* Child node cannot be at an earlier index */) // Calculate new bounds of leaf nodes
-				{
-					auto aabb = AABB(vec3(1e34f), vec3(-1e34f));
-					for (int k = node.childs[j], s = node.childs[j] + node.counts[j]; k < s; k++)
-						aabb.Grow(transformedAABBs[m_PrimIndices[k]]);
-
-					node.bminx[j] = aabb.bmin[0];
-					node.bminy[j] = aabb.bmin[1];
-					node.bminz[j] = aabb.bmin[2];
-
-					node.bmaxx[j] = aabb.bmax[0];
-					node.bmaxy[j] = aabb.bmax[1];
-					node.bmaxz[j] = aabb.bmax[2];
-				}
-				else // Calculate new bounds of bvh nodes
-				{
-					const auto &childNode = m_MNodes[node.childs[j]];
-					node.bminx[j] = min(childNode.bminx[0], min(childNode.bminx[1], min(childNode.bminx[2], childNode.bminx[3]))) - 1e-5f;
-					node.bminy[j] = min(childNode.bminy[0], min(childNode.bminy[1], min(childNode.bminy[2], childNode.bminy[3]))) - 1e-5f;
-					node.bminz[j] = min(childNode.bminz[0], min(childNode.bminz[1], min(childNode.bminz[2], childNode.bminz[3]))) - 1e-5f;
-
-					node.bmaxx[j] = max(childNode.bmaxx[0], max(childNode.bmaxx[1], max(childNode.bmaxx[2], childNode.bmaxx[3]))) + 1e-5f;
-					node.bmaxy[j] = max(childNode.bmaxy[0], max(childNode.bmaxy[1], max(childNode.bmaxy[2], childNode.bmaxy[3]))) + 1e-5f;
-					node.bmaxz[j] = max(childNode.bmaxz[0], max(childNode.bmaxz[1], max(childNode.bmaxz[2], childNode.bmaxz[3]))) + 1e-5f;
-				}
+				mRootNode.childs[i] = curNode.get_left_first();
+				mRootNode.counts[i] = curNode.get_count();
+				mRootNode.set_bounds(i, curNode.bounds);
+			}
+			else
+			{
+				mRootNode.childs[i] = 0;
+				mRootNode.counts[i] = 0;
+				mRootNode.set_bounds(i, invalidAABB);
 			}
 		}
+
+		for (int i = m_PoolPtr; i < 4; i++)
+		{
+			mRootNode.childs[i] = 0;
+			mRootNode.counts[i] = 0;
+			mRootNode.set_bounds(i, invalidAABB);
+		}
+	}
+	else
+	{
+		m_MPoolPtr.store(1);
+		m_MNodes.resize(m_Nodes.size()); // We'll store at most the original nodes in terms of size
+		m_MNodes[0].merge_nodes(m_Nodes[0], m_Nodes.data(), m_MNodes.data(), m_MPoolPtr);
 	}
 }
 
@@ -124,15 +99,9 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(cpurt::Ray &ray, 
 
 std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, const vec3 &dir, float *t, int *primID, float t_min, uint &instID) const
 {
-	const auto mask = _mm_set_epi32(0, ~0, ~0, ~0);
-
 	int stackPtr = 0;
+	const auto mask = _mm_set_epi32(0, ~0, ~0, ~0);
 	const vec3 dirInverse = 1.0f / dir;
-
-	MBVHTraversal todo[32];
-	todo[0].leftFirst = 0;
-	todo[0].count = -1;
-	float t_near, t_far;
 
 	union {
 		vec4 origin;
@@ -149,6 +118,12 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, 
 	vec3 tmp_org;
 	vec3 tmp_dir;
 
+#if USE_TOP_MBVH
+	MBVHTraversal todo[32];
+	todo[0].leftFirst = 0;
+	todo[0].count = -1;
+	float t_near, t_far;
+
 	while (stackPtr >= 0)
 	{
 		const int leftFirst = todo[stackPtr].leftFirst;
@@ -161,7 +136,7 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, 
 			for (int i = 0; i < count; i++)
 			{
 				const auto primIdx = m_PrimIndices[leftFirst + i];
-				if (transformedAABBs[primIdx].Intersect(org, dirInverse, &t_near, &t_far, t_min))
+				if (transformedAABBs[primIdx].intersect(org, dirInverse, &t_near, &t_far, t_min))
 				{
 					const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
 					const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
@@ -195,6 +170,76 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, 
 			}
 		}
 	}
+#else
+	BVHTraversal todo[32];
+	float tNear1, tFar1;
+	float tNear2, tFar2;
+	todo[stackPtr].nodeIdx = 0;
+
+	while (stackPtr >= 0)
+	{
+		const auto &node = m_Nodes[todo[stackPtr].nodeIdx];
+		stackPtr--;
+
+		if (node.get_count() > -1)
+		{
+			for (int i = 0; i < node.get_count(); i++)
+			{
+				const auto primIdx = m_PrimIndices[node.get_left_first() + i];
+				if (transformedAABBs[primIdx].intersect(org, dirInverse, &tNear1, &tFar1, t_min))
+				{
+					const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
+					const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
+
+					_mm_maskstore_ps(value_ptr(tmp_org), mask, origin4);
+					_mm_maskstore_ps(value_ptr(tmp_dir), mask, direction4);
+
+					const CPUMesh *mesh = accelerationStructures[primIdx];
+#if USE_MBVH
+					if (mesh->mbvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
+						instID = primIdx;
+#else
+					if (mesh->bvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
+						instID = primIdx;
+#endif
+				}
+			}
+		}
+		else
+		{
+			const auto hit_left = m_Nodes[node.get_left_first()].intersect(org, dirInverse, &tNear1, &tFar1, t_min);
+			const auto hit_right = m_Nodes[node.get_left_first() + 1].intersect(org, dirInverse, &tNear2, &tFar2, t_min);
+
+			if (hit_left && hit_right)
+			{
+				if (tNear1 < tNear2)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.get_left_first()};
+					stackPtr++;
+					todo[stackPtr] = {node.get_left_first() + 1};
+				}
+				else
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.get_left_first() + 1};
+					stackPtr++;
+					todo[stackPtr] = {node.get_left_first()};
+				}
+			}
+			else if (hit_left)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.get_left_first()};
+			}
+			else if (hit_right)
+			{
+				stackPtr++;
+				todo[stackPtr] = {node.get_left_first() + 1};
+			}
+		}
+	}
+#endif
 
 	if (*t < 1e33f)
 	{
@@ -238,7 +283,7 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 	int stackPtr = 0;
 	cpurt::RayPacket4 transformedPacket = {};
 
-#if USE_MBVH
+#if USE_TOP_MBVH
 	MBVHTraversal todo[32];
 	todo[0].leftFirst = 0;
 	todo[0].count = -1;
@@ -274,8 +319,7 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 						dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
 
 						org4 = glm_mat4_mul_vec4(matrix.cols, org4);
-						dir4 = glm_mat4_mul_vec4(matrix.cols, dir4);
-						dir4 = glm_vec4_normalize(dir4);
+						dir4 = glm_vec4_normalize(glm_mat4_mul_vec4(matrix.cols, dir4));
 
 						transformedPacket.origin_x[i] = org[0];
 						transformedPacket.origin_y[i] = org[1];
@@ -288,11 +332,15 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 
 					__m128 hit_mask = _mm_setzero_ps();
 					const auto mesh = accelerationStructures[inst_id];
+#if USE_MBVH
 					mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
+#else
+					mesh->bvh->traverse(transformedPacket, t_min, &hit_mask);
+#endif
 					const __m128i storage_mask = _mm_castps_si128(hit_mask);
-					_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
+					_mm_maskstore_ps(packet.t, storage_mask, transformedPacket.t4[0]);
 					_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
-					_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
+					_mm_maskstore_epi32(packet.primID, storage_mask, transformedPacket.primID4[0]);
 				}
 			}
 			continue;
@@ -320,11 +368,11 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 		const auto &node = m_Nodes[todo[stackPtr].nodeIdx];
 		stackPtr--;
 
-		if (node.GetCount() > -1)
+		if (node.get_count() > -1)
 		{
-			for (int i = 0; i < node.GetCount(); i++)
+			for (int i = 0; i < node.get_count(); i++)
 			{
-				const auto inst_id = m_PrimIndices[node.GetLeftFirst() + i];
+				const auto inst_id = m_PrimIndices[node.get_left_first() + i];
 
 				if (transformedAABBs[inst_id].intersect(packet, &tNear1, &tFar1, t_min))
 				{
@@ -358,47 +406,49 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 
 					__m128 hit_mask = _mm_setzero_ps();
 					const auto mesh = accelerationStructures[inst_id];
-					if (mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask))
-					{
-						const __m128i storage_mask = _mm_castps_si128(hit_mask);
-						_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
-						_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
-						_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
-					}
+#if USE_MBVH
+					mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
+#else
+					mesh->bvh->traverse(transformedPacket, t_min, &hit_mask);
+#endif
+					const __m128i storage_mask = _mm_castps_si128(hit_mask);
+					_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
+					_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
+					_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
 				}
 			}
 		}
 		else
 		{
-			const bool hitLeft = m_Nodes[node.GetLeftFirst()].intersect(packet, &tNear1, &tFar1, t_min);
-			const bool hitRight = m_Nodes[node.GetLeftFirst() + 1].intersect(packet, &tNear2, &tFar2, t_min);
+			const bool hitLeft = m_Nodes[node.get_left_first()].intersect(packet, &tNear1, &tFar1, t_min);
+			const bool hitRight = m_Nodes[node.get_left_first() + 1].intersect(packet, &tNear2, &tFar2, t_min);
 
 			if (hitLeft && hitRight)
 			{
 				if (_mm_movemask_ps(_mm_cmplt_ps(tNear1, tNear2)) > _mm_movemask_ps(_mm_cmpge_ps(tNear1, tNear2)) /* tNear1 < tNear2*/)
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst()};
+					todo[stackPtr] = {node.get_left_first()};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1};
+					todo[stackPtr] = {node.get_left_first() + 1};
 				}
 				else
 				{
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst() + 1};
+					todo[stackPtr] = {node.get_left_first() + 1};
 					stackPtr++;
-					todo[stackPtr] = {node.GetLeftFirst()};
+					todo[stackPtr] = {node.get_left_first()};
 				}
 			}
 			else if (hitLeft)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst()};
+				todo[stackPtr] = {node.get_left_first()};
 			}
 			else if (hitRight)
 			{
 				stackPtr++;
-				todo[stackPtr] = {node.GetLeftFirst() + 1};
+				todo[stackPtr] = {node.get_left_first() + 1};
 			}
 		}
 	}
@@ -441,14 +491,14 @@ AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const SI
 	const __m128 p8 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmax[0], originalBounds.bmin[1], originalBounds.bmax[2], 1.f));
 
 	AABB transformedAABB = {};
-	transformedAABB.Grow(p1);
-	transformedAABB.Grow(p2);
-	transformedAABB.Grow(p3);
-	transformedAABB.Grow(p4);
-	transformedAABB.Grow(p5);
-	transformedAABB.Grow(p6);
-	transformedAABB.Grow(p7);
-	transformedAABB.Grow(p8);
+	transformedAABB.grow(p1);
+	transformedAABB.grow(p2);
+	transformedAABB.grow(p3);
+	transformedAABB.grow(p4);
+	transformedAABB.grow(p5);
+	transformedAABB.grow(p6);
+	transformedAABB.grow(p7);
+	transformedAABB.grow(p8);
 
 	const __m128 epsilon4 = _mm_set1_ps(1e-5f);
 	transformedAABB.bmin4 = _mm_sub_ps(transformedAABB.bmin4, epsilon4);
@@ -457,7 +507,11 @@ AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const SI
 	return transformedAABB;
 }
 
-const rfw::Triangle &rfw::TopLevelBVH::get_triangle(int instID, int primID) const { return accelerationStructures[instID]->triangles[primID]; }
+const rfw::Triangle &rfw::TopLevelBVH::get_triangle(int instID, int primID) const
+{
+	assert(instID > 0 && instID < accelerationStructures.size());
+	return accelerationStructures[instID]->triangles[primID];
+}
 
 const SIMDMat4 &rfw::TopLevelBVH::get_normal_matrix(int instID) const { return inverseNormalMatrices[instID]; }
 

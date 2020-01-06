@@ -10,6 +10,8 @@
 #include <ppl.h>
 #endif
 
+#define PACKET_TRAVERSAL 0
+
 using namespace rfw;
 
 rfw::RenderContext *createRenderContext() { return new Context(); }
@@ -113,20 +115,21 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 		}
 	});
 
-	const auto probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
+	const int probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
 	const int maxPixelID = m_Width * m_Height;
 	const auto threads = m_Pool.size();
 	const auto packetsPerThread = m_Packets.size() / threads;
 	std::vector<std::future<void>> handles;
 	handles.reserve(threads);
 
+#if 1
 	for (size_t i = 0; i < threads; i++)
 	{
 		handles.push_back(m_Pool.push([&](int t_id) {
 			const int start = static_cast<int>(t_id * packetsPerThread);
 			const int end = static_cast<int>((t_id + 1) * packetsPerThread);
 
-#if 0
+#if PACKET_TRAVERSAL
 			for (int i = start; i < end; i++)
 			{
 				auto &packet = m_Packets[i];
@@ -231,7 +234,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						}
 					}
 
-					m_Pixels[pixelID] = vec4(color * dot(iN, -direction), 1.0f);
+					m_Pixels[pixelID] = vec4(color, 1.0f);
 				}
 			}
 #else
@@ -251,24 +254,21 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						break;
 
 					unsigned int instID = 0;
-					if (pixelID == probe_id)
+					result = topLevelBVH.intersect(origin, direction, &t, &primID, 1e-5f, instID);
+					if (result.has_value() && pixelID == probe_id)
 					{
-						result = topLevelBVH.intersect(origin, direction, &t, &primID, 1e-5f, instID);
 						m_ProbedDist = t;
 						m_ProbedInstance = instID;
 						m_ProbedTriangle = primID;
 					}
-					else
+					else if (!result.has_value())
 					{
-						result = topLevelBVH.intersect(origin, direction, &t, &primID, 1e-5f, instID);
-					}
+						const float inv_pi = glm::one_over_pi<float>();
 
-					if (!result.has_value())
-					{
 						const vec2 uv =
 							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()), acos(direction.y) * glm::one_over_pi<float>());
 						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
-						m_Pixels[pixelID] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+						m_Pixels[pixelID] = vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 						continue;
 					}
 
@@ -296,10 +296,10 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						float x = fmod(u, 1.0f);
 						float y = fmod(v, 1.0f);
 
-						if (x < 0)
-							x = 1 + x;
-						if (y < 0)
-							y = 1 + y;
+						if (x < 0.0f)
+							x = 1.0f + x;
+						if (y < 0.0f)
+							y = 1.0f + y;
 
 						const auto &tex = m_Textures[material.texaddr0];
 
@@ -331,10 +331,10 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 		}));
 	}
 
-#if 0
+#else
 	for (int i = 0; i < s; i++)
 	{
-		m_Handles[i] = m_Pool.push([&](int t_id) {
+		handles.push_back(m_Pool.push([&](int t_id) {
 			auto &rng = m_RNGs[t_id];
 
 			int y = t_id;
@@ -346,7 +346,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 				{
 					const int pixelIdx = yOffset + x;
 
-					auto ray = Ray::generateFromView(camParams, x, y, rng.Rand(), rng.Rand(), rng.Rand(), rng.Rand());
+					auto ray = cpurt::Ray::generateFromView(camParams, x, y, rng.Rand(), rng.Rand(), rng.Rand(), rng.Rand());
 					std::optional<Triangle> result;
 
 					unsigned int instID = 0;
@@ -427,7 +427,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 				}
 				y = y + s;
 			}
-		});
+		}));
 	}
 #endif
 

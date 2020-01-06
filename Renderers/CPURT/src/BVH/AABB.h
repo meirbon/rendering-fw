@@ -44,23 +44,13 @@ class AABB
 		bmax[3] = 0;
 	}
 
-	bool Intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const
+	bool intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const
 	{
-#if 0
-		const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
-		const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
-
-		const glm::vec3 min = glm::min(t1, t2);
-		const glm::vec3 max = glm::max(t1, t2);
-
-		*t_min = glm::max(min.x, glm::max(min.y, min.z));
-		*t_max = glm::min(max.x, glm::min(max.y, max.z));
-
-		return *t_max >= 0.0f && *t_min < *t_max;
-#else
 		const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
 		const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
 
+		// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+		// const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
 		const __m128 t1 = _mm_mul_ps(_mm_sub_ps(bmin4, origin), dirInv);
 		const __m128 t2 = _mm_mul_ps(_mm_sub_ps(bmax4, origin), dirInv);
 
@@ -74,14 +64,18 @@ class AABB
 			float tmax[4];
 		};
 
+		// const glm::vec3 min = glm::min(t1, t2);
+		// const glm::vec3 max = glm::max(t1, t2);
 		tmin4 = _mm_min_ps(t1, t2);
 		tmax4 = _mm_max_ps(t1, t2);
 
+		//*t_min = glm::max(min.x, glm::max(min.y, min.z));
+		//*t_max = glm::min(max.x, glm::min(max.y, max.z));
 		*t_min = glm::max(tmin[0], glm::max(tmin[1], tmin[2]));
 		*t_max = glm::min(tmax[0], glm::min(tmax[1], tmax[2]));
 
+		// return *t_max >= min_t && *t_min < *t_max;
 		return *t_max >= min_t && *t_min < *t_max;
-#endif
 	}
 
 	bool intersect(cpurt::RayPacket4 &packet4, __m128 *tmin_4, __m128 *tmax_4, float min_t = 1e-6f) const
@@ -124,7 +118,7 @@ class AABB
 		return _mm_movemask_ps(mask_4) > 0;
 	}
 
-	inline void Reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }
+	void reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }
 
 	[[nodiscard]] inline bool Contains(const __m128 &p) const
 	{
@@ -140,7 +134,7 @@ class AABB
 		return ((va[0] >= 0) && (va[1] >= 0) && (va[2] >= 0) && (vb[0] >= 0) && (vb[1] >= 0) && (vb[2] >= 0));
 	}
 
-	inline void GrowSafe(const AABB &bb)
+	void grow_safe(const AABB &bb)
 	{
 		xMin = glm::min(xMin, bb.xMin);
 		yMin = glm::min(yMin, bb.yMin);
@@ -151,31 +145,49 @@ class AABB
 		zMax = glm::max(zMax, bb.zMax);
 	}
 
-	inline void Grow(const AABB &bb)
+	void offset_by(const float offset)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			bmin[i] -= offset;
+			bmax[i] += offset;
+		}
+	}
+
+	void offset_by(const float mi, const float ma)
+	{
+		for (int i = 0; i < 3; i++)
+		{
+			bmin[i] += mi;
+			bmax[i] += ma;
+		}
+	}
+
+	void grow(const AABB &bb)
 	{
 		bmin4 = _mm_min_ps(bmin4, bb.bmin4);
 		bmax4 = _mm_max_ps(bmax4, bb.bmax4);
 	}
 
-	inline void Grow(const __m128 &p)
+	void grow(const __m128 &p)
 	{
 		bmin4 = _mm_min_ps(bmin4, p);
 		bmax4 = _mm_max_ps(bmax4, p);
 	}
 
-	inline void Grow(const __m128 min4, const __m128 max4)
+	void grow(const __m128 min4, const __m128 max4)
 	{
 		bmin4 = _mm_min_ps(bmin4, min4);
 		bmax4 = _mm_max_ps(bmax4, max4);
 	}
 
-	inline void Grow(const glm::vec3 &p)
+	void grow(const glm::vec3 &p)
 	{
 		__m128 p4 = _mm_setr_ps(p.x, p.y, p.z, 0);
-		Grow(p4);
+		grow(p4);
 	}
 
-	[[nodiscard]] AABB Union(const AABB &bb) const
+	AABB union_of(const AABB &bb) const
 	{
 		AABB r;
 		r.bmin4 = _mm_min_ps(bmin4, bb.bmin4);
@@ -183,7 +195,7 @@ class AABB
 		return r;
 	}
 
-	static AABB Union(const AABB &a, const AABB &b)
+	static AABB union_of(const AABB &a, const AABB &b)
 	{
 		AABB r;
 		r.bmin4 = _mm_min_ps(a.bmin4, b.bmin4);
@@ -191,7 +203,7 @@ class AABB
 		return r;
 	}
 
-	[[nodiscard]] AABB Intersection(const AABB &bb) const
+	[[nodiscard]] AABB intersection(const AABB &bb) const
 	{
 		AABB r;
 		r.bmin4 = _mm_max_ps(bmin4, bb.bmin4);
@@ -199,13 +211,13 @@ class AABB
 		return r;
 	}
 
-	[[nodiscard]] inline float Extend(const int axis) const { return bmax[axis] - bmin[axis]; }
+	[[nodiscard]] float extend(const int axis) const { return bmax[axis] - bmin[axis]; }
 
-	[[nodiscard]] inline float Minimum(const int axis) const { return bmin[axis]; }
+	[[nodiscard]] float minimum(const int axis) const { return bmin[axis]; }
 
-	[[nodiscard]] inline float Maximum(const int axis) const { return bmax[axis]; }
+	[[nodiscard]] float maximum(const int axis) const { return bmax[axis]; }
 
-	[[nodiscard]] inline float Volume() const
+	[[nodiscard]] float volume() const
 	{
 		union {
 			__m128 length4;
@@ -215,7 +227,7 @@ class AABB
 		return length[0] * length[1] * length[2];
 	}
 
-	[[nodiscard]] inline glm::vec3 Centroid() const
+	[[nodiscard]] glm::vec3 centroid() const
 	{
 		union {
 			__m128 center;
@@ -225,7 +237,7 @@ class AABB
 		return glm::vec3(c4[0], c4[1], c4[2]);
 	}
 
-	[[nodiscard]] inline float Area() const
+	[[nodiscard]] float area() const
 	{
 		union {
 			__m128 e4;
@@ -235,7 +247,7 @@ class AABB
 		return fmax(0.0f, e[0] * e[1] + e[0] * e[2] + e[1] * e[2]);
 	}
 
-	[[nodiscard]] inline glm::vec3 Lengths() const
+	[[nodiscard]] glm::vec3 lengths() const
 	{
 		union {
 			__m128 length4;
@@ -245,12 +257,12 @@ class AABB
 		return glm::vec3(length[0], length[1], length[2]);
 	}
 
-	[[nodiscard]] inline int LongestAxis() const
+	[[nodiscard]] inline int longest_axis() const
 	{
 		int a = 0;
-		if (Extend(1) > Extend(0))
+		if (extend(1) > extend(0))
 			a = 1;
-		if (Extend(2) > Extend(a))
+		if (extend(2) > extend(a))
 			a = 2;
 		return a;
 	}
@@ -280,7 +292,18 @@ class AABB
 		__m128 bounds[2] = {_mm_set_ps(1e34f, 1e34f, 1e34f, 0), _mm_set_ps(-1e34f, -1e34f, -1e34f, 0)};
 	};
 
-	inline void SetBounds(const __m128 min4, const __m128 max4)
+	void set_bounds(const AABB &other)
+	{
+		bmin[0] = other.bmin[0];
+		bmin[1] = other.bmin[1];
+		bmin[2] = other.bmin[2];
+
+		bmax[0] = other.bmax[0];
+		bmax[1] = other.bmax[1];
+		bmax[2] = other.bmax[2];
+	}
+
+	void set_bounds(const __m128 min4, const __m128 max4)
 	{
 		bmin4 = min4;
 		bmax4 = max4;

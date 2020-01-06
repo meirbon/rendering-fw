@@ -2,6 +2,8 @@
 
 using namespace rfw;
 
+#define REFIT 0
+
 CPUMesh::CPUMesh()
 {
 	bvh = nullptr;
@@ -28,11 +30,12 @@ CPUMesh::~CPUMesh()
 void rfw::CPUMesh::setGeometry(const Mesh &mesh)
 {
 	triangles = const_cast<rfw::Triangle *>(mesh.triangles);
-	const bool rebuild = !bvh || vertexCount != mesh.vertexCount;
+	const bool rebuild = !bvh || (vertexCount != mesh.vertexCount);
 
 	vertexCount = mesh.vertexCount;
 	triangleCount = mesh.triangleCount;
 
+#if REFIT
 	if (rebuild) // Full rebuild of BVH
 	{
 		delete bvh;
@@ -43,7 +46,7 @@ void rfw::CPUMesh::setGeometry(const Mesh &mesh)
 		else
 			bvh = new BVHTree(mesh.vertices, mesh.vertexCount);
 
-		bvh->constructBVH();
+		bvh->construct_bvh();
 		mbvh = new MBVHTree(bvh);
 		mbvh->constructBVH();
 	}
@@ -54,4 +57,17 @@ void rfw::CPUMesh::setGeometry(const Mesh &mesh)
 		else
 			mbvh->refit(mesh.vertices);
 	}
+#else
+	delete bvh;
+	delete mbvh;
+
+	if (mesh.hasIndices())
+		bvh = new BVHTree(mesh.vertices, mesh.vertexCount, mesh.indices, mesh.triangleCount);
+	else
+		bvh = new BVHTree(mesh.vertices, mesh.vertexCount);
+
+	bvh->construct_bvh();
+	mbvh = new MBVHTree(bvh);
+	mbvh->construct_bvh();
+#endif
 }

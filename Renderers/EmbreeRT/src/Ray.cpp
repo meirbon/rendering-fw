@@ -870,9 +870,9 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 	__m128 dir_y4 = _mm_sub_ps(pixel_y4, org_y4);
 	__m128 dir_z4 = _mm_sub_ps(pixel_z4, org_z4);
 
-	__m128 length_squared_4 = _mm_dp_ps(dir_x4, dir_x4, 0xFF);
-	length_squared_4 = _mm_add_ps(_mm_dp_ps(dir_y4, dir_y4, 0xFF), length_squared_4);
-	length_squared_4 = _mm_add_ps(_mm_dp_ps(dir_z4, dir_z4, 0xFF), length_squared_4);
+	__m128 length_squared_4 = _mm_mul_ps(dir_x4, dir_x4);
+	length_squared_4 = _mm_add_ps(_mm_mul_ps(dir_y4, dir_y4), length_squared_4);
+	length_squared_4 = _mm_add_ps(_mm_mul_ps(dir_z4, dir_z4), length_squared_4);
 
 	const __m128 inv_length = _mm_div_ps(one4, _mm_sqrt_ps(length_squared_4));
 	dir_x4 = _mm_mul_ps(dir_x4, inv_length);
@@ -1059,9 +1059,9 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	dir_y4 = _mm256_sub_ps(pixel_y4, org_y4);
 	dir_z4 = _mm256_sub_ps(pixel_z4, org_z4);
 
-	__m256 length_squared_4 = _mm256_dp_ps(dir_x4, dir_x4, 0xFF);
-	length_squared_4 = _mm256_add_ps(_mm256_dp_ps(dir_y4, dir_y4, 0xFF), length_squared_4);
-	length_squared_4 = _mm256_add_ps(_mm256_dp_ps(dir_z4, dir_z4, 0xFF), length_squared_4);
+	__m256 length_squared_4 = _mm256_mul_ps(dir_x4, dir_x4);
+	length_squared_4 = _mm256_add_ps(_mm256_mul_ps(dir_y4, dir_y4), length_squared_4);
+	length_squared_4 = _mm256_add_ps(_mm256_mul_ps(dir_z4, dir_z4), length_squared_4);
 
 	const __m256 inv_length = _mm256_div_ps(one8, _mm256_sqrt_ps(length_squared_4));
 	dir_x4 = _mm256_mul_ps(dir_x4, inv_length);

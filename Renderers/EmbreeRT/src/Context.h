@@ -21,6 +21,8 @@
 #include "utils/Xor128.h"
 #include "../../CPURT/src/BVH/AABB.h"
 
+#define PACKET_WIDTH 8
+
 namespace rfw
 {
 
@@ -82,6 +84,23 @@ class Context : public RenderContext
 	bool m_InitializedGlew = false;
 
 	utils::Xor128 m_Rng = {};
+
+#if PACKET_WIDTH == 4
+	const int TILE_WIDTH = 2;
+	const int TILE_HEIGHT = 2;
+
+	std::vector<RTCRayHit4> m_Packets;
+#elif PACKET_WIDTH == 8
+	const int TILE_WIDTH = 4;
+	const int TILE_HEIGHT = 2;
+
+	std::vector<RTCRayHit8> m_Packets;
+#elif PACKET_WIDTH == 16
+	const int TILE_WIDTH = 4;
+	const int TILE_HEIGHT = 4;
+
+	std::vector<RTCRayHit16> m_Packets;
+#endif
 };
 
 } // namespace rfw

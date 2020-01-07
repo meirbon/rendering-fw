@@ -1,8 +1,11 @@
 #include "MathIncludes.h"
 
-SIMDMat4 SIMDMat4::operator*(float op) const
+namespace rfw::simd
 {
-	SIMDMat4 result;
+
+matrix4 matrix4::operator*(float op) const
+{
+	matrix4 result;
 	const __m128 op4 = _mm_set_ps1(op);
 
 	result.cols[0] = _mm_mul_ps(cols[0], op4);
@@ -13,9 +16,9 @@ SIMDMat4 SIMDMat4::operator*(float op) const
 	return result;
 }
 
-SIMDMat4 SIMDMat4::operator/(float op) const
+matrix4 matrix4::operator/(float op) const
 {
-	SIMDMat4 result;
+	matrix4 result;
 	const __m128 op4 = _mm_set_ps1(op);
 
 	result.cols[0] = _mm_div_ps(cols[0], op4);
@@ -26,9 +29,9 @@ SIMDMat4 SIMDMat4::operator/(float op) const
 	return result;
 }
 
-SIMDMat4 SIMDMat4::operator+(float op) const
+matrix4 matrix4::operator+(float op) const
 {
-	SIMDMat4 result;
+	matrix4 result;
 	const __m128 op4 = _mm_set_ps1(op);
 
 	result.cols[0] = _mm_add_ps(cols[0], op4);
@@ -39,9 +42,9 @@ SIMDMat4 SIMDMat4::operator+(float op) const
 	return result;
 }
 
-SIMDMat4 SIMDMat4::operator-(float op) const
+matrix4 matrix4::operator-(float op) const
 {
-	SIMDMat4 result;
+	matrix4 result;
 	const __m128 op4 = _mm_set_ps1(op);
 
 	result.cols[0] = _mm_sub_ps(cols[0], op4);
@@ -52,57 +55,58 @@ SIMDMat4 SIMDMat4::operator-(float op) const
 	return result;
 }
 
-SIMDMat4 SIMDMat4::operator*(const SIMDMat4 &op) const
+matrix4 matrix4::operator*(const matrix4 &op) const
 {
-	SIMDMat4 result;
+	matrix4 result;
 	glm_mat4_mul(cols, op.cols, result.cols);
 	return result;
 }
 
-SIMDMat4 SIMDMat4::operator+(const SIMDMat4 &op) const
+matrix4 matrix4::operator+(const matrix4 &op) const
 {
-	SIMDMat4 result;
+	matrix4 result;
 	glm_mat4_add(cols, op.cols, result.cols);
 	return result;
 }
 
-SIMDMat4 SIMDMat4::inversed() const
+matrix4 matrix4::inversed() const
 {
-	SIMDMat4 inv;
+	matrix4 inv;
 	glm_mat4_inverse(cols, inv.cols);
 	return inv;
 }
 
-SIMDMat4 SIMDMat4::transposed() const
+matrix4 matrix4::transposed() const
 {
-	SIMDMat4 tr;
+	matrix4 tr;
 	glm_mat4_transpose(cols, tr.cols);
 	return tr;
 }
 
-glm::vec4 operator*(const glm::vec4 &op, const SIMDMat4 &mat)
+glm::vec4 operator*(const glm::vec4 &op, const matrix4 &mat)
 {
 	glm::vec4 vertex = op;
 	reinterpret_cast<__m128 &>(vertex.x) = glm_mat4_mul_vec4(mat.cols, reinterpret_cast<__m128 &>(vertex.x));
 	return vertex;
 }
 
-glm::vec4 operator*(const SIMDMat4 &mat, const glm::vec4 &op)
+glm::vec4 operator*(const matrix4 &mat, const glm::vec4 &op)
 {
 	glm::vec4 vertex = op;
 	reinterpret_cast<__m128 &>(vertex.x) = glm_vec4_mul_mat4(reinterpret_cast<__m128 &>(vertex.x), mat.cols);
 	return vertex;
 }
 
-SIMDVec4 SIMDVec4::zero() { return SIMDVec4(_mm_setzero_ps()); }
+vector4 vector4::zero() { return vector4(_mm_setzero_ps()); }
 
-SIMDVec4::SIMDVec4(const float *a) : vec_4(_mm_load_ps(a)) {}
-SIMDVec4::SIMDVec4(const glm::vec2 &v1, const glm::vec2 &v2) { vec_4 = _mm_set_ps(v2.y, v2.x, v1.y, v1.x); }
-SIMDVec4::SIMDVec4(const glm::vec3 &v, const float w) { vec_4 = _mm_set_ps(w, v.z, v.y, v.x); }
-SIMDVec4::SIMDVec4(const glm::vec3 &v) { vec_4 = _mm_set_ps(0, v.z, v.y, v.x); }
-SIMDVec4::SIMDVec4(const glm::vec4 &v) { vec_4 = _mm_load_ps(value_ptr(v)); }
+vector4::vector4(const float *a) : vec_4(_mm_load_ps(a)) {}
+vector4::vector4(const float *a, const simd::vector4 &mask) : vec_4(_mm_maskload_ps(a, _mm_castps_si128(mask.vec_4))) {}
+vector4::vector4(const glm::vec2 &v1, const glm::vec2 &v2) { vec_4 = _mm_set_ps(v2.y, v2.x, v1.y, v1.x); }
+vector4::vector4(const glm::vec3 &v, const float w) { vec_4 = _mm_set_ps(w, v.z, v.y, v.x); }
+vector4::vector4(const glm::vec3 &v) { vec_4 = _mm_set_ps(0, v.z, v.y, v.x); }
+vector4::vector4(const glm::vec4 &v) : vec(v) {}
 
-float SIMDVec4::dot(const SIMDVec4 &op) const
+float vector4::dot(const vector4 &op) const
 {
 	union {
 		__m128 result4;
@@ -112,62 +116,74 @@ float SIMDVec4::dot(const SIMDVec4 &op) const
 	result4 = glm_vec4_dot(vec_4, op.vec_4);
 	return result[0];
 }
-SIMDVec4 SIMDVec4::min(const SIMDVec4 &op) const { return _mm_min_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::max(const SIMDVec4 &op) const { return _mm_max_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::abs() const { return _mm_castsi128_ps(_mm_abs_epi32(_mm_castps_si128(vec_4))); }
 
-SIMDVec4 SIMDVec4::operator*(const SIMDVec4 &op) const { return glm_vec4_mul(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator/(const SIMDVec4 &op) const { return glm_vec4_div(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator+(const SIMDVec4 &op) const { return glm_vec4_add(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator-(const SIMDVec4 &op) const { return glm_vec4_sub(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator>(const SIMDVec4 &op) const { return _mm_cmpgt_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator<(const SIMDVec4 &op) const { return _mm_cmplt_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator>=(const SIMDVec4 &op) const { return _mm_cmpge_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator<=(const SIMDVec4 &op) const { return _mm_cmple_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator==(const SIMDVec4 &op) const { return _mm_cmpeq_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator!=(const SIMDVec4 &op) const { return _mm_cmpneq_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator&(const SIMDVec4 &op) const { return _mm_and_ps(vec_4, op.vec_4); }
-SIMDVec4 SIMDVec4::operator|(const SIMDVec4 &op) const { return _mm_or_ps(vec_4, op.vec_4); }
+float vector4::length() const
+{
+	union {
+		__m128 result4;
+		float result[4];
+	};
 
-glm::bvec4 SIMDVec4::to_mask() const
+	result4 = _mm_sqrt_ps(glm_vec4_dot(vec_4, vec_4));
+	return result[0];
+}
+
+vector4 vector4::min(const vector4 &op) const { return _mm_min_ps(vec_4, op.vec_4); }
+vector4 vector4::max(const vector4 &op) const { return _mm_max_ps(vec_4, op.vec_4); }
+vector4 vector4::abs() const { return _mm_castsi128_ps(_mm_abs_epi32(_mm_castps_si128(vec_4))); }
+
+vector4 vector4::operator*(const vector4 &op) const { return glm_vec4_mul(vec_4, op.vec_4); }
+vector4 vector4::operator/(const vector4 &op) const { return glm_vec4_div(vec_4, op.vec_4); }
+vector4 vector4::operator+(const vector4 &op) const { return glm_vec4_add(vec_4, op.vec_4); }
+vector4 vector4::operator-(const vector4 &op) const { return glm_vec4_sub(vec_4, op.vec_4); }
+vector4 vector4::operator>(const vector4 &op) const { return _mm_cmpgt_ps(vec_4, op.vec_4); }
+vector4 vector4::operator<(const vector4 &op) const { return _mm_cmplt_ps(vec_4, op.vec_4); }
+vector4 vector4::operator>=(const vector4 &op) const { return _mm_cmpge_ps(vec_4, op.vec_4); }
+vector4 vector4::operator<=(const vector4 &op) const { return _mm_cmple_ps(vec_4, op.vec_4); }
+vector4 vector4::operator==(const vector4 &op) const { return _mm_cmpeq_ps(vec_4, op.vec_4); }
+vector4 vector4::operator!=(const vector4 &op) const { return _mm_cmpneq_ps(vec_4, op.vec_4); }
+vector4 vector4::operator&(const vector4 &op) const { return _mm_and_ps(vec_4, op.vec_4); }
+vector4 vector4::operator|(const vector4 &op) const { return _mm_or_ps(vec_4, op.vec_4); }
+
+glm::bvec4 vector4::to_mask() const
 {
 	const int mask = move_mask();
 	return glm::bvec4(mask & 1, mask & 2, mask & 4, mask & 8);
 }
-int SIMDVec4::move_mask() const { return _mm_movemask_ps(vec_4); }
+int vector4::move_mask() const { return _mm_movemask_ps(vec_4); }
 
-void SIMDVec4::store(float *loc) { _mm_store_ps(loc, vec_4); }
-void SIMDVec4::store(float *loc, const SIMDVec4 &mask) { _mm_maskstore_ps(loc, _mm_castps_si128(vec_4), vec_4); }
-void SIMDVec4::store_if(const SIMDVec4 &result, const SIMDVec4 &mask) { _mm_maskstore_ps(value_ptr(vec), _mm_castps_si128(mask.vec_4), result.vec_4); }
+void vector4::write_to(float *loc) { _mm_store_ps(loc, vec_4); }
+void vector4::write_to(float *loc, const vector4 &mask) { _mm_maskstore_ps(loc, _mm_castps_si128(mask.vec_4), vec_4); }
+void vector4::store(const vector4 &result, const vector4 &mask) { _mm_maskstore_ps(value_ptr(vec), _mm_castps_si128(mask.vec_4), result.vec_4); }
 
-SIMDVec4 operator*(const SIMDVec4 &op, const SIMDMat4 &mat) { return glm_vec4_mul_mat4(op.vec_4, mat.cols); }
-SIMDVec4 operator*(const SIMDMat4 &mat, const SIMDVec4 &op) { return glm_mat4_mul_vec4(mat.cols, op.vec_4); }
+vector4 operator*(const vector4 &op, const matrix4 &mat) { return glm_vec4_mul_mat4(op.vec_4, mat.cols); }
+vector4 operator*(const matrix4 &mat, const vector4 &op) { return glm_mat4_mul_vec4(mat.cols, op.vec_4); }
 
-SIMDVec4 operator*(const SIMDVec4 &op1, const float op2) { return glm_vec4_mul(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator/(const SIMDVec4 &op1, const float op2) { return glm_vec4_div(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator+(const SIMDVec4 &op1, const float op2) { return glm_vec4_add(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator-(const SIMDVec4 &op1, const float op2) { return glm_vec4_sub(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator>(const SIMDVec4 &op1, const float op2) { return _mm_cmpgt_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator<(const SIMDVec4 &op1, const float op2) { return _mm_cmplt_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator>=(const SIMDVec4 &op1, const float op2) { return _mm_cmpge_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator<=(const SIMDVec4 &op1, const float op2) { return _mm_cmple_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator==(const SIMDVec4 &op1, const float op2) { return _mm_cmpeq_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator!=(const SIMDVec4 &op1, const float op2) { return _mm_cmpneq_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator&(const SIMDVec4 &op1, const float op2) { return _mm_and_ps(op1.vec_4, _mm_set1_ps(op2)); }
-SIMDVec4 operator|(const SIMDVec4 &op1, const float op2) { return _mm_or_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator*(const vector4 &op1, const float op2) { return glm_vec4_mul(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator/(const vector4 &op1, const float op2) { return glm_vec4_div(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator+(const vector4 &op1, const float op2) { return glm_vec4_add(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator-(const vector4 &op1, const float op2) { return glm_vec4_sub(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator>(const vector4 &op1, const float op2) { return _mm_cmpgt_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator<(const vector4 &op1, const float op2) { return _mm_cmplt_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator>=(const vector4 &op1, const float op2) { return _mm_cmpge_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator<=(const vector4 &op1, const float op2) { return _mm_cmple_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator==(const vector4 &op1, const float op2) { return _mm_cmpeq_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator!=(const vector4 &op1, const float op2) { return _mm_cmpneq_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator&(const vector4 &op1, const float op2) { return _mm_and_ps(op1.vec_4, _mm_set1_ps(op2)); }
+vector4 operator|(const vector4 &op1, const float op2) { return _mm_or_ps(op1.vec_4, _mm_set1_ps(op2)); }
 
-SIMDVec4 operator*(const float op1, const SIMDVec4 &op2) { return glm_vec4_mul(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator/(const float op1, const SIMDVec4 &op2) { return glm_vec4_div(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator+(const float op1, const SIMDVec4 &op2) { return glm_vec4_add(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator-(const float op1, const SIMDVec4 &op2) { return glm_vec4_sub(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator>(const float op1, const SIMDVec4 &op2) { return _mm_cmpgt_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator<(const float op1, const SIMDVec4 &op2) { return _mm_cmplt_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator>=(const float op1, const SIMDVec4 &op2) { return _mm_cmpge_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator<=(const float op1, const SIMDVec4 &op2) { return _mm_cmple_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator==(const float op1, const SIMDVec4 &op2) { return _mm_cmpeq_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator!=(const float op1, const SIMDVec4 &op2) { return _mm_cmpneq_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator&(const float op1, const SIMDVec4 &op2) { return _mm_and_ps(_mm_set1_ps(op1), op2.vec_4); }
-SIMDVec4 operator|(const float op1, const SIMDVec4 &op2) { return _mm_or_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator*(const float op1, const vector4 &op2) { return glm_vec4_mul(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator/(const float op1, const vector4 &op2) { return glm_vec4_div(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator+(const float op1, const vector4 &op2) { return glm_vec4_add(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator-(const float op1, const vector4 &op2) { return glm_vec4_sub(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator>(const float op1, const vector4 &op2) { return _mm_cmpgt_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator<(const float op1, const vector4 &op2) { return _mm_cmplt_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator>=(const float op1, const vector4 &op2) { return _mm_cmpge_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator<=(const float op1, const vector4 &op2) { return _mm_cmple_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator==(const float op1, const vector4 &op2) { return _mm_cmpeq_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator!=(const float op1, const vector4 &op2) { return _mm_cmpneq_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator&(const float op1, const vector4 &op2) { return _mm_and_ps(_mm_set1_ps(op1), op2.vec_4); }
+vector4 operator|(const float op1, const vector4 &op2) { return _mm_or_ps(_mm_set1_ps(op1), op2.vec_4); }
 
 // Use Julien Pommier's library as not every compiler has _mm_cos_ps and the like available
 
@@ -888,9 +904,9 @@ void sincos_ps(v4sf x, v4sf *s, v4sf *c)
 
 __m128 atan2_ps(__m128 x, __m128 y)
 {
-	const auto zero4 = SIMDVec4(_mm_setzero_ps());
-	auto x4 = SIMDVec4(x).abs();
-	auto y4 = SIMDVec4(y).abs();
+	const auto zero4 = vector4(_mm_setzero_ps());
+	auto x4 = vector4(x).abs();
+	auto y4 = vector4(y).abs();
 
 	if (((x4 == zero4) & (y4 == zero4)).move_mask() == 15)
 		return zero4.vec_4;
@@ -899,16 +915,17 @@ __m128 atan2_ps(__m128 x, __m128 y)
 	const auto s4 = a4 * a4;
 	const auto r4 = ((-0.0464964749f * s4 + 0.15931422f) * s4 - 0.327622764f) * s4 * a4 + a4;
 
-	SIMDVec4 result4 = r4;
-	result4.store_if(M_PI_2 - r4, y4 > x4);
-	result4.store_if(M_PI - r4, x4 < zero4);
-	result4.store_if(-1.0f * r4, y4 < zero4);
+	vector4 result4 = r4;
+	result4.store(glm::half_pi<float>() - r4, y4 > x4);
+	result4.store(glm::pi<float>() - r4, x4 < zero4);
+	result4.store(-1.0f * r4, y4 < zero4);
 
 	return result4.vec_4;
 }
 
 __m128 acos_ps(__m128 x)
 {
-	const auto x4 = SIMDVec4(x);
+	const auto x4 = vector4(x);
 	return ((-0.69813170079773212 * x4 * x4 - 0.87266462599716477) * x4 + 1.5707963267948966).vec_4;
 }
+} // namespace rfw::simd

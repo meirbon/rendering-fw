@@ -152,8 +152,8 @@ class AssimpObject : public SceneTriangles
 	{
 		void update(std::vector<AssimpNode> &nodes, const glm::mat4 &T);
 
-		SIMDMat4 localTransform = glm::mat4(1.0f);
-		SIMDMat4 combinedTransform = glm::mat4(1.0f);
+		rfw::simd::matrix4 localTransform = glm::mat4(1.0f);
+		rfw::simd::matrix4 combinedTransform = glm::mat4(1.0f);
 
 		std::vector<uint> children;
 		std::vector<uint> meshes;
@@ -175,7 +175,7 @@ class AssimpObject : public SceneTriangles
 		unsigned int nodeIndex;
 		std::vector<int> vertexIDs;
 		std::vector<float> weights;
-		SIMDMat4 offsetMatrix;
+		rfw::simd::matrix4 offsetMatrix;
 	};
 
 	struct MeshInfo
@@ -209,7 +209,7 @@ class AssimpObject : public SceneTriangles
 	glm::vec4 *getVertices() override { return m_CurrentVertices.data(); }
 
 	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
-	[[nodiscard]] const std::vector<SIMDMat4> &getMeshTransforms() const override;
+	[[nodiscard]] const std::vector<rfw::simd::matrix4> &getMeshTransforms() const override;
 	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
 	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
 
@@ -222,7 +222,7 @@ class AssimpObject : public SceneTriangles
   private:
 	std::vector<std::vector<int>> m_LightIndices;
 	std::vector<std::pair<size_t, rfw::Mesh>> m_RfwMeshes;
-	std::vector<SIMDMat4> m_MeshTransforms;
+	std::vector<rfw::simd::matrix4> m_MeshTransforms;
 	std::vector<bool> m_ChangedMeshTransforms;
 
 	std::vector<size_t> m_NodesWithMeshes;
@@ -240,14 +240,15 @@ class AssimpObject : public SceneTriangles
 	// Original scene data
 	std::vector<glm::uvec3> m_Indices;
 	std::vector<uint> m_MaterialIndices;
-	std::vector<glm::vec4> m_BaseVertices;
-	std::vector<glm::vec3> m_BaseNormals;
+	std::vector<simd::vector4> m_BaseVertices;
+	std::vector<simd::vector4> m_BaseNormals;
 	std::vector<glm::vec2> m_TexCoords;
 
 	std::vector<MeshAnimation> m_Animations;
 
 	std::string m_File;
 	int m_ID = -1;
-	bool m_IsAnimated = false, m_HasUpdated = false;
+	bool m_IsAnimated = false;
+	bool m_HasUpdated = false;
 };
 } // namespace rfw

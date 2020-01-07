@@ -547,7 +547,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			for (int i = 0, s = static_cast<int>(aiMesh->mNumVertices); i < s; i++)
 			{
 				m_BaseVertices.emplace_back(aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z, 1.0f);
-				m_BaseNormals.emplace_back(aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z);
+				m_BaseNormals.emplace_back(aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z, 0.0f);
 
 				if (aiMesh->HasTextureCoords(0))
 					m_TexCoords.emplace_back(aiMesh->mTextureCoords[0][i].x, aiMesh->mTextureCoords[0][i].y);
@@ -696,8 +696,12 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		}
 	}
 
-	m_CurrentVertices = m_BaseVertices;
-	m_CurrentNormals = m_BaseNormals;
+	const simd::vector4 normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
+	m_CurrentVertices.resize(m_BaseVertices.size());
+	m_CurrentNormals.resize(m_BaseNormals.size());
+	memcpy(m_CurrentVertices.data(), m_BaseVertices.data(), m_BaseVertices.size() * sizeof(vec4));
+	for (int i = 0, s = static_cast<int>(m_BaseNormals.size()); i < s; i++)
+		m_BaseNormals[i].write_to(value_ptr(m_CurrentNormals[i]), normal_mask);
 
 	if (hasTransform)
 		m_SceneGraph[0].localTransform = matrix * m_SceneGraph[0].localTransform.matrix;
@@ -743,6 +747,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 void AssimpObject::transformTo(const float timeInSeconds)
 {
+	const simd::vector4 normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
+
 	if (!object.vertices.empty())
 	{
 		object.transformTo(timeInSeconds);
@@ -754,8 +760,15 @@ void AssimpObject::transformTo(const float timeInSeconds)
 
 	if (!m_IsAnimated)
 	{
-		m_CurrentVertices = std::move(m_BaseVertices);
-		m_CurrentNormals = std::move(m_BaseNormals);
+		m_CurrentVertices.resize(m_BaseVertices.size());
+		m_CurrentNormals.resize(m_BaseNormals.size());
+		memcpy(m_CurrentVertices.data(), m_BaseVertices.data(), m_BaseVertices.size() * sizeof(vec4));
+		for (int i = 0, s = static_cast<int>(m_BaseNormals.size()); i < s; i++)
+		{
+			// m_BaseNormals[i].write_to(value_ptr(m_CurrentNormals[i]), normal_mask);
+			m_CurrentNormals[i] = m_BaseNormals[i].vec;
+		}
+
 		m_BaseVertices.clear();
 		m_BaseNormals.clear();
 
@@ -817,26 +830,25 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		// Set current data for this mesh to base data
 		for (const auto &bone : mesh.bones)
 		{
-			const SIMDMat4 skin =
+			const simd::matrix4 skin =
 				m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() * m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
-			const SIMDMat4 normalMatrix = skin.inversed().transposed();
+			const simd::matrix4 normal_matrix = skin.inversed().transposed();
 
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
 			{
 				const uint vIdx = mesh.vertexOffset + bone.vertexIDs[i];
 
-				const __m128 vertex = _mm_load_ps(value_ptr(m_BaseVertices[vIdx]));
-				const __m128 curVertex = _mm_load_ps(value_ptr(m_CurrentVertices[vIdx]));
-				const __m128 weight4 = _mm_set1_ps(bone.weights[i]);
+				const simd::vector4 &vertex = m_BaseVertices[vIdx];
+				const simd::vector4 curVertex = m_CurrentVertices[vIdx];
+				const simd::vector4 weight4 = bone.weights[i];
 
-				__m128 result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(skin.cols, vertex));
+				simd::vector4 result = curVertex + skin * vertex * weight4;
+				result.write_to(value_ptr(m_CurrentVertices[vIdx]));
 
-				_mm_store_ps(value_ptr(m_CurrentVertices[vIdx]), _mm_add_ps(result, curVertex));
-
-				const __m128 normal = _mm_maskload_ps(value_ptr(m_BaseNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0));
-				result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(normalMatrix.cols, normal));
-				_mm_maskstore_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0),
-								 _mm_add_ps(result, _mm_maskload_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0))));
+				const auto cur_normal = simd::vector4(value_ptr(m_CurrentNormals[vIdx]), normal_mask);
+				const simd::vector4 &normal = m_BaseNormals[vIdx];
+				result = cur_normal + normal_matrix * normal * weight4;
+				result.write_to(value_ptr(m_CurrentNormals[vIdx]), normal_mask);
 			}
 		}
 
@@ -859,26 +871,25 @@ void AssimpObject::transformTo(const float timeInSeconds)
 		// Set current data for this mesh to base data
 		for (const auto &bone : mesh.bones)
 		{
-			const SIMDMat4 skin =
+			const simd::matrix4 skin =
 				m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() * m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
-			const SIMDMat4 normalMatrix = skin.inversed().transposed();
+			const simd::matrix4 normal_matrix = skin.inversed().transposed();
 
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
 			{
 				const uint vIdx = mesh.vertexOffset + bone.vertexIDs[i];
 
-				const __m128 vertex = _mm_load_ps(value_ptr(m_BaseVertices[vIdx]));
-				const __m128 curVertex = _mm_load_ps(value_ptr(m_CurrentVertices[vIdx]));
-				const __m128 weight4 = _mm_set1_ps(bone.weights[i]);
+				const simd::vector4 &vertex = m_BaseVertices[vIdx];
+				const simd::vector4 curVertex = m_CurrentVertices[vIdx];
+				const simd::vector4 weight4 = bone.weights[i];
 
-				__m128 result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(skin.cols, vertex));
+				simd::vector4 result = curVertex + skin * vertex * weight4;
+				result.write_to(value_ptr(m_CurrentVertices[vIdx]));
 
-				_mm_store_ps(value_ptr(m_CurrentVertices[vIdx]), _mm_add_ps(result, curVertex));
-
-				const __m128 normal = _mm_maskload_ps(value_ptr(m_BaseNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0));
-				result = _mm_mul_ps(weight4, glm_mat4_mul_vec4(normalMatrix.cols, normal));
-				_mm_maskstore_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0),
-								 _mm_add_ps(result, _mm_maskload_ps(value_ptr(m_CurrentNormals[vIdx]), _mm_set_epi32(0, ~0, ~0, ~0))));
+				const auto cur_normal = simd::vector4(value_ptr(m_CurrentNormals[vIdx]), normal_mask);
+				const simd::vector4 &normal = m_BaseNormals[vIdx];
+				result = cur_normal + normal_matrix * normal * weight4;
+				result.write_to(value_ptr(m_CurrentNormals[vIdx]), normal_mask);
 			}
 		}
 
@@ -1059,7 +1070,7 @@ const std::vector<std::vector<int>> &rfw::AssimpObject::getLightIndices(const st
 
 const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::AssimpObject::getMeshes() const { return m_RfwMeshes; }
 
-const std::vector<SIMDMat4> &rfw::AssimpObject::getMeshTransforms() const { return m_MeshTransforms; }
+const std::vector<rfw::simd::matrix4> &rfw::AssimpObject::getMeshTransforms() const { return m_MeshTransforms; }
 
 std::vector<bool> rfw::AssimpObject::getChangedMeshes()
 {

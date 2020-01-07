@@ -51,7 +51,7 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 	}
 }
 
-bool rfw::SceneNode::update(SIMDMat4 accumulatedTransform)
+bool rfw::SceneNode::update(rfw::simd::matrix4 accumulatedTransform)
 {
 	bool changed = false;
 	if (transformed)

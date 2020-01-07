@@ -480,7 +480,7 @@ void rfw::TopLevelBVH::setInstance(int idx, glm::mat4 transform, CPUMesh *tree, 
 	transformedAABBs[idx] = calculateWorldBounds(boundingBox, instanceMatrices[idx]);
 }
 
-AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const SIMDMat4 &matrix)
+AABB rfw::TopLevelBVH::calculateWorldBounds(const AABB &originalBounds, const simd::matrix4 &matrix)
 {
 	const __m128 p1 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmin[0], originalBounds.bmin[1], originalBounds.bmin[2], 1.f));
 	const __m128 p5 = glm_mat4_mul_vec4(matrix.cols, _mm_setr_ps(originalBounds.bmax[0], originalBounds.bmax[1], originalBounds.bmax[2], 1.f));
@@ -517,6 +517,6 @@ const rfw::Triangle &rfw::TopLevelBVH::get_triangle(int instID, int primID) cons
 	return accelerationStructures[instID]->triangles[primID];
 }
 
-const SIMDMat4 &rfw::TopLevelBVH::get_normal_matrix(int instID) const { return inverseNormalMatrices[instID]; }
+const rfw::simd::matrix4 &rfw::TopLevelBVH::get_normal_matrix(int instID) const { return inverseNormalMatrices[instID]; }
 
-const SIMDMat4 &rfw::TopLevelBVH::get_instance_matrix(int instID) const { return instanceMatrices[instID]; }
+const rfw::simd::matrix4 &rfw::TopLevelBVH::get_instance_matrix(int instID) const { return instanceMatrices[instID]; }

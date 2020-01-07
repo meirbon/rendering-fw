@@ -75,14 +75,14 @@ cpurt::RayPacket4 cpurt::Ray::generateRay4(const CameraParams &camera, const int
 	// x1 = cos(bladeParam);
 	// y1 = sin(bladeParam);
 	__m128 x14, y14;
-	sincos_ps(bladeParam14, &x14, &y14);
+	rfw::simd::sincos_ps(bladeParam14, &x14, &y14);
 
 	// bladeParam = (blade + 1.0f) * piOver4point5;
 	const __m128 bladeParam24 = _mm_mul_ps(_mm_add_ps(blade4, one4), piOver4point5_4);
 	// x2 = cos(bladeParam);
 	// y2 = sin(bladeParam);
 	__m128 x24, y24;
-	sincos_ps(bladeParam24, &x24, &y24);
+	rfw::simd::sincos_ps(bladeParam24, &x24, &y24);
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128i mask = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(r24, r34), one4));
@@ -217,8 +217,8 @@ cpurt::RayPacket8 cpurt::Ray::generateRay8(const CameraParams &camera, const int
 		__m256 y14;
 		__m128 y1_4[2];
 	};
-	sincos_ps(_mm256_extractf128_ps(bladeParam14, 0), &x1_4[0], &y1_4[0]);
-	sincos_ps(_mm256_extractf128_ps(bladeParam14, 1), &x1_4[1], &y1_4[1]);
+	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam14, 0), &x1_4[0], &y1_4[0]);
+	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam14, 1), &x1_4[1], &y1_4[1]);
 
 	// bladeParam = (blade + 1.0f) * piOver4point5;
 	const __m256 bladeParam24 = _mm256_mul_ps(_mm256_add_ps(blade4, one8), piOver4point5_4);
@@ -232,8 +232,8 @@ cpurt::RayPacket8 cpurt::Ray::generateRay8(const CameraParams &camera, const int
 		__m256 y24;
 		__m128 y2_4[2];
 	};
-	sincos_ps(_mm256_extractf128_ps(bladeParam24, 0), &x2_4[0], &y2_4[0]);
-	sincos_ps(_mm256_extractf128_ps(bladeParam24, 1), &x2_4[1], &y2_4[1]);
+	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam24, 0), &x2_4[0], &y2_4[0]);
+	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam24, 1), &x2_4[1], &y2_4[1]);
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128 one4 = _mm_set1_ps(1.0f);

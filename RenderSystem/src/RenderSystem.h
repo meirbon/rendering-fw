@@ -206,9 +206,9 @@ class RenderSystem
 	utils::Averager<float, 32> m_AnimationStat;
 	utils::Averager<float, 32> m_RenderStat;
 
-	rfw::Skybox m_Skybox;
-	rfw::MaterialList *m_Materials = nullptr;
-	rfw::RenderContext *m_Context = nullptr;
+	Skybox m_Skybox;
+	MaterialList *m_Materials = nullptr;
+	RenderContext *m_Context = nullptr;
 
 	std::bitset<32> m_Changed;
 	std::vector<bool> m_ModelChanged;
@@ -219,7 +219,7 @@ class RenderSystem
 	std::vector<std::tuple<int, int, int>> m_InverseInstanceMapping;
 
 	std::vector<InstanceReference> m_Instances;
-	std::vector<SIMDMat4> m_InstanceMatrices;
+	std::vector<simd::matrix4> m_InstanceMatrices;
 
 	std::vector<std::vector<std::vector<int>>> m_ObjectLightIndices;
 	std::vector<float> m_AreaLightEnergy;

@@ -38,10 +38,10 @@ class SceneObject
 	std::vector<uint> materialIndices;
 
 	// Original data
-	std::vector<glm::vec4> baseVertices;
-	std::vector<glm::vec3> baseNormals;
+	std::vector<simd::vector4> baseVertices;
+	std::vector<simd::vector4> baseNormals;
 
-	std::vector<SIMDMat4> meshTranforms;
+	std::vector<rfw::simd::matrix4> meshTranforms;
 	std::vector<rfw::SceneMesh> meshes;
 	std::vector<rfw::SceneNode> nodes;
 	std::vector<rfw::MeshSkin> skins;

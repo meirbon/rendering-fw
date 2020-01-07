@@ -11,7 +11,7 @@ void GeometryReference::setAnimationTime(const float time) const { m_System->set
 
 const std::vector<std::pair<size_t, Mesh>> &GeometryReference::getMeshes() const { return m_System->m_Models[m_Index]->getMeshes(); }
 
-const std::vector<SIMDMat4> &GeometryReference::getMeshMatrices() const { return m_System->m_Models[m_Index]->getMeshTransforms(); }
+const std::vector<simd::matrix4> &GeometryReference::getMeshMatrices() const { return m_System->m_Models[m_Index]->getMeshTransforms(); }
 
 const std::vector<std::vector<int>> &GeometryReference::getLightIndices() const
 {

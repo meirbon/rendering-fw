@@ -534,7 +534,7 @@ glm::vec4 *rfw::gLTFObject::getVertices() { return scene.vertices.data(); }
 
 const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::gLTFObject::getMeshes() const { return m_Meshes; }
 
-const std::vector<SIMDMat4> &rfw::gLTFObject::getMeshTransforms() const { return scene.meshTranforms; }
+const std::vector<rfw::simd::matrix4> &rfw::gLTFObject::getMeshTransforms() const { return scene.meshTranforms; }
 
 std::vector<bool> rfw::gLTFObject::getChangedMeshes()
 {

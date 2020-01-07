@@ -44,20 +44,20 @@ void InstanceReference::rotate(const float degrees, const glm::vec3 axis) { m_Me
 
 void InstanceReference::scale(const glm::vec3 offset) { m_Members->scaling = offset; }
 
-void InstanceReference::update() const { m_Members->rSystem->updateInstance(*this, getMatrix()); }
+void InstanceReference::update() const { m_Members->rSystem->updateInstance(*this, getMatrix().matrix); }
 
-glm::mat4 InstanceReference::getMatrix() const
+rfw::simd::matrix4 InstanceReference::getMatrix() const
 {
-	const SIMDMat4 T = glm::translate(glm::mat4(1.0f), m_Members->translation);
-	const SIMDMat4 R = glm::mat4(m_Members->rotation);
-	const SIMDMat4 S = glm::scale(glm::mat4(1.0f), m_Members->scaling);
-	return (T * R * S).matrix;
+	const simd::matrix4 T = glm::translate(glm::mat4(1.0f), m_Members->translation);
+	const simd::matrix4 R = glm::mat4(m_Members->rotation);
+	const simd::matrix4 S = glm::scale(glm::mat4(1.0f), m_Members->scaling);
+	return T * R * S;
 }
 
 glm::mat3 InstanceReference::getInverseMatrix() const
 {
-	const SIMDMat4 T = glm::translate(glm::mat4(1.0f), m_Members->translation);
-	const SIMDMat4 R = glm::mat4(m_Members->rotation);
+	const simd::matrix4 T = glm::translate(glm::mat4(1.0f), m_Members->translation);
+	const simd::matrix4 R = glm::mat4(m_Members->rotation);
 	return mat3((T * R).inversed().matrix);
 }
 

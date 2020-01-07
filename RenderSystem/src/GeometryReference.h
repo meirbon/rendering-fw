@@ -26,7 +26,7 @@ class GeometryReference
 	[[nodiscard]] bool isAnimated() const;
 	void setAnimationTime(float time) const;
 	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const;
-	[[nodiscard]] const std::vector<SIMDMat4> &getMeshMatrices() const;
+	[[nodiscard]] const std::vector<simd::matrix4> &getMeshMatrices() const;
 	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices() const;
 
   protected:

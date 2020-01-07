@@ -198,8 +198,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 						const auto &dir_y = reinterpret_cast<const __m128 &>(*(packet.ray.dir_y + k));
 						const auto &dir_z = reinterpret_cast<const __m128 &>(*(packet.ray.dir_z + k));
 
-						const __m128 u4 = _mm_mul_ps(half4, _mm_add_ps(one4, _mm_mul_ps(atan2_ps(dir_x, _mm_mul_ps(min_one4, dir_z)), one_over_pi)));
-						const __m128 v4 = _mm_mul_ps(acos_ps(dir_y), one_over_pi);
+						const __m128 u4 = _mm_mul_ps(half4, _mm_add_ps(one4, _mm_mul_ps(rfw::simd::atan2_ps(dir_x, _mm_mul_ps(min_one4, dir_z)), one_over_pi)));
+						const __m128 v4 = _mm_mul_ps(rfw::simd::acos_ps(dir_y), one_over_pi);
 
 						const auto p_u4 = _mm_round_ps(_mm_mul_ps(_mm_min_ps(one4, _mm_max_ps(zero4, u4)), skybox_width), _MM_FROUND_TO_NEAREST_INT);
 						const __m128 p_v4 = _mm_mul_ps(

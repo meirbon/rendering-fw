@@ -27,7 +27,7 @@ class SceneTriangles
 	virtual void transformTo(float timeInSeconds = 0.0f){};
 
 	virtual const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const = 0;
-	virtual const std::vector<SIMDMat4> &getMeshTransforms() const = 0;
+	virtual const std::vector<simd::matrix4> &getMeshTransforms() const = 0;
 	virtual const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize = false) = 0;
 
 	virtual std::vector<bool> getChangedMeshes() = 0;

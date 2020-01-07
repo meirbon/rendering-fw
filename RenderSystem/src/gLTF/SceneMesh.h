@@ -28,22 +28,22 @@ struct SceneMesh
 		std::vector<glm::vec3> normals;
 	};
 
-	glm::vec3 *getNormals();
+	[[nodiscard]] glm::vec3 *getNormals();
 	[[nodiscard]] const glm::vec3 *getNormals() const;
-	glm::vec3 *getBaseNormals();
-	[[nodiscard]] const glm::vec3 *getBaseNormals() const;
-	glm::vec4 *getVertices();
+	[[nodiscard]] rfw::simd::vector4 *getBaseNormals();
+	[[nodiscard]] const simd::vector4 *getBaseNormals() const;
+	[[nodiscard]] glm::vec4 *getVertices();
 	[[nodiscard]] const glm::vec4 *getVertices() const;
-	glm::vec4 *getBaseVertices();
-	[[nodiscard]] const glm::vec4 *getBaseVertices() const;
+	[[nodiscard]] rfw::simd::vector4 *getBaseVertices();
+	[[nodiscard]] const simd::vector4 *getBaseVertices() const;
 
-	rfw::Triangle *getTriangles();
+	[[nodiscard]] rfw::Triangle *getTriangles();
 	[[nodiscard]] const rfw::Triangle *getTriangles() const;
 
-	glm::uvec3 *getIndices();
+	[[nodiscard]] glm::uvec3 *getIndices();
 	[[nodiscard]] const glm::uvec3 *getIndices() const;
 
-	glm::vec2 *getTexCoords();
+	[[nodiscard]] glm::vec2 *getTexCoords();
 	[[nodiscard]] const glm::vec2 *getTexCoords() const;
 
 	void setPose(const rfw::MeshSkin &skin);

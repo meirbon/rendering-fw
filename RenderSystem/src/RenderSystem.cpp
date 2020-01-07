@@ -344,7 +344,7 @@ void RenderSystem::synchronize()
 			{
 				const auto meshID = meshes[j].first;
 				const auto instanceID = instanceMapping[j];
-				const SIMDMat4 transform = matrix * matrices[j];
+				const simd::matrix4 transform = matrix * matrices[j];
 				const mat3 inverse_transform = transform.inversed().transposed().matrix;
 				m_Context->setInstance(instanceID, meshID, transform.matrix, inverse_transform);
 			}
@@ -374,7 +374,7 @@ void RenderSystem::synchronize()
 
 				const auto meshID = meshes[j].first;
 				const auto instanceID = instanceMapping[j];
-				const SIMDMat4 transform = matrix * matrices[j];
+				const simd::matrix4 transform = matrix * matrices[j];
 				const mat3 inverse_transform = mat3(transform.inversed().transposed().matrix);
 				m_Context->setInstance(instanceID, meshID, transform.matrix, inverse_transform);
 			}
@@ -402,7 +402,7 @@ void RenderSystem::synchronize()
 			{
 				const auto meshID = meshes[j].first;
 				const auto instanceID = instanceMapping[j];
-				const SIMDMat4 transform = matrix * matrices[j];
+				const simd::matrix4 transform = matrix * matrices[j];
 				const mat3 inverse_transform = mat3(transform.inversed().transposed().matrix);
 				m_Context->setInstance(instanceID, meshID, transform.matrix, inverse_transform);
 			}

@@ -30,7 +30,7 @@ class gLTFObject : public SceneTriangles
 	glm::vec4 *getVertices() override;
 
 	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
-	[[nodiscard]] const std::vector<SIMDMat4> &getMeshTransforms() const override;
+	[[nodiscard]] const std::vector<simd::matrix4> &getMeshTransforms() const override;
 	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
 	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
 
@@ -45,7 +45,7 @@ class gLTFObject : public SceneTriangles
 
   private:
 	std::vector<std::vector<int>> m_LightIndices;
-	std::vector<std::pair<size_t, rfw::Mesh>> m_Meshes;
+	std::vector<std::pair<size_t, Mesh>> m_Meshes;
 
 	unsigned int m_BaseMaterialIdx;
 	int m_ID = -1;

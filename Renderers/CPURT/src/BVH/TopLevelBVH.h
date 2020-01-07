@@ -31,11 +31,11 @@ class TopLevelBVH
 
 	void setInstance(int idx, glm::mat4 transform, CPUMesh *tree, AABB boundingBox);
 
-	static AABB calculateWorldBounds(const AABB &originalBounds, const SIMDMat4 &matrix);
+	static AABB calculateWorldBounds(const AABB &originalBounds, const simd::matrix4 &matrix);
 
-	const rfw::Triangle &get_triangle(int instID, int primID) const;
-	const SIMDMat4 &get_normal_matrix(int instID) const;
-	const SIMDMat4 &get_instance_matrix(int instID) const;
+	const Triangle &get_triangle(int instID, int primID) const;
+	const simd::matrix4 &get_normal_matrix(int instID) const;
+	const simd::matrix4 &get_instance_matrix(int instID) const;
 
 	private :
 		// Top level BVH structure data
@@ -50,9 +50,9 @@ class TopLevelBVH
 
 	// Instance data
 	std::vector<CPUMesh *> accelerationStructures;
-	std::vector<SIMDMat4> instanceMatrices;
-	std::vector<SIMDMat4> inverseMatrices;
-	std::vector<SIMDMat4> inverseNormalMatrices;
+	std::vector<simd::matrix4> instanceMatrices;
+	std::vector<simd::matrix4> inverseMatrices;
+	std::vector<simd::matrix4> inverseNormalMatrices;
 
 	bool instanceCountChanged = true;
 };

@@ -17,8 +17,8 @@ class MeshSkin
 	std::string name;
 	std::vector<int> jointNodes;
 
-	std::vector<SIMDMat4> inverseBindMatrices;
-	std::vector<SIMDMat4> jointMatrices;
+	std::vector<simd::matrix4> inverseBindMatrices;
+	std::vector<simd::matrix4> jointMatrices;
 };
 
 class MeshBone

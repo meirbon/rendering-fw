@@ -58,7 +58,7 @@ const std::vector<std::vector<int>> &rfw::Quad::getLightIndices(const std::vecto
 
 const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::Quad::getMeshes() const { return m_Meshes; }
 
-const std::vector<SIMDMat4> &rfw::Quad::getMeshTransforms() const { return m_MeshTransforms; }
+const std::vector<rfw::simd::matrix4> &rfw::Quad::getMeshTransforms() const { return m_MeshTransforms; }
 
 void rfw::Quad::prepareMeshes(RenderSystem &rs)
 {

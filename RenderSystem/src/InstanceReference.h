@@ -32,7 +32,7 @@ class InstanceReference
 	[[nodiscard]] size_t getIndex() const { return m_Members->index; }
 	[[nodiscard]] const std::vector<size_t> &getIndices() const { return m_Members->instanceIDs; }
 
-	[[nodiscard]] glm::mat4 getMatrix() const;
+	[[nodiscard]] rfw::simd::matrix4 getMatrix() const;
 	[[nodiscard]] glm::mat3 getInverseMatrix() const;
 
 	[[nodiscard]] glm::vec3 getScaling() const { return m_Members->scaling; }

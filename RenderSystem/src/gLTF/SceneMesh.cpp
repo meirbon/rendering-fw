@@ -9,7 +9,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <execution>
 #include <thread>
 #include <future>
 

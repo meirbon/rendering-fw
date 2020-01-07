@@ -7,7 +7,7 @@
 #define PICA 1
 #define SPONZA 0
 #define PICA_LIGHTS 1
-#define DRAGON 1
+#define DRAGON 0
 
 using namespace rfw;
 using namespace utils;
@@ -28,11 +28,11 @@ class App : public rfw::Application
   private:
 	unsigned int mouseX, mouseY;
 #if SKINNED_MESH
-	rfw::GeometryReference skinnedMesh;
+	rfw::GeometryReference skinnedMesh{};
 	rfw::InstanceReference skinnedMeshInstance;
 #endif
 #if CESIUMMAN
-	rfw::GeometryReference cesiumMan;
+	rfw::GeometryReference cesiumMan{};
 	rfw::InstanceReference cesiumManInstance;
 #endif
 #if POLLY
@@ -40,7 +40,7 @@ class App : public rfw::Application
 	rfw::InstanceReference pollyInstance;
 #endif
 #if PICA
-	rfw::GeometryReference pica;
+	rfw::GeometryReference pica{};
 	rfw::InstanceReference picaInstance;
 #elif SPONZA
 	rfw::GeometryReference sponza;
@@ -53,7 +53,7 @@ class App : public rfw::Application
 	rfw::InstanceReference planeInstance;
 #endif
 #if PICA_LIGHTS
-	rfw::GeometryReference lightQuad;
+	rfw::GeometryReference lightQuad{};
 	rfw::InstanceReference lightQuadInstance;
 	rfw::LightReference pointLight;
 	rfw::LightReference spotLight;
@@ -72,7 +72,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", EMBREE)
+App::App() : Application(512, 512, "RenderingFW", GLRENDERER)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());

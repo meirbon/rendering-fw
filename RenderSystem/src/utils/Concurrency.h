@@ -9,7 +9,6 @@
 #endif
 
 #include <algorithm>
-#include <execution>
 #include <numeric>
 
 namespace rfw::utils::concurrency

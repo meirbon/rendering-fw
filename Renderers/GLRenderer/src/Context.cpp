@@ -2,10 +2,7 @@
 
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
+#include <utils/Timer.h>
 
 using namespace rfw;
 using namespace utils;
@@ -98,9 +95,12 @@ void Context::cleanup()
 
 void Context::renderFrame(const Camera &camera, RenderStatus status)
 {
+	m_RenderStats.clear();
+
 	for (int i = 0, s = static_cast<int>(m_Textures.size()); i < s; i++)
 		m_Textures[i].bind(i);
 
+	auto timer = utils::Timer();
 	CheckGL();
 	glBindFramebuffer(GL_FRAMEBUFFER, m_FboID);
 	glEnable(GL_DEPTH_TEST);
@@ -158,6 +158,9 @@ void Context::renderFrame(const Camera &camera, RenderStatus status)
 	}
 
 	m_CurrentShader->unbind();
+
+	m_RenderStats.primaryCount = m_Width * m_Height;
+	m_RenderStats.primaryTime = timer.elapsed();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glDisable(GL_DEPTH_TEST);
@@ -321,7 +324,7 @@ void Context::update()
 
 void Context::setProbePos(glm::uvec2 probePos) {}
 
-rfw::RenderStats Context::getStats() const { return rfw::RenderStats(); }
+rfw::RenderStats Context::getStats() const { return m_RenderStats; }
 
 void Context::setLights(utils::GLShader *shader)
 {

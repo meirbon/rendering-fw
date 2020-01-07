@@ -29,13 +29,12 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 		{
 			const auto newIdx = object->meshes.size();
 			object->meshes.emplace_back(*object);
-			object->meshTranforms.emplace_back(1.0f);
-			object->meshTranforms[newIdx] = localTransform;
+			object->meshTranforms.emplace_back(localTransform);
 
 			auto &m = object->meshes.at(newIdx);
 			for (const auto &prim : meshes.at(meshID))
 				m.addPrimitive(prim.indices, prim.vertices, prim.normals, prim.uvs, prim.poses, prim.joints, prim.weights, prim.matID);
-			meshIDs.push_back(static_cast<int>(newIdx));
+			meshIDs.emplace_back(static_cast<int>(newIdx));
 
 			if (skinIds.has(i))
 				skinIDs.push_back(skinIds[i]);
@@ -52,13 +51,13 @@ rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProx
 	}
 }
 
-bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
+bool rfw::SceneNode::update(SIMDMat4 accumulatedTransform)
 {
 	bool changed = false;
 	if (transformed)
 		calculateTransform();
 
-	glm_mat4_mul((__m128 *)value_ptr(accumulatedTransform), (__m128 *)value_ptr(localTransform), (__m128 *)value_ptr(combinedTransform));
+	glm_mat4_mul(accumulatedTransform.cols, localTransform.cols, combinedTransform.cols);
 
 	for (size_t s = childIndices.size(), i = 0; i < s; i++)
 	{
@@ -92,11 +91,12 @@ bool rfw::SceneNode::update(glm::mat4 accumulatedTransform)
 			{
 				auto &skin = object->skins.at(skinIDs.at(i));
 
-				const auto inverseTransform = inverse(combinedTransform);
+				const auto inverseTransform = combinedTransform.inversed();
 				for (int s = static_cast<int>(skin.jointNodes.size()), j = 0; j < s; j++)
 				{
 					const auto &jointNode = object->nodes.at(skin.jointNodes.at(j));
-					skin.jointMatrices[j] = inverseTransform * jointNode.combinedTransform * skin.inverseBindMatrices[j].matrix;
+
+					skin.jointMatrices[j] = inverseTransform * jointNode.combinedTransform * skin.inverseBindMatrices[j];
 				}
 
 				object->meshes[meshID].setPose(skin);

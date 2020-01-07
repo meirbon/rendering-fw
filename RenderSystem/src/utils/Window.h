@@ -164,7 +164,8 @@ enum Mousekey
 class Window
 {
   public:
-	Window(int width, int height, const char *title, bool resizable = false, std::optional<std::pair<uint, uint>> glVersion = std::nullopt)
+	Window(int width, int height, const char *title, bool resizable = false, bool hidpi = false, std::optional<std::pair<uint, uint>> glVersion = std::nullopt,
+		   std::optional<uint> msaa = std::nullopt)
 	{
 		if (glfwInit() != GLFW_TRUE)
 			FAILURE("Could not init GLFW.");
@@ -186,8 +187,12 @@ class Window
 			glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 #ifdef __APPLE__
 			glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
-//			glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
 #endif
+			glfwWindowHint(GLFW_SCALE_TO_MONITOR, hidpi ? GLFW_TRUE : GLFW_FALSE);
+			glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, hidpi ? GLFW_TRUE : GLFW_FALSE);
+
+			if (msaa.has_value())
+				glfwWindowHint(GLFW_SAMPLES, msaa.value());
 		}
 		else
 		{
@@ -209,6 +214,9 @@ class Window
 				FAILURE("Could not initialize GLEW: %s", glewGetErrorString(error));
 
 			glViewport(0, 0, width, height);
+
+			if (msaa.has_value())
+				glEnable(GL_MULTISAMPLE);
 		}
 
 		glfwSetWindowUserPointer(m_Instance, this);
@@ -298,6 +306,24 @@ class Window
 		int width, height;
 		glfwGetWindowSize(m_Instance, &width, &height);
 		return height;
+	}
+
+	[[nodiscard]] int get_render_width() const { return static_cast<int>(float(getFramebufferWidth()) / get_render_width_scale()); }
+
+	[[nodiscard]] int get_render_height() const { return static_cast<int>(float(getFramebufferHeight()) / get_render_height_scale()); }
+
+	[[nodiscard]] float get_render_width_scale() const
+	{
+		float xscale, yscale;
+		glfwGetWindowContentScale(m_Instance, &xscale, &yscale);
+		return xscale;
+	}
+
+	[[nodiscard]] float get_render_height_scale() const
+	{
+		float xscale, yscale;
+		glfwGetWindowContentScale(m_Instance, &xscale, &yscale);
+		return yscale;
 	}
 
 	[[nodiscard]] int getFramebufferWidth() const

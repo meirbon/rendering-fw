@@ -78,12 +78,6 @@ void imgui::Context::render()
 	}
 }
 
-void Context::render(vk::CommandBuffer cmdBuffer)
-{
-	assert(m_Members->type == VULKAN);
-	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmdBuffer);
-}
-
 Context::Members::~Members()
 {
 	switch (type)

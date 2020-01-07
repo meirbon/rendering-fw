@@ -28,7 +28,7 @@ class Application
 	Application(Application &&) = delete;
 
   protected:
-	explicit Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI);
+	explicit Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI, bool hidpi = false);
 	~Application();
 
 	virtual void init() = 0;

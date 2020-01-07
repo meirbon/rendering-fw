@@ -89,6 +89,7 @@ void Context::cleanup() {}
 
 void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 {
+	glFinish();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	m_Pixels = static_cast<glm::vec4 *>(glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB));
 	assert(m_Pixels);
@@ -193,14 +194,14 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const __m128i invalid_mask = _mm_cmpeq_epi32(reinterpret_cast<const __m128i &>(*(packet.hit.geomID + k)), invalid_geometry_id);
 					if (_mm_movemask_ps(_mm_castsi128_ps(invalid_mask)) > 0)
 					{
-						const __m128 &dir_x = reinterpret_cast<const __m128 &>(*(packet.ray.dir_x + k));
-						const __m128 &dir_y = reinterpret_cast<const __m128 &>(*(packet.ray.dir_y + k));
-						const __m128 &dir_z = reinterpret_cast<const __m128 &>(*(packet.ray.dir_z + k));
+						const auto &dir_x = reinterpret_cast<const __m128 &>(*(packet.ray.dir_x + k));
+						const auto &dir_y = reinterpret_cast<const __m128 &>(*(packet.ray.dir_y + k));
+						const auto &dir_z = reinterpret_cast<const __m128 &>(*(packet.ray.dir_z + k));
 
-						const __m128 u4 = _mm_mul_ps(half4, _mm_add_ps(one4, _mm_mul_ps(_mm_atan2_ps(dir_x, _mm_mul_ps(min_one4, dir_z)), one_over_pi)));
-						const __m128 v4 = _mm_mul_ps(_mm_acos_ps(dir_y), one_over_pi);
+						const __m128 u4 = _mm_mul_ps(half4, _mm_add_ps(one4, _mm_mul_ps(atan2_ps(dir_x, _mm_mul_ps(min_one4, dir_z)), one_over_pi)));
+						const __m128 v4 = _mm_mul_ps(acos_ps(dir_y), one_over_pi);
 
-						const __m128 p_u4 = _mm_round_ps(_mm_mul_ps(_mm_min_ps(one4, _mm_max_ps(zero4, u4)), skybox_width), _MM_FROUND_TO_NEAREST_INT);
+						const auto p_u4 = _mm_round_ps(_mm_mul_ps(_mm_min_ps(one4, _mm_max_ps(zero4, u4)), skybox_width), _MM_FROUND_TO_NEAREST_INT);
 						const __m128 p_v4 = _mm_mul_ps(
 							_mm_round_ps(_mm_mul_ps(_mm_min_ps(one4, _mm_max_ps(zero4, v4)), skybox_height), _MM_FROUND_TO_NEAREST_INT), skybox_width);
 
@@ -209,7 +210,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 						for (int m = 0; m < 4; m++)
 						{
-							if (((pixel_mask >> m) & 1) == 1)
+							if (((pixel_mask >> m) & 1u) == 1)
 								continue;
 							m_Pixels[packet.ray.id[k + m]] = vec4(m_Skybox[int(pv[m]) + int(pu[m])], 0.0f);
 						}
@@ -309,6 +310,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	CheckGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	CheckGL();
+
+	glFinish();
 }
 
 void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)

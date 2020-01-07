@@ -21,7 +21,7 @@ class Quad : public SceneTriangles
 	Triangle *getTriangles() override { return m_Triangles.data(); }
 	glm::vec4 *getVertices() override { return m_Vertices.data(); }
 	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
-	[[nodiscard]] const std::vector<glm::mat4> &getMeshTransforms() const override;
+	[[nodiscard]] const std::vector<SIMDMat4> &getMeshTransforms() const override;
 	[[nodiscard]] std::vector<bool> getChangedMeshes() override { return std::vector<bool>(m_Meshes.size(), false); }
 	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override { return std::vector<bool>(m_Meshes.size(), false); }
 
@@ -31,7 +31,7 @@ class Quad : public SceneTriangles
   private:
 	std::vector<std::pair<size_t, rfw::Mesh>> m_Meshes;
 	std::vector<std::vector<int>> m_LightIndices;
-	std::vector<glm::mat4> m_MeshTransforms;
+	std::vector<SIMDMat4> m_MeshTransforms;
 
 	std::vector<glm::vec4> m_Vertices;
 	std::vector<glm::vec3> m_Normals;

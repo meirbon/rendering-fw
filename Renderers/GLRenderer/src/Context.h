@@ -80,6 +80,7 @@ class Context : public RenderContext
 	bool m_InitializedGlew = false;
 	GLuint m_TargetID, m_FboID, m_RboID;
 	GLuint m_Width, m_Height;
+	rfw::RenderStats m_RenderStats;
 };
 
 } // namespace rfw

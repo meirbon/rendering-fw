@@ -4,7 +4,6 @@
 
 #include <array>
 #include <cmath>
-#include <set>
 
 #include <glm/gtx/matrix_major_storage.hpp>
 
@@ -731,7 +730,6 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	for (int meshID = 0, s = static_cast<int>(m_Meshes.size()); meshID < s; meshID++)
 	{
 		const auto &mesh = m_Meshes[meshID];
-		//	m_MeshTransforms[meshID] = this->m_SceneGraph[mesh.nodeIndex].combinedTransform;
 
 		if (mesh.bones.empty())
 			continue;
@@ -767,7 +765,7 @@ void AssimpObject::transformTo(const float timeInSeconds)
 
 		m_SceneGraph[0].update(m_SceneGraph, glm::mat4(1.0f));
 		for (int meshID = 0, s = static_cast<int>(m_Meshes.size()); meshID < s; meshID++)
-			m_MeshTransforms[meshID] = m_SceneGraph[m_Meshes[meshID].nodeIndex].combinedTransform.matrix;
+			m_MeshTransforms[meshID] = m_SceneGraph[m_Meshes[meshID].nodeIndex].combinedTransform;
 		return;
 	}
 
@@ -1061,7 +1059,7 @@ const std::vector<std::vector<int>> &rfw::AssimpObject::getLightIndices(const st
 
 const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::AssimpObject::getMeshes() const { return m_RfwMeshes; }
 
-const std::vector<glm::mat4> &rfw::AssimpObject::getMeshTransforms() const { return m_MeshTransforms; }
+const std::vector<SIMDMat4> &rfw::AssimpObject::getMeshTransforms() const { return m_MeshTransforms; }
 
 std::vector<bool> rfw::AssimpObject::getChangedMeshes()
 {

@@ -28,6 +28,10 @@
 #include "utils/ThreadPool.h"
 #include "utils/Averager.h"
 
+#include "GeometryReference.h"
+#include "InstanceReference.h"
+#include "LightReference.h"
+
 namespace rfw
 {
 namespace utils
@@ -57,109 +61,6 @@ class RfwException : public std::exception
 
   private:
 	std::string m_Message;
-};
-
-// Use lightweight object as a geometry reference for now, we might want to expand in the future
-class GeometryReference
-{
-
-	friend class rfw::RenderSystem;
-
-  private:
-	GeometryReference(size_t index, rfw::RenderSystem &system) : m_Index(index), m_System(&system) { assert(m_System); }
-
-  public:
-	GeometryReference() = default;
-	explicit operator size_t() const { return static_cast<size_t>(m_Index); }
-	[[nodiscard]] size_t getIndex() const { return m_Index; }
-
-	[[nodiscard]] bool isAnimated() const;
-	void setAnimationTime(float time) const;
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const;
-	[[nodiscard]] const std::vector<glm::mat4> &getMeshMatrices() const;
-	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices() const;
-
-  protected:
-	SceneTriangles *getObject() const;
-
-  private:
-	size_t m_Index; // Loaded geometry index
-	rfw::RenderSystem *m_System;
-};
-
-class LightReference
-{
-	friend class rfw::RenderSystem;
-
-  public:
-	enum LightType
-	{
-		AREA = 0,
-		POINT = 1,
-		SPOT = 2,
-		DIRECTIONAL = 3
-	};
-
-	LightReference(size_t index, LightType type, rfw::RenderSystem &system) : m_Index(index), m_System(&system), m_Type(type) { assert(m_System); }
-	LightReference() = default;
-
-	explicit operator size_t() const { return m_Index; }
-	[[nodiscard]] size_t getIndex() const { return m_Index; }
-	[[nodiscard]] LightType getType() const { return m_Type; }
-
-  private:
-	size_t m_Index;
-	rfw::RenderSystem *m_System;
-	LightType m_Type;
-};
-
-// Use lightweight object as an instance reference for now, we might want to expand in the future
-class InstanceReference
-{
-	friend class rfw::RenderSystem;
-
-  public:
-	InstanceReference() = default;
-	InstanceReference(size_t index, GeometryReference reference, rfw::RenderSystem &system);
-
-	explicit operator size_t() const { return m_Members->index; }
-
-	[[nodiscard]] const GeometryReference &getGeometryReference() const { return m_Members->geomReference; }
-
-	void setTranslation(glm::vec3 value);
-	void setRotation(float degrees, glm::vec3 axis);
-	void setRotation(const glm::quat &q);
-	void setRotation(const glm::vec3 &euler);
-	void setScaling(glm::vec3 value);
-
-	void translate(glm::vec3 offset);
-	void rotate(float degrees, glm::vec3 axis);
-	void scale(glm::vec3 offset);
-	void update() const;
-
-	[[nodiscard]] size_t getIndex() const { return m_Members->index; }
-	[[nodiscard]] const std::vector<size_t> &getIndices() const { return m_Members->instanceIDs; }
-
-	[[nodiscard]] glm::mat4 getMatrix() const;
-	[[nodiscard]] glm::mat3 getInverseMatrix() const;
-
-	[[nodiscard]] glm::vec3 getScaling() const { return m_Members->scaling; }
-	[[nodiscard]] glm::vec3 getRotation() const { return glm::eulerAngles(m_Members->rotation); }
-	[[nodiscard]] glm::vec3 getTranslation() const { return m_Members->translation; }
-
-  private:
-	struct Members
-	{
-		explicit Members(const GeometryReference &ref);
-		glm::vec3 translation = glm::vec3(0);
-		glm::quat rotation = glm::identity<glm::quat>();
-		glm::vec3 scaling = glm::vec3(1);
-		size_t index{};
-		std::vector<size_t> instanceIDs;
-		GeometryReference geomReference;
-		rfw::RenderSystem *rSystem = nullptr;
-	};
-	std::shared_ptr<Members> m_Members;
 };
 
 struct AABB
@@ -313,13 +214,12 @@ class RenderSystem
 	std::vector<bool> m_ModelChanged;
 	std::vector<bool> m_InstanceChanged;
 	std::vector<SceneTriangles *> m_Models;
-	std::mutex m_SetMeshMutex;
 
 	// Vector containing the index of (instance, object, mesh) for probe retrieval
 	std::vector<std::tuple<int, int, int>> m_InverseInstanceMapping;
 
 	std::vector<InstanceReference> m_Instances;
-	std::vector<glm::mat4> m_InstanceMatrices;
+	std::vector<SIMDMat4> m_InstanceMatrices;
 
 	std::vector<std::vector<std::vector<int>>> m_ObjectLightIndices;
 	std::vector<float> m_AreaLightEnergy;

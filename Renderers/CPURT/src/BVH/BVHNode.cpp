@@ -414,7 +414,6 @@ bool BVHNode::traverse_bvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, fl
 								  const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s)
 {
 	return traverse_bvh_shadow(org, dir, t_min, maxDist, nodes, primIndices, [&](int primID) {
-		if (rfw::triangle::intersect_opt(org, dir, t_min, &maxDist, p0s[primID], edge1s[primID], edge2s[primID]))
-			return true;
+		return rfw::triangle::intersect_opt(org, dir, t_min, &maxDist, p0s[primID], edge1s[primID], edge2s[primID]);
 	});
 }

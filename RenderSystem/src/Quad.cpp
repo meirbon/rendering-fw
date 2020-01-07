@@ -9,13 +9,8 @@ rfw::Quad::Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float hei
 	const vec3 T = 0.5f * width * normalize(cross(N, tmp));
 	const vec3 B = 0.5f * height * normalize(cross(normalize(T), N));
 
-	m_Vertices.resize(6);
-	m_Vertices.at(0) = vec4(pos - B - T, 1.0f);
-	m_Vertices.at(1) = vec4(pos + B - T, 1.0f);
-	m_Vertices.at(2) = vec4(pos - B + T, 1.0f);
-	m_Vertices.at(3) = vec4(pos + B - T, 1.0f);
-	m_Vertices.at(4) = vec4(pos + B + T, 1.0f);
-	m_Vertices.at(5) = vec4(pos - B + T, 1.0f);
+	m_Vertices = {vec4(pos - B - T, 1.0f), vec4(pos + B - T, 1.0f), vec4(pos - B + T, 1.0f),
+				  vec4(pos + B - T, 1.0f), vec4(pos + B + T, 1.0f), vec4(pos - B + T, 1.0f)};
 
 	m_Normals.resize(6, N);
 
@@ -63,7 +58,7 @@ const std::vector<std::vector<int>> &rfw::Quad::getLightIndices(const std::vecto
 
 const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::Quad::getMeshes() const { return m_Meshes; }
 
-const std::vector<glm::mat4> &rfw::Quad::getMeshTransforms() const { return m_MeshTransforms; }
+const std::vector<SIMDMat4> &rfw::Quad::getMeshTransforms() const { return m_MeshTransforms; }
 
 void rfw::Quad::prepareMeshes(RenderSystem &rs)
 {

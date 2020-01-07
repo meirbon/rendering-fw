@@ -209,7 +209,7 @@ class AssimpObject : public SceneTriangles
 	glm::vec4 *getVertices() override { return m_CurrentVertices.data(); }
 
 	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
-	[[nodiscard]] const std::vector<glm::mat4> &getMeshTransforms() const override;
+	[[nodiscard]] const std::vector<SIMDMat4> &getMeshTransforms() const override;
 	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
 	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
 
@@ -222,7 +222,7 @@ class AssimpObject : public SceneTriangles
   private:
 	std::vector<std::vector<int>> m_LightIndices;
 	std::vector<std::pair<size_t, rfw::Mesh>> m_RfwMeshes;
-	std::vector<glm::mat4> m_MeshTransforms;
+	std::vector<SIMDMat4> m_MeshTransforms;
 	std::vector<bool> m_ChangedMeshTransforms;
 
 	std::vector<size_t> m_NodesWithMeshes;

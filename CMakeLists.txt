@@ -15,7 +15,7 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang") # using Clang
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:fast -mavx2 /Oi /Ot /GL /openmp")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast -mavx2 /Oi /Ot /GL /openmp")
 		set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} /fp:fast -mavx2 /Oi /Ot /GL /openmp")
-		
+
 		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LTCG")
 		set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /NODEFAULTLIB /LTCG")
 		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /LTCG")
@@ -26,22 +26,26 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Clang") # using Clang
 			set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /PROFILE")
 			set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /PROFILE")
 			set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /PROFILE")
-		endif(ENABLE_PROFILING)
-	else()
+		endif (ENABLE_PROFILING)
+	elseif (APPLE)
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math -mavx2 -march=core-avx2")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math -mavx2 -march=core-avx2")
+		set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -ffast-math -mavx2 -march=core-avx2")
+	else ()
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math -mavx2 -march=core-avx2 -fopenmp")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math -mavx2 -march=core-avx2 -fopenmp")
 		set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -ffast-math -mavx2 -march=core-avx2 -fopenmp")
-	endif()
+	endif ()
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "GNU") # using gcc
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -ffast-math -mavx2 -fopenmp")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math -mavx2 -fopenmp")
 	set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -ffast-math -mavx2 -fopenmp")
-	
+
 	if (ENABLE_PROFILING)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
 		set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -pg")
-	endif(ENABLE_PROFILING)
+	endif (ENABLE_PROFILING)
 elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel") # using Intel
 	if (WIN32)
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:fast=1 -march=core-avx2 /Oi /Ot /GL /openmp")
@@ -58,8 +62,8 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel") # using Intel
 			set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /PROFILE")
 			set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /PROFILE")
 			set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /PROFILE")
-		endif(ENABLE_PROFILING)
-	else()
+		endif (ENABLE_PROFILING)
+	else ()
 		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fp-model:fast=1 -march=core-avx2 -fopenmp")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fp-model:fast=1 -march=core-avx2 -fopenmp")
 		set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -fp-model:fast=1 -march=core-avx2 -fopenmp")
@@ -68,13 +72,13 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel") # using Intel
 			set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
 			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
 			set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -pg")
-		endif(ENABLE_PROFILING)
-	endif()
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC") # using MSVC
+		endif (ENABLE_PROFILING)
+	endif ()
+elseif (CMAKE_CXX_COMPILER_ID MATCHES "MSVC") # using MSVC
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /fp:fast /arch:AVX2 /Oi /Ot /GL /openmp")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast /arch:AVX2 /Oi /Ot /GL /openmp")
 	set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} /fp:fast /arch:AVX2 /Oi /Ot /GL /openmp")
-	
+
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /LTCG")
 	set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /NODEFAULTLIB /LTCG")
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /LTCG ")
@@ -85,7 +89,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC") # using MSVC
 		set(CMAKE_STATIC_LINKER_FLAGS "${CMAKE_STATIC_LINKER_FLAGS} /PROFILE")
 		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /PROFILE")
 		set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /PROFILE")
-	endif(ENABLE_PROFILING)
+	endif (ENABLE_PROFILING)
 endif ()
 
 if (WIN32)

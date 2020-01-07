@@ -5,7 +5,6 @@
 #define PICA_LIGHTS 1
 #define SPONZA 0
 #define DRAGON 0
-#define ANIMATE_DRAGON 0
 
 using namespace rfw;
 using namespace utils;
@@ -25,21 +24,23 @@ class App : public rfw::Application
 
   private:
 	unsigned int mouseX, mouseY;
-	rfw::GeometryReference cesiumMan;
+	rfw::GeometryReference cesiumMan{};
 	rfw::InstanceReference cesiumManInstance;
-	rfw::GeometryReference pica;
+	rfw::GeometryReference pica{};
 	rfw::InstanceReference picaInstance;
 
-	rfw::GeometryReference lightQuad;
+	rfw::GeometryReference lightQuad{};
 	rfw::InstanceReference lightQuadInstance;
-	rfw::LightReference pointLight;
-	rfw::LightReference spotLight;
+	rfw::LightReference pointLight{};
+	rfw::LightReference spotLight{};
 };
 
-App::App() : Application(1280, 720, "RenderingFW", "VulkanRTX")
+App::App() : Application(512, 512, "RenderingFW", CPURT)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
+	camera.brightness = 0.0f;
+	camera.contrast = 0.5f;
 	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
 		mouseX = static_cast<uint>(x * double(window.getWidth()));
 		mouseY = static_cast<uint>(y * double(window.getHeight()));

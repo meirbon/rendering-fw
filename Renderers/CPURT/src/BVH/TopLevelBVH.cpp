@@ -245,13 +245,17 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, 
 	{
 		auto tri = accelerationStructures[instID]->triangles[*primID];
 
-		const __m128 vertex0 = _mm_load_ps(value_ptr(tri.vertex0));
-		const __m128 vertex1 = _mm_load_ps(value_ptr(tri.vertex1));
-		const __m128 vertex2 = _mm_load_ps(value_ptr(tri.vertex2));
+		__m128 vertex0 = _mm_load_ps(value_ptr(tri.vertex0));
+		__m128 vertex1 = _mm_load_ps(value_ptr(tri.vertex1));
+		__m128 vertex2 = _mm_load_ps(value_ptr(tri.vertex2));
 
-		tri.vertex0 = glm::make_vec4(reinterpret_cast<const float *>(&glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex0)));
-		tri.vertex1 = glm::make_vec4(reinterpret_cast<const float *>(&glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex1)));
-		tri.vertex2 = glm::make_vec4(reinterpret_cast<const float *>(&glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex2)));
+		vertex0 = glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex0);
+		vertex1 = glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex1);
+		vertex2 = glm_mat4_mul_vec4(instanceMatrices[instID].cols, vertex2);
+
+		tri.vertex0 = glm::make_vec4(reinterpret_cast<const float *>(&vertex0));
+		tri.vertex1 = glm::make_vec4(reinterpret_cast<const float *>(&vertex1));
+		tri.vertex2 = glm::make_vec4(reinterpret_cast<const float *>(&vertex2));
 
 		const __m128 vN0 = glm_mat4_mul_vec4(inverseNormalMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN0), mask));
 		const __m128 vN1 = glm_mat4_mul_vec4(inverseNormalMatrices[instID].cols, _mm_maskload_ps(value_ptr(tri.vN1), mask));

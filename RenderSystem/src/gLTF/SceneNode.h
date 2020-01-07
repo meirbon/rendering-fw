@@ -32,11 +32,11 @@ struct SceneNode
 	SceneNode(SceneObject *obj, std::string name, rfw::utils::ArrayProxy<int> children, rfw::utils::ArrayProxy<int> meshIDs,
 			  rfw::utils::ArrayProxy<int> skinIDs, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform);
 
-	bool update(glm::mat4 accumulatedTransform);
+	bool update(SIMDMat4 accumulatedTransform);
 	void calculateTransform();
 
-	glm::mat4 combinedTransform = glm::mat4(1.0f); // Combined transform of parent nodes
-	glm::mat4 localTransform = glm::mat4(1.0f);	   // T * R * S
+	SIMDMat4 combinedTransform = glm::mat4(1.0f); // Combined transform of parent nodes
+	SIMDMat4 localTransform = glm::mat4(1.0f);	   // T * R * S
 
 	const std::string name = "";
 

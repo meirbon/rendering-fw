@@ -32,13 +32,13 @@ void rfw::Application::run(Application *app)
 	app->cleanup();
 }
 
-rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI)
-	: window(static_cast<int>(scrWidth), static_cast<int>(scrHeight), title.data(), true, std::make_pair(4, 5)), m_ImGuiContext(window.getGLFW())
+rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI, bool hidpi)
+	: window(static_cast<int>(scrWidth), static_cast<int>(scrHeight), title.data(), true, hidpi, std::make_pair(4, 5), 4u), m_ImGuiContext(window.getGLFW())
 {
 	m_RS = std::make_unique<rfw::RenderSystem>();
 
-	m_Target = new rfw::utils::GLTexture(rfw::utils::GLTexture::VEC4, window.getFramebufferWidth(), window.getFramebufferHeight(), true);
-	m_Shader = new rfw::utils::GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
+	m_Target = new rfw::utils::GLTexture(rfw::utils::GLTexture::VEC4, window.get_render_width(), window.get_render_height(), true);
+	m_Shader = new rfw::utils::GLShader("shaders/draw-tex-fxaa.vert", "shaders/draw-tex-fxaa.frag");
 
 	m_Shader->bind();
 	m_Target->bind(0);
@@ -48,11 +48,13 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string tit
 
 	window.addResizeCallback([this](int width, int height) {
 		auto oldID = m_Target->getID();
-		m_Target = new rfw::utils::GLTexture(rfw::utils::GLTexture::VEC4, window.getFramebufferWidth(), window.getFramebufferHeight(), true);
+		m_Target = new rfw::utils::GLTexture(rfw::utils::GLTexture::VEC4, window.get_render_width(), window.get_render_height(), true);
 		m_RS->setTarget(m_Target);
 		m_Shader->bind();
 		m_Target->bind(0);
 		m_Shader->setUniform("tex", 0);
+		m_Shader->setUniform("rt_w", 1.0f / float(window.get_render_width()));
+		m_Shader->setUniform("rt_h", 1.0f / float(window.get_render_height()));
 		m_Shader->unbind();
 		glDeleteTextures(1, &oldID);
 

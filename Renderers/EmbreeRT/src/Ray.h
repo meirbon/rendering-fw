@@ -1,14 +1,5 @@
 #pragma once
 
-#include <glm/glm.hpp>
-
-#include <DeviceStructures.h>
-#include <Camera.h>
-
-#include <embree3/rtcore_ray.h>
-
-#include <utils/RandomGenerator.h>
-
 struct Ray
 {
 	struct CameraParams

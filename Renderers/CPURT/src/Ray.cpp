@@ -1,4 +1,4 @@
-#include "Ray.h"
+#include "PCH.h"
 
 cpurt::Ray::CameraParams::CameraParams(const rfw::CameraView &view, uint samples, float epsilon, uint width, uint height)
 {

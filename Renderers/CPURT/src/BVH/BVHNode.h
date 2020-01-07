@@ -1,13 +1,8 @@
 #pragma once
 
-#include <atomic>
-#include <vector>
-#include <thread>
-#include <mutex>
-#include <future>
+#include "../PCH.h"
 
-#include "BVH/AABB.h"
-#include "../Ray.h"
+#include "AABB.h"
 
 class BVHTree;
 

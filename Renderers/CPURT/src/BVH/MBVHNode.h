@@ -1,11 +1,5 @@
 #pragma once
-
-#include <glm/glm.hpp>
-#include <immintrin.h>
-
-#include "BVH/BVHNode.h"
-#include "BVH/BVHTree.h"
-#include "../Triangle.h"
+#include "../PCH.h"
 
 struct MBVHTraversal
 {

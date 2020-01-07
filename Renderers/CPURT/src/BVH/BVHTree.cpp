@@ -1,7 +1,4 @@
-#include "BVH/BVHTree.h"
-#include "utils/Timer.h"
-#include "../Triangle.h"
-#include "utils/Concurrency.h"
+#include "../PCH.h"
 
 using namespace glm;
 using namespace rfw;

@@ -1,7 +1,4 @@
-#define GLM_FORCE_AVX
-
-#include "Triangle.h"
-#include <glm/simd/geometric.h>
+#include "PCH.h"
 
 using namespace glm;
 namespace rfw::triangle

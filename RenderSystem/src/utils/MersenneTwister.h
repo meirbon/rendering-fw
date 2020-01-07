@@ -1,3 +1,4 @@
+#pragma once
 #include "RandomGenerator.h"
 
 #include <random>

@@ -1,9 +1,4 @@
-#define GLM_FORCE_AVX
-#include "BVH/MBVHNode.h"
-#include "BVH/MBVHTree.h"
-
-#include <thread>
-#include <future>
+#include "../PCH.h"
 
 using namespace glm;
 using namespace rfw;

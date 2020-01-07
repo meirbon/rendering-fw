@@ -196,7 +196,7 @@ void createTangentSpace(const vec3 N, inout vec3 T, inout vec3 B)
 	B = vec3(b, sign + N.y * N.y * a, -N.y);
 }
 
-vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return vec3(dot(T, s), dot(B, s), dot(N, s)); }
+vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
 
 vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
 
@@ -255,6 +255,23 @@ vec3 ConsistentNormal(const vec3 D, const vec3 iN, const float alpha)
 	const vec3 Rc = (g + rho * b) * iN - (rho * D);
 	return normalize(D + Rc);
 #endif
+}
+
+// Ray Tracing Gems 1: chapter 6; https://www.realtimerendering.com/raytracinggems/
+vec3 safeOrigin(vec3 O, vec3 R, vec3 N, float epsilon)
+{
+	const vec3 _N = dot(N, R) > 0 ? N : -N;
+	ivec3 of_i = ivec3(256.0f * _N);
+	vec3 p_i = vec3(
+	intBitsToFloat(floatBitsToInt(O.x) + ((O.x < 0) ? -of_i.x : of_i.x)),
+	intBitsToFloat(floatBitsToInt(O.y) + ((O.y < 0) ? -of_i.y : of_i.y)),
+	intBitsToFloat(floatBitsToInt(O.z) + ((O.z < 0) ? -of_i.z : of_i.z))
+	);
+
+	return vec3(
+	abs(O.x) < (1.0f / 32.0f) ? O.x + (1.0f / 65536.0f) * _N.x : p_i.x,
+	abs(O.y) < (1.0f / 32.0f) ? O.y + (1.0f / 65536.0f) * _N.y : p_i.y,
+	abs(O.z) < (1.0f / 32.0f) ? O.z + (1.0f / 65536.0f) * _N.z : p_i.z);
 }
 
 vec4 CombineToVec4(const vec3 A, const vec3 B)

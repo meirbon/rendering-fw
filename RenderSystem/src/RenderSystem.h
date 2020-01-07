@@ -1,36 +1,6 @@
 #pragma once
 
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
-#include <utility>
-#include <vector>
-#include <string>
-#include <string_view>
-#include <bitset>
-#include <mutex>
-#include <future>
-
-#include <Structures.h>
-#include <RenderContext.h>
-#include <ContextExport.h>
-
-#include "Camera.h"
-#include "Settings.h"
-#include "Skybox.h"
-#include "utils/Window.h"
-#include "utils/String.h"
-
-#include "MaterialList.h"
-#include "SceneTriangles.h"
-#include "utils/gl/GLShader.h"
-#include "utils/ThreadPool.h"
-#include "utils/Averager.h"
-
-#include "GeometryReference.h"
-#include "InstanceReference.h"
-#include "LightReference.h"
+#include "rfw.h"
 
 namespace rfw
 {
@@ -63,22 +33,6 @@ class RfwException : public std::exception
 	std::string m_Message;
 };
 
-struct AABB
-{
-	AABB()
-	{
-		mMin = vec3(1e34f);
-		mMax = vec3(-1e34f);
-	}
-	glm::vec3 mMin{}, mMax{};
-
-	void grow(vec3 p)
-	{
-		mMin = min(mMin, p);
-		mMax = max(mMax, p);
-	}
-};
-
 class RenderSystem
 {
 	friend class GeometryReference;
@@ -95,7 +49,7 @@ class RenderSystem
 
 	  public:
 		ProbeResult() = default;
-		rfw::InstanceReference object;
+		InstanceReference object;
 		float distance = 0;
 		size_t materialIdx = 0;
 
@@ -153,8 +107,6 @@ class RenderSystem
 	void setEnergy(const LightReference &reference, float energy);
 	rfw::AvailableRenderSettings getAvailableSettings() const;
 	void setSetting(const rfw::RenderSetting &setting) const;
-
-	[[nodiscard]] AABB calculateSceneBounds() const;
 
 	void setProbeIndex(glm::uvec2 pixelIdx);
 	glm::uvec2 getProbeIndex() const;

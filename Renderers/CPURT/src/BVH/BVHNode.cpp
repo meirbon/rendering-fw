@@ -1,8 +1,4 @@
-#include "BVH/BVHNode.h"
-
-#include <glm/glm.hpp>
-
-#include "../Triangle.h"
+#include "../PCH.h"
 
 using namespace glm;
 

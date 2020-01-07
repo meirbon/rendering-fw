@@ -1,6 +1,4 @@
-#include "InstanceReference.h"
-
-#include "RenderSystem.h"
+#include "rfw.h"
 
 namespace rfw
 {

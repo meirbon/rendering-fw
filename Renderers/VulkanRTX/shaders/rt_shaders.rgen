@@ -126,9 +126,9 @@ void main()
 			0 /*sbtRecordStride*/,
 			0 /*missIndex*/,
 			O /*origin*/,
-			camera.geometryEpsilon * 10.0f /*tmin*/,
+			10 * camera.geometryEpsilon /*tmin*/,
 			D /*direction*/,
-			1e34f /*tmax*/,
+			1e26f /*tmax*/,
 			0 /*payload location*/
 		);
 
@@ -149,9 +149,9 @@ void main()
 			0 /*sbtRecordStride*/,
 			0 /*missIndex*/,
 			O.xyz /*origin*/,
-			camera.geometryEpsilon * 10.0f /*tmin*/,
+			10 * camera.geometryEpsilon /*tmin*/,
 			D.xyz /*direction*/,
-			1e34f /*tmax*/,
+			1e26f /*tmax*/,
 			0 /*payload location*/
 		);
 
@@ -172,7 +172,7 @@ void main()
 			0 /*sbtRecordStride*/,
 			0 /*missIndex*/,
 			O /*origin*/,
-			camera.geometryEpsilon * 10.0f /*tmin*/,
+			10 * camera.geometryEpsilon,
 			D.xyz /*direction*/,
 			D.w - 2.0 * camera.geometryEpsilon /*tmax*/,
 			1 /*payload location*/

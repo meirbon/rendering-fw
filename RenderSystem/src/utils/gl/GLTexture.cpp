@@ -1,5 +1,4 @@
-#include "GLTexture.h"
-#include "CheckGL.h"
+#include "../../rfw.h"
 
 namespace rfw::utils
 {

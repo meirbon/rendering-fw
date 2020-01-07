@@ -1,10 +1,8 @@
-#include "SceneAnimation.h"
+#include "../rfw.h"
+
+#include "../Internal.h"
 
 #include <tiny_gltf.h>
-
-#include <cmath>
-
-#include "SceneObject.h"
 
 rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler &gltfSampler, const tinygltf::Model &gltfModel)
 {

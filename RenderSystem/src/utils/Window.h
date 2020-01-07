@@ -12,6 +12,7 @@
 #include <vector>
 #include <optional>
 #include <tuple>
+#include <bitset>
 
 #include <GLFW/glfw3.h>
 #include <MathIncludes.h>
@@ -167,6 +168,7 @@ class Window
 	Window(int width, int height, const char *title, bool resizable = false, bool hidpi = false, std::optional<std::pair<uint, uint>> glVersion = std::nullopt,
 		   std::optional<uint> msaa = std::nullopt)
 	{
+		m_Flags[HIDPI] = hidpi;
 		if (glfwInit() != GLFW_TRUE)
 			FAILURE("Could not init GLFW.");
 
@@ -308,12 +310,25 @@ class Window
 		return height;
 	}
 
-	[[nodiscard]] int get_render_width() const { return static_cast<int>(float(getFramebufferWidth()) / get_render_width_scale()); }
+	[[nodiscard]] int get_render_width() const {
+#ifdef __linux__
+		return getFramebufferWidth();
+#endif
+		return static_cast<int>(float(getFramebufferWidth()) / get_render_width_scale());
+	}
 
-	[[nodiscard]] int get_render_height() const { return static_cast<int>(float(getFramebufferHeight()) / get_render_height_scale()); }
+	[[nodiscard]] int get_render_height() const {
+#ifdef __linux__
+		return getFramebufferWidth();
+#endif
+		return static_cast<int>(float(getFramebufferHeight()) / get_render_height_scale());
+	}
 
 	[[nodiscard]] float get_render_width_scale() const
 	{
+#ifdef __linux__
+		return 1.0f;
+#endif
 		float xscale, yscale;
 		glfwGetWindowContentScale(m_Instance, &xscale, &yscale);
 		return xscale;
@@ -321,6 +336,9 @@ class Window
 
 	[[nodiscard]] float get_render_height_scale() const
 	{
+#ifdef __linux__
+		return 1.0f;
+#endif
 		float xscale, yscale;
 		glfwGetWindowContentScale(m_Instance, &xscale, &yscale);
 		return yscale;
@@ -355,6 +373,12 @@ class Window
 	[[nodiscard]] inline GLFWwindow *getGLFW() const { return m_Instance; }
 
   private:
+	enum
+	{
+		HIDPI = 0
+	};
+	std::bitset<32> m_Flags;
+
 	GLFWwindow *m_Instance;
 	glm::dvec2 m_LastMousePos = {0.0, 0.0};
 	std::vector<bool> keys = std::vector<bool>(512);

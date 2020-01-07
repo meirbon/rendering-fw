@@ -1,18 +1,4 @@
-//
-// Created by Mèir Noordermeer on 23/11/2019.
-//
-
-#ifndef RENDERINGFW_GLRENDERER_SRC_MESH_H
-#define RENDERINGFW_GLRENDERER_SRC_MESH_H
-
-#include <utils/gl/CheckGL.h>
-#include <utils/gl/GLBuffer.h>
-#include <utils/gl/GLShader.h>
-#include <utils/gl/GLTexture.h>
-#include <utils/gl/VertexArray.h>
-
-#include <Structures.h>
-#include <DeviceStructures.h>
+#pragma once
 
 namespace rfw
 {
@@ -46,5 +32,3 @@ class GLMesh
 	std::vector<SubMesh> meshes;
 };
 } // namespace rfw
-
-#endif // RENDERINGFW_GLRENDERER_SRC_MESH_H

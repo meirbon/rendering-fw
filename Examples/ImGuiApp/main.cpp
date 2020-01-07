@@ -2,8 +2,7 @@
 #include <Application.h>
 
 #define SKINNED_MESH 1
-#define CESIUMMAN 1
-#define POLLY 0
+#define POLLY 1
 #define PICA 1
 #define SPONZA 0
 #define PICA_LIGHTS 1
@@ -30,10 +29,6 @@ class App : public rfw::Application
 #if SKINNED_MESH
 	rfw::GeometryReference skinnedMesh{};
 	rfw::InstanceReference skinnedMeshInstance;
-#endif
-#if CESIUMMAN
-	rfw::GeometryReference cesiumMan{};
-	rfw::InstanceReference cesiumManInstance;
 #endif
 #if POLLY
 	rfw::GeometryReference polly;
@@ -93,9 +88,6 @@ void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 #if SKINNED_MESH
 	skinnedMesh = rs->addObject("Models/capture.DAE");
 #endif
-#if CESIUMMAN
-	cesiumMan = rs->addObject("Models/CesiumMan.glb", false);
-#endif
 #if POLLY
 	polly = rs->addObject("Models/project_polly.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
 #endif
@@ -131,11 +123,8 @@ void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
 #if SKINNED_MESH
 	skinnedMeshInstance = rs->addInstance(skinnedMesh, vec3(4));
 #endif
-#if CESIUMMAN
-	cesiumManInstance = rs->addInstance(cesiumMan, vec3(3), vec3(10, 0.2f, 3));
-#endif
 #if POLLY
-	pollyInstance = rs->addInstance(polly, vec3(1), vec3(8, 2, 1));
+	pollyInstance = rs->addInstance(polly, vec3(2), vec3(10, 0.2, 1), 180.0f, vec3(0, 1, 0));
 #endif
 #if PICA
 	picaInstance = rs->addInstance(pica);

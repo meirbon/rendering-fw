@@ -1,14 +1,4 @@
-#include "Context.h"
-
-#include <utils/gl/GLDraw.h>
-#include <utils/gl/GLTexture.h>
-#include <utils/Timer.h>
-#include <utils/gl/CheckGL.h>
-#include <utils/Concurrency.h>
-
-#ifdef _WIN32
-#include <ppl.h>
-#endif
+#include "PCH.h"
 
 #define PACKET_TRAVERSAL 0
 
@@ -81,14 +71,13 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 #if PACKET_WIDTH == 4
 	constexpr int TILE_WIDTH = 2;
 	constexpr int TILE_HEIGHT = 2;
-	const int wTiles = m_Width / TILE_WIDTH + 1;
-	const int hTiles = m_Height / TILE_HEIGHT + 1;
 #elif PACKET_WIDTH == 8
 	constexpr int TILE_WIDTH = 4;
 	constexpr int TILE_HEIGHT = 2;
-	const int wTiles = m_Width / TILE_WIDTH + 1;
-	const int hTiles = m_Height / TILE_HEIGHT + 1;
 #endif
+
+	const int wTiles = (m_Width + m_Width % TILE_WIDTH) / TILE_WIDTH;
+	const int hTiles = (m_Height + m_Height % TILE_HEIGHT) / TILE_HEIGHT;
 
 	m_Packets.resize(wTiles * hTiles);
 
@@ -163,8 +152,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					const vec3 p = origin + direction * t;
 					const Triangle &tri = topLevelBVH.get_triangle(packet.instID[packet_id], packet.primID[packet_id]);
-					const SIMDMat4 &matrix = topLevelBVH.get_instance_matrix(packet.instID[packet_id]);
-					const SIMDMat4 &normal_matrix = topLevelBVH.get_normal_matrix(packet.instID[packet_id]);
+					const simd::matrix4 &matrix = topLevelBVH.get_instance_matrix(packet.instID[packet_id]);
+					const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(packet.instID[packet_id]);
 
 					static const __m128i normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
 

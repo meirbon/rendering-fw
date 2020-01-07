@@ -4,11 +4,8 @@
 
 #include <tiny_gltf.h>
 
-#include "gLTFObject.h"
-
-#include "../utils/File.h"
-
-#include "../RenderSystem.h"
+#include "../rfw.h"
+#include "../Internal.h"
 
 rfw::SceneAnimation creategLTFAnim(rfw::SceneObject *object, tinygltf::Animation &gltfAnim, tinygltf::Model &gltfModel, int nodeBase);
 

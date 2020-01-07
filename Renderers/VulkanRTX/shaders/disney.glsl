@@ -292,6 +292,7 @@ BSDF_FUNC vec3 SampleBSDF(const ShadingData shadingData, vec3 iN, const vec3 N, 
 	int type;
 	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, r3, r4);
 	specular = type != BSDF_TYPE_REFLECTED;
+
 	return BSDFEval(shadingData, iN, wo, wi, t, backfacing);
 }
 

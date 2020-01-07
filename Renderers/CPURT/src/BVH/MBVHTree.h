@@ -1,9 +1,6 @@
 #pragma once
 
-#include <mutex>
-
-#include "BVH/MBVHNode.h"
-#include "BVH/BVHTree.h"
+#include "../PCH.h"
 
 class AABB;
 class MBVHNode;

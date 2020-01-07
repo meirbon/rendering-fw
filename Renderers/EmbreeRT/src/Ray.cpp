@@ -1,6 +1,4 @@
-#include "Ray.h"
-
-#include <immintrin.h>
+#include "PCH.h"
 
 Ray::CameraParams::CameraParams(const rfw::CameraView &view, uint samples, float epsilon, uint width, uint height)
 {

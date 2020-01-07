@@ -1,9 +1,4 @@
-//
-// Created by Mèir Noordermeer on 23/11/2019.
-//
-
-#include <DeviceStructures.h>
-#include "Mesh.h"
+#include "PCH.h"
 
 using namespace rfw::utils;
 

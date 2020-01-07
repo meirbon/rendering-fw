@@ -1,15 +1,6 @@
 #pragma once
 
-#include "../Mesh.h"
-#include "MBVHTree.h"
-#include "BVHTree.h"
-#include "../Ray.h"
-
-#include <Structures.h>
-
-#include <vector>
-#include <tuple>
-#include <optional>
+#include "../PCH.h"
 
 namespace rfw
 {

@@ -1,22 +1,4 @@
-#include "RenderSystem.h"
-
-#include "utils/gl/GLTexture.h"
-
-#include "MaterialList.h"
-#include "SceneTriangles.h"
-#include "AssimpObject.h"
-#include "gLTF/gLTFObject.h"
-
-#include <ContextExport.h>
-#include <future>
-
-#include "utils/File.h"
-#include "utils/Timer.h"
-#include "Quad.h"
-
-#include "utils/gl/CheckGL.h"
-#include "utils/gl/GLDraw.h"
-#include "utils/Concurrency.h"
+#include "rfw.h"
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -859,6 +841,7 @@ void RenderSystem::setSetting(const rfw::RenderSetting &setting) const
 		WARNING("Setting was set while no context was loaded yet.");
 }
 
+#if 0
 AABB rfw::RenderSystem::calculateSceneBounds() const
 {
 	AABB bounds;
@@ -881,6 +864,7 @@ AABB rfw::RenderSystem::calculateSceneBounds() const
 
 	return bounds;
 }
+#endif
 
 void RenderSystem::setProbeIndex(glm::uvec2 pixelIdx) { m_Context->setProbePos((m_ProbeIndex = pixelIdx)); }
 
@@ -994,6 +978,7 @@ void RenderSystem::updateAreaLights()
 			// Get appropriate light index vector
 			const auto &meshLightIndices = lightIndices[i];
 			const auto transform = meshTransforms[i] * matrix;
+			const auto normal_transform = transform.inversed().transposed();
 
 			// Generate arealights for current mesh
 			for (const int index : meshLightIndices)
@@ -1003,18 +988,18 @@ void RenderSystem::updateAreaLights()
 
 				assert(material.isEmissive());
 
-				const vec4 lv0 = transform * vec4(triangle.vertex0, 1.0f);
-				const vec4 lv1 = transform * vec4(triangle.vertex1, 1.0f);
-				const vec4 lv2 = transform * vec4(triangle.vertex2, 1.0f);
+				const vec4 lv0 = vec4(triangle.vertex0, 1.0f) * transform;
+				const vec4 lv1 = vec4(triangle.vertex1, 1.0f) * transform;
+				const vec4 lv2 = vec4(triangle.vertex2, 1.0f) * transform;
 
-				const vec3 lN = transform * vec4(triangle.Nx, triangle.Ny, triangle.Nz, 0);
+				const vec3 lN = normal_transform * vec4(triangle.Nx, triangle.Ny, triangle.Nz, 0);
 
 				AreaLight light{};
 				light.vertex0 = vec3(lv0);
 				light.vertex1 = vec3(lv1);
 				light.vertex2 = vec3(lv2);
 				light.position = (light.vertex0 + light.vertex1 + light.vertex2) * (1.0f / 3.0f);
-				light.energy = sqrt(dot(material.color, material.color));
+				light.energy = length(material.color);
 				light.radiance = material.color;
 				light.normal = lN;
 				light.triIdx = index;

@@ -102,8 +102,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	auto timer = utils::Timer();
 
-	const int wTiles = m_Width / TILE_WIDTH + 1;
-	const int hTiles = m_Height / TILE_HEIGHT + 1;
+	const int wTiles = (m_Width + m_Width % TILE_WIDTH) / TILE_WIDTH;
+	const int hTiles = (m_Height + m_Height % TILE_HEIGHT) / TILE_HEIGHT;
 
 	m_Packets.resize(wTiles * hTiles);
 

@@ -1,7 +1,4 @@
-#include "MaterialList.h"
-
-#include <assimp/material.h>
-#include <utils/Logger.h>
+#include "rfw.h"
 
 using namespace rfw;
 

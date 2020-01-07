@@ -1,5 +1,4 @@
-#include "LightReference.h"
-#include "RenderSystem.h"
+#include "rfw.h"
 
 namespace rfw
 {

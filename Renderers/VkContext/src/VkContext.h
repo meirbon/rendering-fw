@@ -20,10 +20,6 @@
 #include "FrameBuffer.h"
 #include "RenderPass.h"
 #include "VkMesh.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
 
 namespace vkc
 {

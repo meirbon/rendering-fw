@@ -1,4 +1,4 @@
-#include "MathIncludes.h"
+#include "rfw.h"
 
 namespace rfw::simd
 {
@@ -68,6 +68,18 @@ matrix4 matrix4::operator+(const matrix4 &op) const
 	glm_mat4_add(cols, op.cols, result.cols);
 	return result;
 }
+
+void matrix4::operator*=(float op) { *this = (*this) * op; }
+
+void matrix4::operator/=(float op) { *this = (*this) / op; }
+
+void matrix4::operator+=(float op) { *this = (*this) + op; }
+
+void matrix4::operator-=(float op) { *this = (*this) - op; }
+
+void matrix4::operator*=(const matrix4 &op) { *this = (*this) * op; }
+
+void matrix4::operator+=(const matrix4 &op) { *this = (*this) + op; }
 
 matrix4 matrix4::inversed() const
 {

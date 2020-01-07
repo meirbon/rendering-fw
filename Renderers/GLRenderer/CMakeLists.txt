@@ -5,6 +5,7 @@ file(GLOB_RECURSE SOURCES ./src/*.cpp)
 file(GLOB_RECURSE HEADERS ./src/*.h ./src/*.hpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS})
+target_precompile_headers(${PROJECT_NAME} PUBLIC src/PCH.h)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT GLEW_STATIC)

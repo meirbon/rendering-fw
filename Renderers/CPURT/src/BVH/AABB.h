@@ -1,11 +1,6 @@
 #pragma once
 
-#include <immintrin.h>
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
-
-#include <glm/simd/geometric.h>
-#include "../Ray.h"
+#include "../PCH.h"
 
 class AABB
 {

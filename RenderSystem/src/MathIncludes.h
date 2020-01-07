@@ -1,12 +1,16 @@
 #pragma once
 
+#ifdef _WIN32
 #define NOMINMAX
+#endif
 
 #define GLM_FORCE_AVX2
 
 #include <cmath>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <glm/simd/geometric.h>
+#include <glm/gtx/matrix_major_storage.hpp>
 #include <immintrin.h>
 
 using namespace glm;
@@ -35,6 +39,12 @@ struct matrix4
 	matrix4 operator-(float op) const;
 	matrix4 operator*(const matrix4 &op) const;
 	matrix4 operator+(const matrix4 &op) const;
+	void operator*=(float op);
+	void operator/=(float op);
+	void operator+=(float op);
+	void operator-=(float op);
+	void operator*=(const matrix4 &op);
+	void operator+=(const matrix4 &op);
 	matrix4 inversed() const;
 	matrix4 transposed() const;
 };

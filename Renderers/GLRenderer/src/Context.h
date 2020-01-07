@@ -1,25 +1,6 @@
 #pragma once
 
-#include <RenderContext.h>
-#include <ContextExport.h>
-
-#include <optional>
-#include <utils/Window.h>
-#include <utils/LibExport.h>
-
-#include <GL/glew.h>
-
-#include <utils/gl/CheckGL.h>
-#include <utils/gl/GLBuffer.h>
-#include <utils/gl/GLShader.h>
-#include <utils/gl/GLTexture.h>
-#include <utils/gl/GLTextureArray.h>
-
-#include "Mesh.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
+#include "PCH.h"
 
 namespace rfw
 {

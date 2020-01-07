@@ -1,10 +1,4 @@
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
-#include "Application.h"
-#include "utils/gl/GLDraw.h"
-#include "utils/Timer.h"
+#include "rfw.h"
 
 void rfw::Application::run(Application *app)
 {
@@ -33,7 +27,7 @@ void rfw::Application::run(Application *app)
 }
 
 rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI, bool hidpi)
-	: window(static_cast<int>(scrWidth), static_cast<int>(scrHeight), title.data(), true, hidpi, std::make_pair(4, 5), 4u), m_ImGuiContext(window.getGLFW())
+	: window(static_cast<int>(scrWidth), static_cast<int>(scrHeight), title.data(), true, hidpi, std::make_pair(4, 5)), m_ImGuiContext(window.getGLFW())
 {
 	m_RS = std::make_unique<rfw::RenderSystem>();
 
@@ -107,4 +101,5 @@ void rfw::Application::draw()
 	m_ImGuiContext.render();
 
 	window.present();
+	glViewport(0, 0, window.get_render_width(), window.get_render_height());
 }

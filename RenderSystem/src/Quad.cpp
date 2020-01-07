@@ -1,6 +1,4 @@
-#include "Quad.h"
-
-#include "RenderSystem.h"
+#include "rfw.h"
 
 rfw::Quad::Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, const uint material) : m_MatID(material)
 {

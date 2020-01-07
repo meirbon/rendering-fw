@@ -1,11 +1,9 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-#include <mutex>
+#include "../PCH.h"
 
-#include "BVH/BVHNode.h"
-#include "BVH/AABB.h"
+#include "BVHNode.h"
+#include "AABB.h"
 
 class BVHTree
 {

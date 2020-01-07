@@ -39,18 +39,15 @@ const mat4 invTransform// inverse instance transformation matrix
     iN = w * N0.xyz + u * N1.xyz + v * N2.xyz;
 
     // Transform normals from local space to world space
-    const mat3 normalTransform = mat3(invTransform);
-
-    N = normalize(normalTransform * N);
-    iN = normalize(normalTransform * iN);
+    N = normalize((invTransform * vec4(N, 0)).xyz);
+    iN = normalize((invTransform * vec4(iN, 0)).xyz);
 
     // Calculating tangent space is faster than loading from memory
     createTangentSpace(iN, T, B);
 
     // Texturing
     float tu, tv;
-    if (MAT_HASDIFFUSEMAP || MAT_HAS2NDDIFFUSEMAP || MAT_HAS3RDDIFFUSEMAP || MAT_HASSPECULARITYMAP || MAT_HASNORMALMAP || MAT_HAS2NDNORMALMAP ||
-    MAT_HAS3RDNORMALMAP || MAT_HASROUGHNESSMAP)
+    if (MAT_HASDIFFUSEMAP || MAT_HAS2NDDIFFUSEMAP || MAT_HAS3RDDIFFUSEMAP || MAT_HASSPECULARITYMAP || MAT_HASNORMALMAP || MAT_HAS2NDNORMALMAP || MAT_HAS3RDNORMALMAP || MAT_HASROUGHNESSMAP)
     {
         const vec4 tdata0 = tri.u4;
         tu = w * tri.u4.x + u * tri.u4.y + v * tri.u4.z;
@@ -60,7 +57,7 @@ const mat4 invTransform// inverse instance transformation matrix
     if (MAT_HASDIFFUSEMAP)
     {
         // Determine LOD
-        const float lambda = tri.B.w + log2(coneWidth * (1.0 / abs(dot(D, N))));
+        const float lambda = sqrt(tri.B.w) + log2(coneWidth * (1.0 / abs(dot(D, N))));
         uvec4 data = mat.t0data4;
 
         vec2 uvscale = unpackHalf2x16(data.y);
@@ -118,7 +115,6 @@ const mat4 invTransform// inverse instance transformation matrix
             shadingNormal += normalLayer2;
         }
 
-        shadingNormal = normalize(shadingNormal);
         iN = normalize(shadingNormal * T + shadingNormal.y * B + shadingNormal.z * iN);
     }
 

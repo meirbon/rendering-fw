@@ -1,25 +1,6 @@
 #pragma once
 
-#include <RenderContext.h>
-#include <ContextExport.h>
-
-#include <optional>
-#include <utils/Window.h>
-#include <utils/LibExport.h>
-#include <utils/ThreadPool.h>
-
-#include <GL/glew.h>
-
-#include "Mesh.h"
-#include "Ray.h"
-
-#include <embree3/rtcore.h>
-#include <embree3/rtcore_scene.h>
-#include <embree3/rtcore_geometry.h>
-#include <embree3/rtcore_builder.h>
-#include <embree3/rtcore_device.h>
-#include "utils/Xor128.h"
-#include "../../CPURT/src/BVH/AABB.h"
+#include "PCH.h"
 
 #define PACKET_WIDTH 8
 

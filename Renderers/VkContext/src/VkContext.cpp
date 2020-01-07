@@ -1,23 +1,15 @@
-//
-// Created by Mèir Noordermeer on 24/08/2019.
-//
-
-#define GLFW_INCLUDE_VULKAN
 #include "VkContext.h"
 
 #include <utils/Logger.h>
 #include <utils/File.h>
-#include <GLFW/glfw3.h>
 
 #include <vector>
 #include <cstring>
 #include <map>
 
+#include <vulkan/vulkan.hpp>
+
 #include "CheckVK.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
 
 const std::vector<const char *> validationLayers = {"VK_LAYER_LUNARG_standard_validation"
 #ifdef __linux__

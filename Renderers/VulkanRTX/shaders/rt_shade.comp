@@ -226,14 +226,14 @@ void main()
             r1 = RandomFloat(seed);
         }
 
-        vec3 L = RandomPointOnLight(r0, r1, I, iN, pickProb, lightPdf, lightColor) - I;
+        vec3 L = RandomPointOnLight(r0, r1, I, N, pickProb, lightPdf, lightColor) - I;
         const float dist = length(L);
         L *= 1.0f / dist;
         const float NdotL = dot(L, iN);
         if (NdotL > 0 && lightPdf > 0)
         {
             float shadowPdf;
-            const vec3 sampledBSDF = EvaluateBSDF(shadingData, iN, T, B, D * -1.0f, L, shadowPdf);
+            const vec3 sampledBSDF = EvaluateBSDF(shadingData, N, T, B, D * -1.0f, L, shadowPdf);
             if (shadowPdf > 0)
             {
                 // calculate potential contribution
@@ -245,7 +245,7 @@ void main()
                     const uint shadowRayIdx = atomicAdd(shadowRays, 1);// compaction
 
                     potentialContributions[shadowRayIdx].Origin = vec4(I, 0);
-                    potentialContributions[shadowRayIdx].Direction = vec4(L, dist - 2.0 * camera.geometryEpsilon);
+                    potentialContributions[shadowRayIdx].Direction = vec4(L, dist);
                     potentialContributions[shadowRayIdx].Emission_pixelIdx = vec4(contribution, uintBitsToFloat(pixelIdx));
                 }
             }
@@ -291,7 +291,7 @@ void main()
     if ((FLAGS & S_SPECULAR) == 0) FLAGS |= S_BOUNCED;
     else FLAGS |= S_VIASPECULAR;
 
-    origins[nextBufferIndex].data[extensionRayIdx] = vec4(I, uintBitsToFloat(FLAGS));
+    origins[nextBufferIndex].data[extensionRayIdx] = vec4(safeOrigin(I, R, N, camera.geometryEpsilon), uintBitsToFloat(FLAGS));
     directions[nextBufferIndex].data[extensionRayIdx] = vec4(R, uintBitsToFloat(PackNormal(iN)));
     throughputs[nextBufferIndex].data[extensionRayIdx] = vec4(throughput, newBsdfPdf);
 }

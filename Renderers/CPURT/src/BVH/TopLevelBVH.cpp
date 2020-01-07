@@ -1,5 +1,4 @@
-#define GLM_FORCE_AVX
-#include "TopLevelBVH.h"
+#include "../PCH.h"
 
 #define USE_TOP_MBVH 1
 #define USE_MBVH 0

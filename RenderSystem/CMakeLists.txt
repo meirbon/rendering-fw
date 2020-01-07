@@ -4,6 +4,8 @@ file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.h)
 
 add_library(${PROJECT_NAME} OBJECT ${SOURCES} ${HEADERS})
+target_precompile_headers(${PROJECT_NAME} PUBLIC src/rfw.h)
+target_precompile_headers(${PROJECT_NAME} PRIVATE src/Internal.h)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 find_package(OpenGL REQUIRED)

@@ -1,19 +1,5 @@
-#include "AssimpObject.h"
-
-#include <MathIncludes.h>
-
-#include <array>
-#include <cmath>
-
-#include <glm/gtx/matrix_major_storage.hpp>
-
-#include <assimp/cimport.h>
-#include "Settings.h"
-#include "utils/Logger.h"
-#include "utils/Timer.h"
-#include "utils/Concurrency.h"
-
-#include "RenderSystem.h"
+#include "rfw.h"
+#include "Internal.h"
 
 #define USE_PARALLEL_FOR 1
 
@@ -724,7 +710,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			const float Ta =
 				static_cast<float>(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 			const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			tri.LOD = max(1.f, 0.5f * log2f(Ta / Pa));
+			tri.LOD = max(0.f, sqrt(0.5f * log2f(Ta / Pa)));
 		}
 	}
 

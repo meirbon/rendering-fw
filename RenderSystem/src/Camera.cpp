@@ -1,6 +1,4 @@
-#include "Camera.h"
-
-#include <utils/File.h>
+#include "rfw.h"
 
 using namespace rfw;
 

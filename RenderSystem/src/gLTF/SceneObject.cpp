@@ -1,13 +1,8 @@
-#include "SceneObject.h"
+#include "../rfw.h"
 
-#ifdef _WIN32
-#include <Windows.h>
-#include <ppl.h>
+#include "../Internal.h"
 
-#define USE_PARALLEL_FOR 1
-#else
-#define USE_PARALLEL_FOR 0
-#endif
+#include <tiny_gltf.h>
 
 using namespace rfw;
 
@@ -291,9 +286,9 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 				const Texture &texture = matList->getTextures().at(texID);
 
 				const float Ta =
-					static_cast<float>(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+					float(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 				const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-				tri.LOD = 0.5f * log2f(Ta / Pa);
+				tri.LOD = max(0.f, sqrt(0.5f * log2f(Ta / Pa)));
 			}
 		}
 	}

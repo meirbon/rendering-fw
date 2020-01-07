@@ -1,12 +1,9 @@
-#define GLM_FORCE_INTRINSICS
-#include "SceneNode.h"
+#include "../rfw.h"
 
-#include <utility>
+#include "../Internal.h"
 
-#include "SceneObject.h"
-#include "Skinning.h"
+#define ALLOW_INDEXED_ANIM_DATA 1
 
-#include <glm/gtx/quaternion.hpp>
 
 rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c, rfw::utils::ArrayProxy<int> meshIds,
 						  rfw::utils::ArrayProxy<int> skinIds, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform)
@@ -91,12 +88,12 @@ bool rfw::SceneNode::update(rfw::simd::matrix4 accumulatedTransform)
 			{
 				auto &skin = object->skins.at(skinIDs.at(i));
 
-				const auto inverseTransform = combinedTransform.inversed();
+				const simd::matrix4 inverseTransform = combinedTransform.inversed();
 				for (int s = static_cast<int>(skin.jointNodes.size()), j = 0; j < s; j++)
 				{
-					const auto &jointNode = object->nodes.at(skin.jointNodes.at(j));
+					const auto &jointNode = object->nodes[skin.jointNodes[j]];
 
-					skin.jointMatrices[j] = inverseTransform * jointNode.combinedTransform * skin.inverseBindMatrices[j];
+					skin.jointMatrices[j] = inverseTransform * jointNode.combinedTransform *  skin.inverseBindMatrices[j];
 				}
 
 				object->meshes[meshID].setPose(skin);
@@ -111,7 +108,7 @@ bool rfw::SceneNode::update(rfw::simd::matrix4 accumulatedTransform)
 void rfw::SceneNode::calculateTransform()
 {
 	const mat4 T = translate(mat4(1.0f), translation);
-	const mat4 R = glm::toMat4(rotation);
+	const mat4 R = glm::mat4(rotation);
 	const mat4 S = glm::scale(mat4(1.0f), scale);
 
 	localTransform = T * R * S * matrix;

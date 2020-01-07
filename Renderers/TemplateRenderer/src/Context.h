@@ -1,13 +1,6 @@
 #pragma once
 
-#include <RenderContext.h>
-#include <ContextExport.h>
-
-#include <optional>
-#include <utils/Window.h>
-#include <utils/LibExport.h>
-
-#include <GL/glew.h>
+#include "PCH.h"
 
 namespace rfw
 {

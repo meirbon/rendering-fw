@@ -1,12 +1,6 @@
 #pragma once
 
-#include <Structures.h>
-
-#include <embree3/rtcore.h>
-#include <embree3/rtcore_scene.h>
-#include <embree3/rtcore_builder.h>
-#include <embree3/rtcore_geometry.h>
-#include <embree3/rtcore_buffer.h>
+#include "PCH.h"
 
 namespace rfw
 {

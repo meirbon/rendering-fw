@@ -1,16 +1,4 @@
-//
-// Created by Mèir Noordermeer on 2019-08-20.
-//
-
-#include "Texture.h"
-#include "Settings.h"
-
-#include <FreeImage.h>
-
-#include <utils/Serializable.h>
-#include <utils/File.h>
-#include <utils/String.h>
-#include <utils/Timer.h>
+#include "rfw.h"
 
 using namespace rfw;
 

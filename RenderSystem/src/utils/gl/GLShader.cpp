@@ -1,12 +1,4 @@
-#include <GL/glew.h>
-
-#include "GLShader.h"
-
-#include <string>
-#include <vector>
-
-#include "utils/File.h"
-#include "utils/Logger.h"
+#include "../../rfw.h"
 
 using namespace rfw;
 using namespace utils;

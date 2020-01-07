@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 file(GLOB_RECURSE SOURCES ./src/*.cpp)
 file(GLOB_RECURSE HEADERS ./src/*.h ./src/*.hpp)
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS})
+target_precompile_headers(${PROJECT_NAME} PUBLIC src/Context.h)
 
 if (WIN32)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE VK_USE_PLATFORM_WIN32_KHR)

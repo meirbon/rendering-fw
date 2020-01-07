@@ -1,11 +1,7 @@
-#define GLM_FORCE_AVX
-#include "BVH/MBVHTree.h"
+#include "../PCH.h"
 
 using namespace glm;
 using namespace rfw;
-
-#include <utils/Timer.h>
-#include <utils/Concurrency.h>
 
 #define EDGE_INTERSECTION 1
 

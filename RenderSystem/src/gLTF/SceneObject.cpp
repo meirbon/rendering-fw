@@ -306,14 +306,14 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 
 					if (!texCoords.empty())
 					{
-						tri.u0 = texCoords.at(index.x).x;
-						tri.v0 = texCoords.at(index.x).y;
+						tri.u0 = texCoords[index.x].x;
+						tri.v0 = texCoords[index.x].y;
 
-						tri.u1 = texCoords.at(index.y).x;
-						tri.v1 = texCoords.at(index.y).y;
+						tri.u1 = texCoords[index.y].x;
+						tri.v1 = texCoords[index.y].y;
 
-						tri.u2 = texCoords.at(index.z).x;
-						tri.v2 = texCoords.at(index.z).y;
+						tri.u2 = texCoords[index.z].x;
+						tri.v2 = texCoords[index.z].y;
 					}
 
 					tri.material = this->materialIndices[triIdx];
@@ -342,14 +342,14 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 
 					if (!texCoords.empty())
 					{
-						tri.u0 = texCoords.at(index.x).x;
-						tri.v0 = texCoords.at(index.x).y;
+						tri.u0 = texCoords[index.x].x;
+						tri.v0 = texCoords[index.x].y;
 
-						tri.u1 = texCoords.at(index.y).x;
-						tri.v1 = texCoords.at(index.y).y;
+						tri.u1 = texCoords[index.y].x;
+						tri.v1 = texCoords[index.y].y;
 
-						tri.u2 = texCoords.at(index.z).x;
-						tri.v2 = texCoords.at(index.z).y;
+						tri.u2 = texCoords[index.z].x;
+						tri.v2 = texCoords[index.z].y;
 					}
 
 					tri.material = this->materialIndices[triIdx];
@@ -358,7 +358,7 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 					int texID = mat.map[0].textureID;
 					if (texID > -1)
 					{
-						const Texture &texture = matList->getTextures().at(texID);
+						const Texture &texture = matList->getTextures()[texID];
 
 						const float Ta = static_cast<float>(texture.width * texture.height) *
 										 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));

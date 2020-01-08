@@ -1,4 +1,4 @@
-project(tinygltf2.2.0)
+project(tinygltf-08-01-2020)
 
 file(GLOB_RECURSE SOURCES ./*.cpp ./*.h ./*.hpp)
 

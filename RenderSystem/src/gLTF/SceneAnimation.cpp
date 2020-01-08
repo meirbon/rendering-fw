@@ -50,29 +50,61 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 		switch (outputAccessor.componentType)
 		{
 		case TINYGLTF_COMPONENT_TYPE_FLOAT:
+		{
 			for (int k = 0; k < N; k++, b += 4)
-				fdata.push_back(*((float *)b));
+			{
+				float data;
+				memcpy(&data, b, sizeof(float));
+				fdata.push_back(data);
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_BYTE:
+		{
 			for (int k = 0; k < N; k++, b++)
-				fdata.push_back(max(*((char *)b) / 127.0f, -1.0f));
+			{
+				char data;
+				memcpy(&data, b, sizeof(char));
+				fdata.push_back(max(float(data) / 127.0f, -1.0f));
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+		{
 			for (int k = 0; k < N; k++, b++)
-				fdata.push_back(*((char *)b) / 255.0f);
+			{
+				unsigned char data;
+				memcpy(&data, b, sizeof(unsigned char));
+				fdata.push_back(float(data) / 255.0f);
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_SHORT:
+		{
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(max(*((short *)b) / 32767.0f, -1.0f));
+			{
+				short data;
+				memcpy(&data, b, sizeof(short));
+				fdata.push_back(max(float(data) / 32767.0f, -1.0f));
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+		{
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(*((unsigned short *)b) / 65535.0f);
+			{
+				unsigned short data;
+				memcpy(&data, b, sizeof(unsigned short));
+				fdata.push_back(float(data) / 65535.0f);
+			}
 			break;
+		}
 		}
 
 		for (int i = 0; i < N; i++)
+		{
 			sampler.float_key.push_back(fdata[i]);
+		}
 	}
 	else if (outputAccessor.type == TINYGLTF_TYPE_VEC4)
 	{
@@ -82,25 +114,58 @@ rfw::SceneAnimation::Sampler creategLTFSampler(const tinygltf::AnimationSampler 
 		switch (outputAccessor.componentType)
 		{
 		case TINYGLTF_COMPONENT_TYPE_FLOAT:
+		{
 			for (int k = 0; k < N; k++, b += 4)
-				fdata.push_back(*((float *)b));
+			{
+				float data;
+				memcpy(&data, b, sizeof(float));
+				fdata.push_back(data);
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_BYTE:
+		{
 			for (int k = 0; k < N; k++, b++)
-				fdata.push_back(max(*((char *)b) / 127.0f, -1.0f));
+			{
+				char data;
+				memcpy(&data, b, sizeof(char));
+				fdata.push_back(max(float(data) / 127.0f, -1.0f));
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE:
+		{
 			for (int k = 0; k < N; k++, b++)
-				fdata.push_back(*((char *)b) / 255.0f);
+			{
+				unsigned char data;
+				memcpy(&data, b, sizeof(unsigned char));
+				fdata.push_back(float(data) / 255.0f);
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_SHORT:
+		{
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(max(*((short *)b) / 32767.0f, -1.0f));
+			{
+				short data;
+				memcpy(&data, b, sizeof(short));
+				fdata.push_back(max(data / 32767.0f, -1.0f));
+			}
 			break;
+		}
 		case TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT:
+		{
 			for (int k = 0; k < N; k++, b += 2)
-				fdata.push_back(*((unsigned short *)b) / 65535.0f);
+			{
+				for (int k = 0; k < N; k++, b += 2)
+				{
+					unsigned short data;
+					memcpy(&data, b, sizeof(unsigned short));
+					fdata.push_back(max(data / 65535.0f, -1.0f));
+				}
+			}
 			break;
+		}
 		}
 		for (int i = 0; i < outputAccessor.count; i++)
 			sampler.quat_key.emplace_back(fdata[i * 4 + 3], fdata[i * 4], fdata[i * 4 + 1], fdata[i * 4 + 2]);
@@ -156,15 +221,12 @@ void rfw::SceneAnimation::setTime(float currentTime)
 
 float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i, int count) const
 {
-	const int keyCount = (int)key_frames.size();
-	const float animDuration = key_frames.at(keyCount - 1);
-
-	const float t0 = key_frames.at(k);
-	const float t1 = key_frames.at((k + 1));
+	const float t0 = key_frames[k];
+	const float t1 = key_frames[(k + 1)];
 	const float f = (currentTime - t0) / (t1 - t0);
 
 	if (f <= 0)
-		return float_key.at(0);
+		return float_key[0];
 
 	switch (method)
 	{
@@ -180,18 +242,17 @@ float rfw::SceneAnimation::Sampler::sampleFloat(float currentTime, int k, int i,
 		return m0 * (t3 - 2 * t2 + t) + p0 * (2 * t3 - 3 * t2 + 1) + p1 * (-2 * t3 + 3 * t2) + m1 * (t3 - t2);
 	}
 	case Sampler::STEP:
-		return float_key.at(k);
+		return float_key[k];
 	case Sampler::LINEAR:
 	default:
-		return (1.0f - f) * float_key[k * count + i] + f * float_key[k + 1] * count + i;
+		return (1.0f - f) * float_key[k * count + i] + f * float_key[(k + 1) * count + i];
 	};
 }
 
 glm::vec3 rfw::SceneAnimation::Sampler::sampleVec3(float currentTime, int k) const
 {
-	const auto keyCount = key_frames.size();
-	const float t0 = key_frames.at(k);
-	const float t1 = key_frames.at(k + 1);
+	const float t0 = key_frames[k];
+	const float t1 = key_frames[k + 1];
 	const float f = (currentTime - t0) / (t1 - t0);
 
 	if (f <= 0)
@@ -217,10 +278,8 @@ glm::vec3 rfw::SceneAnimation::Sampler::sampleVec3(float currentTime, int k) con
 glm::quat rfw::SceneAnimation::Sampler::sampleQuat(float currentTime, int k) const
 {
 	// determine interpolation parameters
-	const auto keyCount = key_frames.size();
-	const float animDuration = key_frames.at(keyCount - 1);
-	const float t0 = key_frames.at(k);
-	const float t1 = key_frames.at(k + 1);
+	const float t0 = key_frames[k];
+	const float t1 = key_frames[k + 1];
 	const float f = (currentTime - t0) / (t1 - t0);
 
 	glm::quat key;
@@ -245,7 +304,6 @@ glm::quat rfw::SceneAnimation::Sampler::sampleQuat(float currentTime, int k) con
 			key = quat_key[k];
 			break;
 		default:
-			// key = quat::slerp( vec4Key[k], vec4Key[k + 1], f );
 			key = (quat_key[k] * (1 - f)) + (quat_key[k + 1] * f);
 			break;
 		}
@@ -262,8 +320,8 @@ void rfw::SceneAnimation::Channel::update(rfw::SceneObject *object, const float 
 		const auto &target = targets[i];
 
 		// Advance animation timer
-		const int keyCount = (int)sampler.key_frames.size();
-		const float animDuration = sampler.key_frames.at(keyCount - 1);
+		const int keyCount = int(sampler.key_frames.size());
+		const float animDuration = sampler.key_frames[keyCount - 1];
 		time += deltaTime;
 		if (time > animDuration)
 		{
@@ -312,8 +370,8 @@ void rfw::SceneAnimation::Channel::setTime(rfw::SceneObject *object, float curre
 		const auto &target = targets[i];
 
 		// Advance animation timer
-		const int keyCount = (int)sampler.key_frames.size();
-		const float animDuration = sampler.key_frames.at(keyCount - 1);
+		const int keyCount = int(sampler.key_frames.size());
+		const float animDuration = sampler.key_frames[keyCount - 1];
 		time = currentTime;
 		if (currentTime > animDuration)
 		{

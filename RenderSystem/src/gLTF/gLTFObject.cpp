@@ -585,7 +585,6 @@ const std::vector<std::vector<int>> &rfw::gLTFObject::getLightIndices(const std:
 void rfw::gLTFObject::prepareMeshes(RenderSystem &rs)
 {
 	m_Meshes.clear();
-#if 1
 	for (const auto &mesh : scene.meshes)
 	{
 		auto m = rfw::Mesh();
@@ -598,22 +597,4 @@ void rfw::gLTFObject::prepareMeshes(RenderSystem &rs)
 		m.texCoords = mesh.getTexCoords();
 		m_Meshes.emplace_back(rs.requestMeshIndex(), m);
 	}
-#else
-	mesh.vertices = scene.vertices.data();
-	mesh.normals = scene.normals.data();
-	mesh.triangles = scene.triangles.data();
-	if (scene.indices.empty())
-	{
-		mesh.indices = nullptr;
-		mesh.triangleCount = scene.vertices.size() / 3;
-	}
-	else
-	{
-		mesh.indices = scene.indices.data();
-		mesh.triangleCount = scene.indices.size();
-	}
-	mesh.vertexCount = scene.vertices.size();
-	mesh.texCoords = scene.texCoords.data();
-	m_Meshes.emplace_back(rs.requestMeshIndex(), mesh);
-#endif
 }

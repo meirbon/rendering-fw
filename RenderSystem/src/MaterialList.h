@@ -79,6 +79,7 @@ class HostMaterial
 class MaterialList
 {
   public:
+	MaterialList();
 	~MaterialList();
 
 	uint add(const HostMaterial &mat);

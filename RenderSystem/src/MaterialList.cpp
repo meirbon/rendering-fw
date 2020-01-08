@@ -1,4 +1,5 @@
 #include "rfw.h"
+#include "MaterialList.h"
 
 using namespace rfw;
 
@@ -8,6 +9,8 @@ static float RoughnessToAlpha(float roughness)
 	const float x = logf(roughness);
 	return fminf(1.0f, (1.62142f + 0.819955f * x + 0.1734f * x * x + 0.0171201f * x * x * x + 0.000640711f * x * x * x * x));
 }
+
+MaterialList::MaterialList() { add(HostMaterial()); }
 
 MaterialList::~MaterialList()
 {

@@ -33,7 +33,7 @@ struct SceneNode
 			  rfw::utils::ArrayProxy<int> skinIDs, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform);
 
 	bool update(rfw::simd::matrix4 accumulatedTransform);
-	void calculateTransform();
+	void calculate_transform();
 
 	rfw::simd::matrix4 combinedTransform = glm::mat4(1.0f); // Combined transform of parent nodes
 	rfw::simd::matrix4 localTransform = glm::mat4(1.0f);	   // T * R * S

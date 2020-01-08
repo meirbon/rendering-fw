@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../PCH.h"
-
 #include "AABB.h"
+
+#include "../PCH.h"
 
 class BVHTree;
 

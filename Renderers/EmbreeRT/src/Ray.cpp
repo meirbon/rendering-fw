@@ -16,7 +16,7 @@ Ray::CameraParams::CameraParams(const rfw::CameraView &view, uint samples, float
 Ray Ray::generateFromView(const Ray::CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3)
 {
 	Ray ray;
-	const float blade = int(r0 * 9);
+	const float blade = float(int(r0 * 9));
 	r2 = (r2 - blade * (1.0f / 9.0f)) * 9.0f;
 	float x1, y1, x2, y2;
 	constexpr float piOver4point5 = 3.14159265359f / 4.5f;
@@ -117,8 +117,8 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
-	__m128 u4 = _mm_setr_ps(x[0], x[1], x[2], x[3]);
-	__m128 v4 = _mm_setr_ps(y[0], y[1], y[2], y[3]);
+	__m128 u4 = _mm_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]));
+	__m128 v4 = _mm_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]));
 
 	u4 = _mm_add_ps(u4, r04);
 	v4 = _mm_add_ps(v4, r14);
@@ -291,8 +291,8 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
-	__m256 u4 = _mm256_setr_ps(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
-	__m256 v4 = _mm256_setr_ps(y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7]);
+	__m256 u4 = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]), float(x[6]), float(x[7]));
+	__m256 v4 = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]), float(y[6]), float(y[7]));
 
 	u4 = _mm256_add_ps(u4, r04);
 	v4 = _mm256_add_ps(v4, r14);
@@ -518,11 +518,11 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
 	__m256 u8[2];
-	u8[0] = _mm256_setr_ps(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
-	u8[1] = _mm256_setr_ps(x[8], x[9], x[10], x[11], x[12], x[13], x[14], x[15]);
+	u8[0] = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]), float(x[6]), float(x[7]));
+	u8[1] = _mm256_setr_ps(float(x[8]), float(x[9]), float(x[10]), float(x[11]), float(x[12]), float(x[13]), float(x[14]), float(x[15]));
 	__m256 v8[2];
-	v8[0] = _mm256_setr_ps(y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7]);
-	v8[1] = _mm256_setr_ps(y[8], y[9], y[10], y[11], y[12], y[13], y[14], y[15]);
+	v8[0] = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]), float(y[6]), float(y[7]));
+	v8[1] = _mm256_setr_ps(float(y[8]), float(y[9]), float(y[10]), float(y[11]), float(y[12]), float(y[13]), float(y[14]), float(y[15]));
 
 	u8[0] = _mm256_add_ps(u8[0], r0_16[0]);
 	u8[1] = _mm256_add_ps(u8[1], r0_16[1]);

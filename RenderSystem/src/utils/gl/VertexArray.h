@@ -62,7 +62,7 @@ class GLVertexArray
 
 		GLint vertexAttribCount = 0;
 		glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &vertexAttribCount);
-		for (unsigned i = 0; i < vertexAttribCount; ++i)
+		for (int i = 0; i < vertexAttribCount; ++i)
 		{
 			int isOn = 0;
 			glGetVertexAttribiv(i, GL_VERTEX_ATTRIB_ARRAY_ENABLED, &isOn);

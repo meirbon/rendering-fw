@@ -1,5 +1,7 @@
 #define GLM_FORCE_AVX
 
+#include "PCH.h"
+
 
 using namespace glm;
 namespace rfw::triangle

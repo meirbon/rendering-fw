@@ -68,7 +68,7 @@ rfw::CameraView Camera::getView() const
 	return view;
 }
 
-mat4 Camera::getMatrix(const float near, const float far) const
+mat4 Camera::getMatrix(const float nearPlane, const float farPlane) const
 {
 	const vec3 up = vec3(0, 1, 0);
 	const vec3 forward = -direction;
@@ -76,7 +76,7 @@ mat4 Camera::getMatrix(const float near, const float far) const
 	const float fovDist = tanf(glm::radians(FOV * 0.5f));
 
 	const mat4 flip = scale(mat4(1.0f), vec3(-1));
-	const mat4 projection = perspective(radians(FOV), aspectRatio, near, far);
+	const mat4 projection = perspective(radians(FOV), aspectRatio, nearPlane, farPlane);
 	const mat4 view = glm::lookAt(position, position + forward * fovDist, up);
 	return projection * flip * view;
 }

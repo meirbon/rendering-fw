@@ -310,14 +310,16 @@ class Window
 		return height;
 	}
 
-	[[nodiscard]] int get_render_width() const {
+	[[nodiscard]] int get_render_width() const
+	{
 #ifdef __linux__
 		return getFramebufferWidth();
 #endif
 		return static_cast<int>(float(getFramebufferWidth()) / get_render_width_scale());
 	}
 
-	[[nodiscard]] int get_render_height() const {
+	[[nodiscard]] int get_render_height() const
+	{
 #ifdef __linux__
 		return getFramebufferWidth();
 #endif

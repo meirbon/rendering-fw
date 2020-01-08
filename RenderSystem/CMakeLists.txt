@@ -4,6 +4,10 @@ file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.h)
 
 add_library(${PROJECT_NAME} OBJECT ${SOURCES} ${HEADERS})
+if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
+	target_precompile_headers(${PROJECT_NAME} PUBLIC src/rfw.h)
+	target_precompile_headers(${PROJECT_NAME} PRIVATE src/Internal.h)
+endif()
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 find_package(OpenGL REQUIRED)
@@ -26,9 +30,6 @@ endif ()
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLEW_STATIC GLFW_DLL)
 target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf ImGuiWrapper)
 target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${LIBS} tinygltf)
-
-target_precompile_headers(${PROJECT_NAME} PUBLIC src/rfw.h)
-target_precompile_headers(${PROJECT_NAME} PRIVATE src/Internal.h)
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

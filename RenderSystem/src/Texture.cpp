@@ -1,4 +1,5 @@
 #include "rfw.h"
+#include "Internal.h"
 
 using namespace rfw;
 

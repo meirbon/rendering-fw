@@ -16,7 +16,7 @@ cpurt::Ray::CameraParams::CameraParams(const rfw::CameraView &view, uint samples
 cpurt::Ray cpurt::Ray::generateFromView(const cpurt::Ray::CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3)
 {
 	cpurt::Ray ray;
-	const float blade = int(r0 * 9);
+	const float blade = float(int(r0 * 9));
 	r2 = (r2 - blade * (1.0f / 9.0f)) * 9.0f;
 	float x1, y1, x2, y2;
 	const float piOver4point5 = 3.14159265359f / 4.5f;
@@ -110,8 +110,8 @@ cpurt::RayPacket4 cpurt::Ray::generateRay4(const CameraParams &camera, const int
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
-	__m128 u4 = _mm_setr_ps(x[0], x[1], x[2], x[3]);
-	__m128 v4 = _mm_setr_ps(y[0], y[1], y[2], y[3]);
+	__m128 u4 = _mm_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]));
+	__m128 v4 = _mm_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]));
 
 	u4 = _mm_add_ps(u4, r04);
 	v4 = _mm_add_ps(v4, r14);
@@ -278,8 +278,8 @@ cpurt::RayPacket8 cpurt::Ray::generateRay8(const CameraParams &camera, const int
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
-	__m256 u4 = _mm256_setr_ps(x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7]);
-	__m256 v4 = _mm256_setr_ps(y[0], y[1], y[2], y[3], y[4], y[5], y[6], y[7]);
+	__m256 u4 = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]), float(x[6]), float(x[7]));
+	__m256 v4 = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]), float(y[6]), float(y[7]));
 
 	u4 = _mm256_add_ps(u4, r04);
 	v4 = _mm256_add_ps(v4, r14);

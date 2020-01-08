@@ -23,7 +23,7 @@ template <typename T, typename FUNC> void parallel_for(T first, T last, const FU
 	return;
 #else
 	static rfw::utils::ThreadPool pool = {};
-	static const int poolSize = pool.size();
+	static const int poolSize = poo l.size();
 	std::vector<std::future<void>> handles(poolSize);
 
 	const int total = static_cast<int>(last) - static_cast<int>(first);

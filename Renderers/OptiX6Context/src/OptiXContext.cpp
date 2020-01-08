@@ -8,10 +8,6 @@
 #include "kernels.h"
 #include "CheckCUDA.h"
 #include <BlueNoise.h>
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
 
 using namespace rfw;
 using namespace utils;

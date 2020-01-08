@@ -5,7 +5,9 @@ file(GLOB_RECURSE SOURCES ./src/*.cpp)
 file(GLOB_RECURSE HEADERS ./src/*.h ./src/*.hpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS})
-target_precompile_headers(${PROJECT_NAME} PUBLIC src/PCH.h)
+if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
+	target_precompile_headers(${PROJECT_NAME} PUBLIC src/PCH.h)
+endif()
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 

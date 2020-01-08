@@ -180,8 +180,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 				const __m128 min_one4 = _mm_set1_ps(-1.0f);
 				const __m128 half4 = _mm_set1_ps(0.5f);
 				const __m128 zero4 = _mm_setzero_ps();
-				const __m128 skybox_width = _mm_set1_ps(m_SkyboxWidth - 1);
-				const __m128 skybox_height = _mm_set1_ps(m_SkyboxHeight - 1);
+				const __m128 skybox_width = _mm_set1_ps(float(m_SkyboxWidth - 1));
+				const __m128 skybox_height = _mm_set1_ps(float(m_SkyboxHeight - 1));
 				const __m128i invalid_geometry_id = _mm_set1_epi32(RTC_INVALID_GEOMETRY_ID);
 
 				for (int k = 0; k < PACKET_WIDTH; k += 4)

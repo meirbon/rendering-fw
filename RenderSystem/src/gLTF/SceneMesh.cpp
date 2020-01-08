@@ -220,7 +220,7 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 
 		const uint primIndexOffset = vertexCount;
 
-		faceCount += indices.size() / 3;
+		faceCount += uint(indices.size() / 3);
 		vertexCount += verts.size();
 
 		// Allocate data

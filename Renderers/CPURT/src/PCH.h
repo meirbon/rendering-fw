@@ -2,6 +2,8 @@
 
 #include "rfw.h"
 
+#include <immintrin.h>
+
 #include <atomic>
 #include <vector>
 #include <thread>
@@ -13,13 +15,13 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <glm/simd/geometric.h>
-#include <immintrin.h>
 
 #include "Ray.h"
-#include "Mesh.h"
-#include "Triangle.h"
 
 #include "BVH/AABB.h"
+
+#include "Mesh.h"
+#include "Triangle.h"
 
 #include "BVH/BVHNode.h"
 #include "BVH/BVHTree.h"

@@ -1,9 +1,5 @@
-//
-// Created by M�ir Noordermeer on 24/08/2019.
-//
+#pragma once
 
-#ifndef RENDERING_FW_VKCONTEXT_VKCONTEXT_H
-#define RENDERING_FW_VKCONTEXT_VKCONTEXT_H
 #define NOMINMAX
 
 #include <GL/glew.h>
@@ -25,10 +21,6 @@
 #include "TextureInterop.h"
 
 #include <utils/gl/GLShader.h>
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
-#include "../../CPURT/src/BVH/AABB.h"
 
 class OptiXContext : public rfw::RenderContext
 {
@@ -124,5 +116,3 @@ class OptiXContext : public rfw::RenderContext
 	float m_ProbedDistance = 0;
 	glm::vec3 m_ProbedPoint = glm::vec3(0.0f);
 };
-
-#endif // RENDERING_FW_VKCONTEXT_VKCONTEXT_H

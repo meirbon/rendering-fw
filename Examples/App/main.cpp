@@ -16,9 +16,9 @@ class App : public rfw::Application
 
   protected:
 	void init(std::unique_ptr<rfw::RenderSystem> &rs) override;
-	void loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void update(std::unique_ptr<rfw::RenderSystem> &rs, float dt) override;
-	void renderGUI(std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void post_render(std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void cleanup() override;
 
   private:
@@ -60,7 +60,7 @@ void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 	spotLight = rs->addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
 }
 
-void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
+void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	cesiumManInstance = rs->addInstance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
 	picaInstance = rs->addInstance(pica);
@@ -147,7 +147,7 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 		status = Reset;
 }
 
-void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs) {}
+void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs){}
 
 void App::cleanup() { camera.serialize("camera.bin"); }
 

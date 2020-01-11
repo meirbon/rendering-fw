@@ -16,6 +16,7 @@
 #define OPTIX6 "OptiX6Context"
 #define CPURT "CPURT"
 #define EMBREE "EmbreeRT"
+#define CLRT "CLRT"
 
 namespace rfw
 {

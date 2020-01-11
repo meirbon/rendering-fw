@@ -29,9 +29,7 @@ void Context::init(std::shared_ptr<rfw::utils::Window> &window)
 	const auto source = rfw::utils::file::read("metalshaders/shaders.metal");
 
 	NSError *compileError;
-	m_Library = [m_Device newLibraryWithSource:[NSString stringWithUTF8String:source.data()]
-									   options:compileOptions
-										 error:&compileError];
+	m_Library = [m_Device newLibraryWithSource:[NSString stringWithUTF8String:source.data()] options:compileOptions error:&compileError];
 	if (!m_Library)
 		FAILURE("Could not create Metal library: %s", compileError);
 
@@ -53,10 +51,7 @@ void Context::init(std::shared_ptr<rfw::utils::Window> &window)
 	m_Layer.drawableSize = CGSizeMake(m_Width, m_Height);
 }
 
-void Context::init(GLuint *glTextureID, uint width, uint height)
-{
-	throw std::runtime_error("GL targets not supported yet.");
-}
+void Context::init(GLuint *glTextureID, uint width, uint height) { throw std::runtime_error("GL targets not supported yet."); }
 
 void Context::cleanup() {}
 
@@ -84,22 +79,18 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	[cmdBuffer commit];
 }
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials,
-						   const std::vector<rfw::MaterialTexIds> &texDescriptors)
-{
-}
+void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
 
 void Context::setTextures(const std::vector<rfw::TextureData> &textures) {}
 
 void Context::setMesh(size_t index, const rfw::Mesh &mesh) {}
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform) {}
+void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const glm::mat3 &inverse_transform) {}
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 
-void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
-						const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
-						const rfw::DeviceDirectionalLight *directionalLights)
+void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 }
 

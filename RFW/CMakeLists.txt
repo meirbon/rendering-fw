@@ -13,6 +13,8 @@ add_subdirectory(Renderers/VulkanRTX)
 list(APPEND RENDERERS VulkanRTX)
 add_subdirectory(Renderers/GLRenderer)
 list(APPEND RENDERERS GLRenderer)
+add_subdirectory(Renderers/CLRT)
+list(APPEND RENDERERS CLRT)
 
 find_package(CUDA QUIET)
 if (${CUDA_FOUND})

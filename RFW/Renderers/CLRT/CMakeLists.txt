@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.10)
-project(TemplateRenderer)
+project(CLRT)
 
 file(GLOB_RECURSE SOURCES ./src/*.cpp)
 file(GLOB_RECURSE HEADERS ./src/*.h ./src/*.hpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS})
-if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
+if (${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
 	target_precompile_headers(${PROJECT_NAME} PUBLIC src/PCH.h)
-endif()
+endif ()
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 
@@ -22,6 +22,9 @@ else ()
 	target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OpenGL::GL)
 endif ()
 
+find_package(OpenCL REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC OpenCL::OpenCL)
+
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES
 		PREFIX ""
@@ -30,3 +33,9 @@ set_target_properties(${PROJECT_NAME}
 		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 		CXX_STANDARD 17
 		)
+
+add_custom_target(LINK_CL_KERNELS
+		COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/clkernels ${ASSET_OUTPUT_DIR}/clkernels
+		)
+
+add_dependencies(${PROJECT_NAME} LINK_CL_KERNELS)

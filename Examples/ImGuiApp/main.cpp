@@ -18,11 +18,10 @@ class App : public rfw::Application
 	App();
 
   protected:
-	void init() override;
-	void loadScene(std::unique_ptr<rfw::RenderSystem> &rs) override;
-	void loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void init(std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void update(std::unique_ptr<rfw::RenderSystem> &rs, float dt) override;
-	void renderGUI(std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void post_render(std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void cleanup() override;
 
   private:
@@ -72,23 +71,19 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(512, 512, "RenderingFW", VULKANRTX)
+App::App() : Application(512, 512, "RenderingFW", GLRENDERER)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
 	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
-	  mouseX = static_cast<uint>(x * double(window.getWidth()));
-	  mouseY = static_cast<uint>(y * double(window.getHeight()));
+		mouseX = static_cast<uint>(x * double(window.getWidth()));
+		mouseY = static_cast<uint>(y * double(window.getHeight()));
 	});
 }
 
-void App::init()
+void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	// Initialization of your application
-}
-
-void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
-{
 	rs->setSkybox("Envmaps/sky_15.hdr");
 #if SKINNED_MESH
 	skinnedMesh = rs->addObject("Models/capture.DAE");
@@ -126,7 +121,7 @@ void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
 #endif
 }
 
-void App::loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
+void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
 {
 #if SKINNED_MESH
 	skinnedMeshInstance = rs->addInstance(skinnedMesh, vec3(4));
@@ -262,7 +257,7 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 	}
 }
 
-void App::renderGUI(std::unique_ptr<rfw::RenderSystem> &rs)
+void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	ImGui::Begin("Stats");
 	ImGui::Checkbox("Animations", &playAnimations);

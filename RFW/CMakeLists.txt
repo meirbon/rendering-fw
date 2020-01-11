@@ -1,0 +1,26 @@
+add_subdirectory(RenderContext)
+add_subdirectory(RenderSystem)
+
+set(RENDERERS "")
+
+add_subdirectory(Renderers/CPURT)
+list(APPEND RENDERERS CPURT)
+add_subdirectory(Renderers/EmbreeRT)
+list(APPEND RENDERERS EmbreeRT)
+add_subdirectory(Renderers/VkContext)
+list(APPEND RENDERERS VkContext)
+add_subdirectory(Renderers/VulkanRTX)
+list(APPEND RENDERERS VulkanRTX)
+add_subdirectory(Renderers/GLRenderer)
+list(APPEND RENDERERS GLRenderer)
+
+find_package(CUDA QUIET)
+if (${CUDA_FOUND})
+	add_subdirectory(Renderers/OptiX6Context)
+	list(APPEND RENDERERS OptiX6Context)
+endif (${CUDA_FOUND})
+
+if (APPLE)
+	add_subdirectory(Renderers/MetalRast)
+	list(APPEND RENDERERS MetalRast)
+endif (APPLE)

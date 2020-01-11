@@ -101,44 +101,25 @@ endif (WIN32)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
 set(ASSET_OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory(ImGuiWrapper)
-
-find_package(CUDA)
 add_subdirectory(Dependencies)
-add_subdirectory(RenderContext)
-add_subdirectory(RenderSystem)
-add_subdirectory(Renderers/CPURT)
-add_subdirectory(Renderers/EmbreeRT)
-add_subdirectory(Renderers/VkContext)
-add_subdirectory(Renderers/VulkanRTX)
-add_subdirectory(Renderers/GLRenderer)
+add_subdirectory(RFW)
 
 add_subdirectory(Examples/App)
 add_subdirectory(Examples/ImGuiApp)
-
-add_dependencies(App CPURT)
-add_dependencies(App VkContext)
-add_dependencies(App VulkanRTX)
-add_dependencies(App GLRenderer)
-
-add_dependencies(ImGuiApp CPURT)
-add_dependencies(ImGuiApp EmbreeRT)
-add_dependencies(ImGuiApp VkContext)
-add_dependencies(ImGuiApp VulkanRTX)
-add_dependencies(ImGuiApp GLRenderer)
-
 #if (APPLE)
 #	add_subdirectory(Examples/MetalApp)
 #endif (APPLE)
 
-if (${CUDA_FOUND})
-	add_subdirectory(Renderers/OptiX6Context)
-endif (${CUDA_FOUND})
-if (APPLE)
-	add_subdirectory(Renderers/MetalRast)
-endif (APPLE)
+foreach (RENDERER ${RENDERERS})
+	add_dependencies(App ${RENDERER})
+	add_dependencies(ImGuiApp ${RENDERER})
+	#if (APPLE)
+	#	add_dependencies(MetalApp ${RENDERER})
+	#endif ()
+endforeach ()
 
 add_custom_target(CopyCommonAssets)
 

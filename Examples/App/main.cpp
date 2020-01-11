@@ -15,8 +15,7 @@ class App : public rfw::Application
 	App();
 
   protected:
-	void init() override;
-	void loadScene(std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void init(std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void loadInstances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void update(std::unique_ptr<rfw::RenderSystem> &rs, float dt) override;
 	void renderGUI(std::unique_ptr<rfw::RenderSystem> &rs) override;
@@ -47,9 +46,7 @@ App::App() : Application(512, 512, "RenderingFW", CPURT)
 	});
 }
 
-void App::init() {}
-
-void App::loadScene(std::unique_ptr<rfw::RenderSystem> &rs)
+void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	rs->setSkybox("Envmaps/sky_15.hdr");
 	cesiumMan = rs->addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));

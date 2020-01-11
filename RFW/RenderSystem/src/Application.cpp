@@ -2,9 +2,8 @@
 
 void rfw::Application::run(Application *app)
 {
-	app->init();
-	app->loadScene(app->m_RS);
-	app->loadInstances(app->m_RS->getGeometry(), app->m_RS);
+	app->init(app->m_RS);
+	app->load_instances(app->m_RS->getGeometry(), app->m_RS);
 
 	auto &rs = app->m_RS;
 
@@ -16,7 +15,7 @@ void rfw::Application::run(Application *app)
 		rs->synchronize();
 		rs->renderFrame(app->camera, app->status, true);
 		app->m_ImGuiContext.newFrame();
-		app->renderGUI(rs);
+		app->post_render(rs);
 		app->draw();
 		const float elapsed = t.elapsed();
 		t.reset();

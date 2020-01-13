@@ -34,7 +34,7 @@ class App : public rfw::Application
 	rfw::LightReference spotLight{};
 };
 
-App::App() : Application(512, 512, "RenderingFW", CPURT)
+App::App() : Application(512, 512, "RenderingFW", VULKANRTX)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -49,7 +49,7 @@ App::App() : Application(512, 512, "RenderingFW", CPURT)
 void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	rs->setSkybox("Envmaps/sky_15.hdr");
-	cesiumMan = rs->addObject("Models/CesiumMan.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+	cesiumMan = rs->addObject("Models/CesiumMan/CesiumMan.gltf", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
 	pica = rs->addObject("Models/pica/scene.gltf");
 
 	auto lightMaterial = rs->addMaterial(vec3(50), 1);

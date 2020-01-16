@@ -351,7 +351,7 @@ void RenderSystem::synchronize()
 
 			for (int j = 0, sj = static_cast<int>(meshes.size()); j < sj; j++)
 			{
-				if (!changedTransforms[i])
+				if (!changedTransforms[j])
 					continue;
 
 				const auto meshID = meshes[j].first;

@@ -1,6 +1,6 @@
 #include "PCH.h"
 
-#define PACKET_TRAVERSAL 0
+#define PACKET_TRAVERSAL 1
 
 using namespace rfw;
 
@@ -118,10 +118,24 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			const int start = static_cast<int>(t_id * packetsPerThread);
 			const int end = static_cast<int>((t_id + 1) * packetsPerThread);
 
-#if PACKET_TRAVERSAL
 			for (int i = start; i < end; i++)
 			{
+				const int y = (i % wTiles) * TILE_HEIGHT;
+				const int x = (i / wTiles) * TILE_WIDTH;
+
 				auto &packet = m_Packets[i];
+
+#if PACKET_WIDTH == 4
+				const int x4[4] = {x, x + 1, x, x + 1};
+				const int y4[4] = {y, y, y + 1, y + 1};
+				packet = cpurt::Ray::generateRay4(camParams, x4, y4, &m_RNGs[t_id]);
+#elif PACKET_WIDTH == 8
+				const int x8[8] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
+				const int y8[8] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1};
+				packet = Ray::GenerateRay8(camParams, x8, y8, &m_RNGs[t_id]);
+#endif
+
+#if PACKET_TRAVERSAL
 				topLevelBVH.intersect(packet, 1e-5f);
 
 				for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
@@ -225,11 +239,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					m_Pixels[pixelID] = vec4(color, 1.0f);
 				}
-			}
 #else
-			for (int i = start; i < end; i++)
-			{
-				auto &packet = m_Packets[i];
 				for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
 				{
 					std::optional<Triangle> result;
@@ -315,8 +325,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					m_Pixels[pixelID] = vec4(color, 1.0f);
 				}
-			}
 #endif
+			}
 		}));
 	}
 

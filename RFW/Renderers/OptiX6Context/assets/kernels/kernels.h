@@ -40,7 +40,6 @@ void InitCountersForExtend(unsigned int pathCount);
 void InitCountersSubsequent();
 
 cudaError launchShade(uint pathCount, uint pathLength, const glm::mat3 &toEyeSpace);
-cudaError launchFinalize(bool blit, unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness,
-						 float contrast);
-cudaError launchTonemap(unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness,
-						float contrast);
+cudaError launchFinalize(bool blit, unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness, float contrast);
+cudaError launchTonemap(unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness, float contrast);
+cudaError blitBuffer(const unsigned int scrwidth, const unsigned int scrheight);

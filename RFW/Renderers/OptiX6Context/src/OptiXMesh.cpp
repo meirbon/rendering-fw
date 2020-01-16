@@ -6,60 +6,56 @@
 
 OptiXMesh::OptiXMesh(optix::Context &context, optix::Program attribProgram) : m_Context(context), m_AttribProgram(attribProgram)
 {
-	m_OptiXTriangles = m_Context->createGeometryTriangles();
-	m_Acceleration = m_Context->createAcceleration("Trbvh");
-	m_Acceleration->setProperty("refit", "1"); // Enable refitting
+	optixTriangles = m_Context->createGeometryTriangles();
+	optixTriangles->setAttributeProgram(m_AttribProgram);
 }
 
 OptiXMesh::~OptiXMesh() { cleanup(); }
 
 void OptiXMesh::cleanup()
 {
-	if (m_Triangles)
-		delete m_Triangles;
-	m_Triangles = nullptr;
+	if (triangles)
+		delete triangles;
+	triangles = nullptr;
 }
 
-void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
+void OptiXMesh::setData(const rfw::Mesh &mesh)
 {
-	if (!m_Triangles || m_Triangles->getElementCount() < mesh.triangleCount)
+	const bool hasTriangles = triangles;
+
+	if (!triangles || triangles->getElementCount() < mesh.triangleCount)
 	{
-		delete m_Triangles;
-		m_Triangles = new CUDABuffer<rfw::Triangle>(mesh.triangleCount, ON_DEVICE);
+		delete triangles;
+		triangles = new CUDABuffer<rfw::Triangle>(mesh.triangleCount, ON_DEVICE);
 	}
 
-	m_Triangles->copyToDevice(mesh.triangles, mesh.triangleCount);
+	triangles->copyToDeviceAsync(mesh.triangles, mesh.triangleCount);
 
-	if (!m_VertexBuffer.get() || vertexCount < mesh.vertexCount)
+	if (!m_Vertices || m_Vertices->size() < mesh.vertexCount)
 	{
-		m_VertexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_FLOAT4, mesh.vertexCount);
+		delete m_Vertices;
+		m_Vertices = new OptiXCUDABuffer<glm::vec4, Read>(m_Context, {mesh.vertexCount});
 	}
 
-	if (mesh.hasIndices())
-	{
-		if (!m_IndexBuffer.get() || triangleCount != mesh.triangleCount)
-		{
-			m_IndexBuffer = m_Context->createBuffer(RT_BUFFER_INPUT, RT_FORMAT_UNSIGNED_INT3, mesh.triangleCount);
+	m_Vertices->copy_to_device(mesh.vertices, {mesh.vertexCount}, 0, true);
+	assert(m_Vertices->size() == mesh.vertexCount);
 
-			memcpy(m_IndexBuffer->map(), mesh.indices, mesh.triangleCount * sizeof(glm::uvec3));
-			m_IndexBuffer->unmap();
-			m_OptiXTriangles->setTriangleIndices(m_IndexBuffer, RT_FORMAT_UNSIGNED_INT3);
-		}
+	if (mesh.hasIndices() && (!m_Indices || triangleCount != mesh.triangleCount))
+	{
+		delete m_Indices;
+		m_Indices = new OptiXCUDABuffer<glm::uvec3, Read>(m_Context, {mesh.triangleCount});
+		m_Indices->copy_to_device(mesh.indices, {mesh.triangleCount}, 0, true);
+		optixTriangles->setTriangleIndices(m_Indices->buffer(), RT_FORMAT_UNSIGNED_INT3);
+
+		assert(m_Indices->size() == mesh.triangleCount);
 	}
 
-	memcpy(m_VertexBuffer->map(), mesh.vertices, mesh.vertexCount * sizeof(glm::vec4));
-	m_VertexBuffer->unmap();
-
-	m_OptiXTriangles->setAttributeProgram(m_AttribProgram);
-	m_OptiXTriangles->setPrimitiveCount(static_cast<uint>(mesh.triangleCount));
-	m_OptiXTriangles->setVertices(static_cast<uint>(mesh.vertexCount), m_VertexBuffer, 0, sizeof(vec4), RT_FORMAT_FLOAT3);
-	m_OptiXTriangles->setBuildFlags(RT_GEOMETRY_BUILD_FLAG_NONE);
-
+	optixTriangles->setPrimitiveCount(static_cast<uint>(mesh.triangleCount));
+	optixTriangles->setVertices(static_cast<uint>(mesh.vertexCount), m_Vertices->buffer(), 0, sizeof(vec4), RT_FORMAT_FLOAT3);
+	optixTriangles->setBuildFlags(RT_GEOMETRY_BUILD_FLAG_NONE);
 	try
 	{
-		m_OptiXTriangles->validate();
-		m_VertexBuffer->validate();
-		m_OptiXTriangles->validate();
+		optixTriangles->validate();
 		CheckCUDA(cudaGetLastError());
 	}
 	catch (const std::exception &e)
@@ -67,8 +63,8 @@ void OptiXMesh::setData(const rfw::Mesh &mesh, optix::Material material)
 		WARNING("%s", e.what());
 	}
 
-	m_Acceleration->markDirty();
-
 	vertexCount = mesh.vertexCount;
 	triangleCount = mesh.triangleCount;
+
+	CheckCUDA(cudaDeviceSynchronize());
 }

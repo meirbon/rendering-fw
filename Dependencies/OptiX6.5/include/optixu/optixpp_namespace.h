@@ -99,7 +99,7 @@ namespace optix {
 
     /// Takes a raw pointer of arbitrary type and creates a handle 
     template<class U>
-    Handle(U* ptr) : ptr(ptr) { ref(); }
+    Handle(U* ptr) : ptr(reinterpret_cast<T*>(ptr)) { ref(); }
 
     /// Takes a handle of the same type and creates a handle
     Handle(const Handle<T>& copy) : ptr(copy.ptr) { ref(); }

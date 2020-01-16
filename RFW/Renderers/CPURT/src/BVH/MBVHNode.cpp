@@ -27,11 +27,11 @@ void MBVHNode::set_bounds(unsigned int nodeIdx, const AABB &bounds)
 
 MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t, const float t_min) const
 {
+	MBVHHit hit;
+
 #if 1
 	static const __m128i mask = _mm_set1_epi32(0xFFFFFFFCu);
 	static const __m128i or_mask = _mm_set_epi32(0b11, 0b10, 0b01, 0b00);
-
-	MBVHHit hit{};
 
 	__m128 orgComponent = _mm_set1_ps(org.x);
 	__m128 dirComponent = _mm_set1_ps(dirInverse.x);
@@ -70,22 +70,7 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 	hit.t_mini = _mm_and_si128(hit.t_mini, mask);
 	hit.t_mini = _mm_or_si128(hit.t_mini, or_mask);
 	hit.result = bvec4(resultMask & 1, resultMask & 2, resultMask & 4, resultMask & 8);
-
-	if (hit.tmin[0] > hit.tmin[1])
-		std::swap(hit.tmin[0], hit.tmin[1]);
-	if (hit.tmin[2] > hit.tmin[3])
-		std::swap(hit.tmin[2], hit.tmin[3]);
-	if (hit.tmin[0] > hit.tmin[2])
-		std::swap(hit.tmin[0], hit.tmin[2]);
-	if (hit.tmin[1] > hit.tmin[3])
-		std::swap(hit.tmin[1], hit.tmin[3]);
-	if (hit.tmin[2] > hit.tmin[3])
-		std::swap(hit.tmin[2], hit.tmin[3]);
-
-	return hit;
 #else
-	MBVHHit hit{};
-
 	glm::vec4 t1 = (bminx4 - org.x) * dirInverse.x;
 	glm::vec4 t2 = (bmaxx4 - org.x) * dirInverse.x;
 
@@ -110,6 +95,7 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 	hit.tmini[3] = ((hit.tmini[3] & 0xFFFFFFFCu) | 0b11u);
 
 	hit.result = greaterThan(tmax, glm::vec4(0.0f)) && lessThanEqual(hit.tmin4, tmax) && lessThanEqual(hit.tmin4, glm::vec4(*t));
+#endif
 
 	if (hit.tmin[0] > hit.tmin[1])
 		std::swap(hit.tmin[0], hit.tmin[1]);
@@ -123,7 +109,6 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 		std::swap(hit.tmin[2], hit.tmin[3]);
 
 	return hit;
-#endif
 }
 
 MBVHHit MBVHNode::intersect4(cpurt::RayPacket4 &packet, float min_t) const
@@ -134,14 +119,6 @@ MBVHHit MBVHNode::intersect4(cpurt::RayPacket4 &packet, float min_t) const
 
 	for (int i = 0; i < 4; i++)
 	{
-#if 1
-		const vec3 origin = vec3(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i]);
-		const vec3 dirInverse = 1.0f / vec3(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i]);
-		const auto temp_hit = intersect(origin, dirInverse, &packet.t[i], min_t);
-		hit.result |= temp_hit.result;
-
-		hit.t_min = _mm_min_ps(hit.t_min, temp_hit.t_min);
-#else
 		__m128 orgComponent = _mm_set1_ps(packet.origin_x[i]);
 		__m128 dirComponent = _mm_set1_ps(1.0f / packet.direction_x[i]);
 
@@ -181,7 +158,6 @@ MBVHHit MBVHNode::intersect4(cpurt::RayPacket4 &packet, float min_t) const
 		hit.result.w = hit.result.w || (resultMask & 8);
 
 		_mm_maskstore_ps(hit.tmin, _mm_castps_si128(hit_4), _mm_min_ps(hit.t_min, t_min));
-#endif
 	}
 
 	hit.t_mini = _mm_and_si128(hit.t_mini, mask);

@@ -28,7 +28,7 @@ void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 		CheckCUDA(cudaDeviceSynchronize());
 		m_ScrWidth = w;
 		m_ScrHeight = h;
-		createTexture();
+		setupTexture();
 		resizeBuffers();
 		glViewport(0, 0, w, h);
 		m_Accumulator->clear();
@@ -48,11 +48,6 @@ void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 	m_ScrHeight = m_Window->getHeight();
 	m_SampleIndex = 0;
 
-	setScreenDimensions(m_ScrWidth, m_ScrHeight);
-
-	// Create drawable surface
-	createTexture();
-
 	// Create shader to render texture to screen
 	m_Shader = new GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
 	m_Shader->bind();
@@ -124,9 +119,10 @@ void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 	m_Context["scrsize"]->setInt(m_ScrWidth, m_ScrHeight, 1);
 
 	const auto blueNoiseBuffer = createBlueNoiseBuffer();
-	m_BlueNoise = new OptiXCUDABuffer<uint>(m_Context, blueNoiseBuffer, Read, RT_FORMAT_USER);
-	m_Context["blueNoise"]->setBuffer(m_BlueNoise->getOptiXBuffer());
-	setBlueNoiseBuffer(m_BlueNoise->getDevicePointer());
+	m_BlueNoise = new OptiXCUDABuffer<unsigned int, OptiXBufferType::Read>(m_Context, {blueNoiseBuffer.size()});
+	m_BlueNoise->copy_to_device(blueNoiseBuffer);
+	m_Context["blueNoise"]->setBuffer(m_BlueNoise->device_data());
+	setBlueNoiseBuffer(m_BlueNoise->device_data());
 
 	m_CameraView = new CUDABuffer<CameraView>(1, ON_ALL);
 	setCameraView(m_CameraView->getDevicePointer());
@@ -135,6 +131,8 @@ void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 
 	setGeometryEpsilon(1e-5f);
 	setClampValue(10.0f);
+	setScreenDimensions(m_ScrWidth, m_ScrHeight);
+	setupTexture(); // Create drawable surface
 
 	m_Initialized = true;
 }
@@ -149,108 +147,93 @@ void OptiXContext::init(GLuint *glTextureID, uint width, uint height)
 	m_ScrWidth = width;
 	m_ScrHeight = height;
 	m_SampleIndex = 0;
-	setScreenDimensions(m_ScrWidth, m_ScrHeight);
 
-	if (m_Initialized)
+	if (!m_Initialized)
 	{
-		createTexture();
-		resizeBuffers();
-		m_Accumulator->clearAsync();
-		return;
-	}
+		const auto error = glewInit();
+		if (error != GLEW_NO_ERROR)
+			FAILURE("Could not init GLEW in OptiX context (%i): %s", error, glewGetErrorString(error));
 
-	// RenderContet shared library needs to load its own GL function pointers
-	const auto error = glewInit();
-	if (error != GLEW_NO_ERROR)
-		FAILURE("Could not init GLEW in OptiX context (%i): %s", error, glewGetErrorString(error));
+		try
+		{
+			m_Context = optix::Context::create();
+		}
+		catch (const std::exception &e)
+		{
+			const std::string exception = std::string("OptiX Exception: ") + e.what();
+			DEBUG("%s", exception.data());
+			throw std::runtime_error(exception.data());
+		}
 
-	// Create drawable surface
-	createTexture();
+		m_Acceleration = m_Context->createAcceleration("Trbvh");
+		m_Acceleration->setProperty("refit", "1");
+		m_SceneGraph = m_Context->createGroup();
+		m_SceneGraph->setAcceleration(m_Acceleration);
 
-	// Create shader to render texture to screen
-	m_Shader = new GLShader("shaders/draw-tex.vert", "shaders/draw-tex.frag");
-	m_Shader->bind();
-	m_Shader->setUniform("view", mat4(1.0f)); // Identity matrix as view
-	m_Shader->setUniform("Texture", m_TextureID);
-	m_Shader->unbind();
+		// Retrieve PTX program handles
+		m_AttribProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "triangleAttributes");
+		m_PrimaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generatePrimaryRay");
+		m_SecondaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateSecondaryRay");
+		m_ShadowRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateShadowRay");
+		m_ClosestHit = m_Context->createProgramFromPTXFile("Kernels.ptx", "closestHit");
+		m_ShadowMissProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "missShadow");
 
-	try
-	{
-		m_Context = optix::Context::create();
-	}
-	catch (const std::exception &e)
-	{
-		const std::string exception = std::string("OptiX Exception: ") + e.what();
-		DEBUG("%s", exception.data());
-		throw std::runtime_error(exception.data());
-	}
-	//	m_Context->setUsageReportCallback(usageReportCallback, 1, nullptr);
+		optix::Program exceptionProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "exception");
 
-	m_Acceleration = m_Context->createAcceleration("Trbvh");
-	m_Acceleration->setProperty("refit", "1");
-	m_SceneGraph = m_Context->createGroup();
-	m_SceneGraph->setAcceleration(m_Acceleration);
-
-	// Retrieve PTX program handles
-	m_AttribProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "triangleAttributes");
-	m_PrimaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generatePrimaryRay");
-	m_SecondaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateSecondaryRay");
-	m_ShadowRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateShadowRay");
-	m_ClosestHit = m_Context->createProgramFromPTXFile("Kernels.ptx", "closestHit");
-	m_ShadowMissProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "missShadow");
-
-	optix::Program exceptionProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "exception");
-
-	// Setup context entry points for each ray type
-	m_Context->setRayTypeCount(3);
-	m_Context->setEntryPointCount(3);
-	m_Context->setMaxCallableProgramDepth(1);
-	m_Context->setRayGenerationProgram(Primary, m_PrimaryRayProgram);
-	m_Context->setRayGenerationProgram(Secondary, m_SecondaryRayProgram);
-	m_Context->setRayGenerationProgram(Shadow, m_ShadowRayProgram);
-	m_Context->setMissProgram(Shadow, m_ShadowMissProgram);
+		// Setup context entry points for each ray type
+		m_Context->setRayTypeCount(3);
+		m_Context->setEntryPointCount(3);
+		m_Context->setMaxCallableProgramDepth(1);
+		m_Context->setRayGenerationProgram(Primary, m_PrimaryRayProgram);
+		m_Context->setRayGenerationProgram(Secondary, m_SecondaryRayProgram);
+		m_Context->setRayGenerationProgram(Shadow, m_ShadowRayProgram);
+		m_Context->setMissProgram(Shadow, m_ShadowMissProgram);
 
 #ifndef NDEBUG
-	// Set exception programs
-	m_Context->setExceptionProgram(Primary, exceptionProgram);
-	m_Context->setExceptionProgram(Secondary, exceptionProgram);
-	m_Context->setExceptionProgram(Shadow, exceptionProgram);
-	m_Context->setPrintEnabled(true);
-	m_Context->setExceptionEnabled(RT_EXCEPTION_ALL, true);
+		// Set exception programs
+		m_Context->setExceptionProgram(Primary, exceptionProgram);
+		m_Context->setExceptionProgram(Secondary, exceptionProgram);
+		m_Context->setExceptionProgram(Shadow, exceptionProgram);
+		m_Context->setPrintEnabled(true);
+		m_Context->setExceptionEnabled(RT_EXCEPTION_ALL, true);
 #endif
 
-	m_Material = m_Context->createMaterial();
-	m_Material->setClosestHitProgram(Primary, m_ClosestHit);
-	m_Material->setClosestHitProgram(Secondary, m_ClosestHit);
+		m_Material = m_Context->createMaterial();
+		m_Material->setClosestHitProgram(Primary, m_ClosestHit);
+		m_Material->setClosestHitProgram(Secondary, m_ClosestHit);
 
-	m_Counters = new CUDABuffer<Counters>(1);
+		m_Counters = new CUDABuffer<Counters>(1);
 
-	setCounters(m_Counters->getDevicePointer());
+		setCounters(m_Counters->getDevicePointer());
 
-	m_Context["sceneRoot"]->set(m_SceneGraph);
+		m_Context["sceneRoot"]->set(m_SceneGraph);
+		m_Context["posLensSize"]->setFloat(0.0f, 0.0f, 0.0f, 0.0f);
+		m_Context["right"]->setFloat(0.0f, 0.0f, 0.0f);
+		m_Context["up"]->setFloat(0.0f, 0.0f, 0.0f);
+		m_Context["p1"]->setFloat(0.0f, 0.0f, 0.0f);
+		m_Context["geometryEpsilon"]->setFloat(m_GeometryEpsilon);
+
+		const auto blueNoiseBuffer = createBlueNoiseBuffer();
+		m_BlueNoise = new OptiXCUDABuffer<uint, OptiXBufferType::Read>(m_Context, blueNoiseBuffer.size());
+		m_BlueNoise->copy_to_device(blueNoiseBuffer);
+		m_Context["blueNoise"]->setBuffer(m_BlueNoise->buffer());
+		setBlueNoiseBuffer(m_BlueNoise->device_data());
+
+		m_CameraView = new CUDABuffer<CameraView>(1, ON_ALL);
+		setCameraView(m_CameraView->getDevicePointer());
+
+		setGeometryEpsilon(1e-5f);
+		setClampValue(10.0f);
+		m_Initialized = true;
+	}
+
 	m_Context["sampleIndex"]->setUint(0);
-
-	m_Context["posLensSize"]->setFloat(0.0f, 0.0f, 0.0f, 0.0f);
-	m_Context["right"]->setFloat(0.0f, 0.0f, 0.0f);
-	m_Context["up"]->setFloat(0.0f, 0.0f, 0.0f);
-	m_Context["p1"]->setFloat(0.0f, 0.0f, 0.0f);
-	m_Context["geometryEpsilon"]->setFloat(m_GeometryEpsilon);
 	m_Context["scrsize"]->setInt(m_ScrWidth, m_ScrHeight, 1);
-
-	const auto blueNoiseBuffer = createBlueNoiseBuffer();
-	m_BlueNoise = new OptiXCUDABuffer<uint>(m_Context, blueNoiseBuffer, Read, RT_FORMAT_USER);
-	m_Context["blueNoise"]->setBuffer(m_BlueNoise->getOptiXBuffer());
-	setBlueNoiseBuffer(m_BlueNoise->getDevicePointer());
-
-	m_CameraView = new CUDABuffer<CameraView>(1, ON_ALL);
-	setCameraView(m_CameraView->getDevicePointer());
-
+	setScreenDimensions(m_ScrWidth, m_ScrHeight);
 	resizeBuffers();
+	setupTexture();
 
-	setGeometryEpsilon(1e-5f);
-	setClampValue(10.0f);
-
-	m_Initialized = true;
+	m_ResetFrame = true;
 }
 
 void OptiXContext::cleanup()
@@ -309,11 +292,11 @@ void OptiXContext::cleanup()
 void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 {
 	Counters *counters = m_Counters->getHostPointer();
-	if (status == Reset || m_FirstFrame)
+	if (status == Reset || m_ResetFrame)
 	{
-		m_FirstFrame = false;
-		cudaMemsetAsync(m_Accumulator->getDevicePointer(), 0, m_ScrWidth * m_ScrHeight * sizeof(vec4));
-		CheckCUDA(cudaDeviceSynchronize());
+		m_ResetFrame = false;
+		cudaMemsetAsync(m_Accumulator->device_data(), 0, m_Accumulator->size() * sizeof(vec4));
+		m_Accumulator->clear_async();
 		m_SampleIndex = 0;
 
 		const auto view = camera.getView();
@@ -336,12 +319,11 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	}
 
 	counters->samplesTaken = m_SampleIndex;
-	m_Counters->copyToDeviceAsync();
+	m_Counters->copyToDevice();
 	m_Context["sampleIndex"]->setUint(m_SampleIndex);
 	m_Context["pathLength"]->setUint(0);
 
-	CheckCUDA(cudaGetLastError());
-
+	cudaDeviceSynchronize();
 	try
 	{
 		m_Context->validate();
@@ -359,6 +341,8 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	{
 		timer.reset();
 		m_Context->launch(Primary, m_ScrWidth * m_ScrHeight);
+		CheckCUDA(cudaGetLastError());
+
 		m_RenderStats.primaryCount += m_ScrWidth * m_ScrHeight;
 		m_RenderStats.primaryTime += timer.elapsed();
 	}
@@ -369,8 +353,6 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	}
 
 	glm::mat3 toEyeMatrix = transpose(inverse(camera.getMatrix()));
-	;
-
 	uint pathLength = 0;
 
 	const auto pixelCount = static_cast<uint>(m_ScrWidth * m_ScrHeight);
@@ -432,15 +414,14 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	CheckCUDA(cudaDeviceSynchronize());
 	m_CUDASurface.bindSurface();
 
+	CheckCUDA(launchFinalize(!m_Denoise, m_ScrWidth, m_ScrHeight, m_SampleIndex, camera.brightness, camera.contrast));
+#if ALLOW_DENOISER
 	if (m_Denoise)
 	{
-		CheckCUDA(launchFinalize(false, m_ScrWidth, m_ScrHeight, m_SampleIndex, camera.brightness, camera.contrast));
 		CheckCUDA(cudaDeviceSynchronize());
 		try
 		{
 			m_DenoiseCommandList->execute();
-			CheckCUDA(cudaDeviceSynchronize());
-			CheckCUDA(launchTonemap(m_ScrWidth, m_ScrHeight, m_SampleIndex, camera.brightness, camera.contrast));
 			CheckCUDA(cudaDeviceSynchronize());
 		}
 		catch (const std::exception &e)
@@ -448,12 +429,11 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 			WARNING(e.what());
 			throw std::runtime_error(e.what());
 		}
-	}
-	else
-	{
-		CheckCUDA(launchFinalize(true, m_ScrWidth, m_ScrHeight, m_SampleIndex, camera.brightness, camera.contrast));
+
+		CheckCUDA(blitBuffer(m_ScrWidth, m_ScrHeight));
 		CheckCUDA(cudaDeviceSynchronize());
 	}
+#endif
 
 	m_CUDASurface.unbindSurface();
 
@@ -590,55 +570,79 @@ void OptiXContext::setTextures(const std::vector<rfw::TextureData> &textures)
 
 void OptiXContext::setMesh(const size_t index, const rfw::Mesh &mesh)
 {
+	m_AnyMeshChanged = true;
+
 	if (m_Meshes.size() <= index)
 	{
 		while (m_Meshes.size() <= index)
+		{
+			m_MeshChanged.push_back(true);
 			m_Meshes.push_back(new OptiXMesh(m_Context, m_AttribProgram));
+		}
 	}
 
-	m_Meshes.at(index)->setData(mesh, m_Material);
-	m_Meshes.at(index)->getAcceleration()->markDirty();
-	m_Acceleration->markDirty();
+	m_MeshChanged[index] = true;
+	m_Meshes[index]->setData(mesh);
 }
 
 void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
-	bool addInsteadOfSet = false;
-	if (m_Instances.size() <= instanceIdx)
+	try
 	{
-		m_Instances.push_back(m_Context->createTransform());
-		m_InstanceDescriptors.emplace_back();
-		addInsteadOfSet = true;
+		bool addInsteadOfSet = false;
+		if (m_Instances.size() <= instanceIdx)
+		{
+			m_Instances.push_back(m_Context->createTransform());
+			m_InstanceDescriptors.emplace_back();
+			m_InstanceMeshes.emplace_back(0);
+
+			auto &instance = m_Instances[instanceIdx];
+
+			auto *mesh = m_Meshes[meshIdx];
+
+			auto geometryInstance = m_Context->createGeometryInstance(mesh->optixTriangles, m_Material);
+			geometryInstance["instanceIdx"]->setUint(static_cast<uint>(instanceIdx));
+
+			auto group = m_Context->createGeometryGroup();
+			group->setAcceleration(m_Context->createAcceleration("Trbvh"));
+			group->addChild(geometryInstance);
+			group->validate();
+
+			m_InstanceMeshes[instanceIdx] = meshIdx;
+			instance->setChild(group);
+			instance->setMatrix(true, value_ptr(transform), value_ptr(transpose(transform)));
+			instance->validate();
+
+			m_SceneGraph->addChild(instance);
+			m_SceneGraph->validate();
+		}
+		else
+		{
+			auto &instance = m_Instances[instanceIdx];
+			if (m_InstanceMeshes[instanceIdx] != meshIdx)
+			{
+				auto group = instance->getChild<optix::GeometryGroup>();
+				group->getChild(0)->setGeometryTriangles(m_Meshes[meshIdx]->optixTriangles);
+				group->validate();
+			}
+
+			instance->setMatrix(true, value_ptr(transform), value_ptr(transpose(transform)));
+			instance->validate();
+
+			m_InstanceMeshes[instanceIdx] = meshIdx;
+		}
+
+		m_InstanceDescriptors[instanceIdx].invTransform = inverse_transform;
+		m_InstanceDescriptors[instanceIdx].triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->triangles->getDevicePointer());
+
+		m_Acceleration->markDirty();
+		m_Acceleration->validate();
 	}
-
-	auto &instance = m_Instances.at(instanceIdx);
-
-	const auto *mesh = m_Meshes.at(meshIdx);
-
-	auto geometryInstance = m_Context->createGeometryInstance(mesh->getGeometryTriangles(), m_Material);
-	geometryInstance["instanceIdx"]->setUint(static_cast<uint>(instanceIdx));
-
-	auto group = m_Context->createGeometryGroup();
-	group->setAcceleration(mesh->getAcceleration());
-	group->setChildCount(1);
-	group->setChild(0, geometryInstance);
-	group->validate();
-
-	instance->setChild(group);
-	instance->setMatrix(true, value_ptr(transform), value_ptr(transpose(inverse_transform)));
-	instance->validate();
-
-	m_InstanceDescriptors.at(instanceIdx).invTransform = inverse_transform;
-	m_InstanceDescriptors.at(instanceIdx).triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->getTrianglesBuffer().getDevicePointer());
-
-	if (addInsteadOfSet)
-		m_SceneGraph->addChild(instance);
-	else
-		m_SceneGraph->setChild(static_cast<uint>(instanceIdx), instance);
-
-	m_SceneGraph->validate();
-	m_Acceleration->markDirty();
-	m_Acceleration->validate();
+	catch (const std::exception &e)
+	{
+		WARNING("OptiX exception: %s", e.what());
+		throw std::runtime_error(e.what());
+	}
 }
 
 void OptiXContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
@@ -654,35 +658,48 @@ void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLi
 {
 	CheckCUDA(cudaDeviceSynchronize());
 
-	delete m_AreaLights;
-	delete m_PointLights;
-	delete m_SpotLights;
-	delete m_DirectionalLights;
-
-	m_AreaLights = nullptr;
-	m_PointLights = nullptr;
-	m_SpotLights = nullptr;
-	m_DirectionalLights = nullptr;
-
 	if (lightCount.areaLightCount > 0)
 	{
-		m_AreaLights = new CUDABuffer<DeviceAreaLight>(areaLights, lightCount.areaLightCount, ON_DEVICE);
-		setAreaLights(m_AreaLights->getDevicePointer());
+		if (!m_AreaLights || m_AreaLights->getElementCount() < lightCount.areaLightCount)
+		{
+			delete m_AreaLights;
+			m_AreaLights = new CUDABuffer<DeviceAreaLight>(lightCount.areaLightCount, ON_DEVICE);
+			setAreaLights(m_AreaLights->getDevicePointer());
+		}
+		m_AreaLights->copyToDeviceAsync(areaLights, lightCount.areaLightCount);
 	}
+
 	if (lightCount.pointLightCount > 0)
 	{
-		m_PointLights = new CUDABuffer<DevicePointLight>(pointLights, lightCount.pointLightCount, ON_DEVICE);
-		setPointLights(m_PointLights->getDevicePointer());
+		if (!m_PointLights || m_PointLights->getElementCount() < lightCount.pointLightCount)
+		{
+			delete m_PointLights;
+			m_PointLights = new CUDABuffer<DevicePointLight>(lightCount.pointLightCount, ON_DEVICE);
+			setPointLights(m_PointLights->getDevicePointer());
+		}
+		m_PointLights->copyToDeviceAsync(pointLights, lightCount.pointLightCount);
 	}
-	if (lightCount.spotLightCount > 0)
+
+	if (lightCount.spotLightCount)
 	{
-		m_SpotLights = new CUDABuffer<DeviceSpotLight>(spotLights, lightCount.spotLightCount, ON_DEVICE);
-		setSpotLights(m_SpotLights->getDevicePointer());
+		if (!m_SpotLights || m_SpotLights->getElementCount() < lightCount.spotLightCount)
+		{
+			delete m_SpotLights;
+			m_SpotLights = new CUDABuffer<DeviceSpotLight>(lightCount.spotLightCount, ON_DEVICE);
+			setSpotLights(m_SpotLights->getDevicePointer());
+		}
+		m_SpotLights->copyToDeviceAsync(spotLights, lightCount.spotLightCount);
 	}
+
 	if (lightCount.directionalLightCount > 0)
 	{
-		m_DirectionalLights = new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
-		setDirectionalLights(m_DirectionalLights->getDevicePointer());
+		if (!m_DirectionalLights || m_DirectionalLights->getElementCount())
+		{
+			delete m_DirectionalLights;
+			m_DirectionalLights = new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
+			setDirectionalLights(m_DirectionalLights->getDevicePointer());
+		}
+		m_DirectionalLights->copyToDeviceAsync(directionalLights, lightCount.directionalLightCount);
 	}
 
 	setLightCount(lightCount);
@@ -691,14 +708,38 @@ void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLi
 
 void OptiXContext::update()
 {
+	for (int i = 0, s = static_cast<int>(m_Instances.size()); i < s; i++)
+	{
+		const auto meshID = m_InstanceMeshes[i];
+
+		if (!m_MeshChanged[i])
+			continue;
+
+		auto *mesh = m_Meshes[meshID];
+		auto &instance = m_Instances[i];
+
+		auto &group = instance->getChild<optix::GeometryGroup>();
+		group->getAcceleration()->markDirty();
+		group->getAcceleration()->validate();
+		group->validate();
+
+		m_InstanceDescriptors[i].triangles = reinterpret_cast<DeviceTriangle *>(mesh->triangles->getDevicePointer());
+	}
+
+	if (m_AnyMeshChanged)
+		m_Acceleration->markDirty();
+
+	m_AnyMeshChanged = false;
+	for (auto &b : m_MeshChanged)
+		b = false;
+
 	if (!m_DeviceInstanceDescriptors || m_InstanceDescriptors.size() > m_DeviceInstanceDescriptors->getElementCount())
 	{
 		delete m_DeviceInstanceDescriptors;
 		m_DeviceInstanceDescriptors = new CUDABuffer<DeviceInstanceDescriptor>(m_InstanceDescriptors.size() + (m_InstanceDescriptors.size() % 32), ON_DEVICE);
+		m_DeviceInstanceDescriptors->copyToDeviceAsync(m_InstanceDescriptors);
 		setInstanceDescriptors(m_DeviceInstanceDescriptors->getDevicePointer());
 	}
-
-	m_DeviceInstanceDescriptors->copyToDevice(m_InstanceDescriptors);
 }
 
 void OptiXContext::setProbePos(glm::uvec2 probePos)
@@ -719,8 +760,10 @@ void OptiXContext::getProbeResults(unsigned int *instanceIndex, unsigned int *pr
 rfw::AvailableRenderSettings OptiXContext::getAvailableSettings() const
 {
 	AvailableRenderSettings settings;
+#if ALLOW_DENOISER
 	settings.settingKeys = {"DENOISE"};
 	settings.settingValues = {{"0", "1"}};
+#endif
 	return settings;
 }
 
@@ -732,6 +775,8 @@ void OptiXContext::setSetting(const rfw::RenderSetting &setting)
 
 void OptiXContext::resizeBuffers()
 {
+	const uint pixelCount = m_ScrWidth * m_ScrHeight;
+
 	delete m_Accumulator;
 	delete m_PathStates;
 	delete m_PathOrigins;
@@ -745,66 +790,52 @@ void OptiXContext::resizeBuffers()
 	delete m_InputPixelBuffer;
 	delete m_OutputPixelBuffer;
 
-	const auto pixelCount = m_ScrWidth * m_ScrHeight;
-
-	m_Accumulator = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount, ReadWrite, RT_FORMAT_FLOAT4);
-	m_PathStates = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
-	m_PathOrigins = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
-	m_PathDirections = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
-	m_PathThroughputs = new OptiXCUDABuffer<glm::vec4>(m_Context, pixelCount * 2, ReadWrite, RT_FORMAT_FLOAT4);
-	m_ConnectData = new OptiXCUDABuffer<PotentialContribution>(m_Context, pixelCount, ReadWrite, RT_FORMAT_USER);
+	m_Accumulator = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, {pixelCount});
+	m_PathStates = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, {pixelCount * 2});
+	m_PathOrigins = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, {pixelCount * 2});
+	m_PathDirections = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, {pixelCount * 2});
+	m_PathThroughputs = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, {pixelCount * 2});
+	m_ConnectData = new OptiXCUDABuffer<PotentialContribution, OptiXBufferType::ReadWrite>(m_Context, {pixelCount});
 
 	const std::array<size_t, 2> dimensions = {static_cast<size_t>(m_ScrWidth), static_cast<size_t>(m_ScrHeight)};
-	m_NormalBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);
-	m_AlbedoBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);
-	m_InputNormalBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);
-	m_InputAlbedoBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);
-	m_InputPixelBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);
-	m_OutputPixelBuffer = new OptiXCUDABuffer<glm::vec4>(m_Context, dimensions, ReadWrite, RT_FORMAT_FLOAT4);
+	m_NormalBuffer = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, dimensions);
+	m_AlbedoBuffer = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, dimensions);
+	m_InputNormalBuffer = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, dimensions);
+	m_InputAlbedoBuffer = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, dimensions);
+	m_InputPixelBuffer = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, dimensions);
+	m_OutputPixelBuffer = new OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite>(m_Context, dimensions);
 
-	m_Accumulator->getOptiXBuffer()->validate();
-	m_PathStates->getOptiXBuffer()->validate();
-	m_PathOrigins->getOptiXBuffer()->validate();
-	m_PathDirections->getOptiXBuffer()->validate();
-	m_PathThroughputs->getOptiXBuffer()->validate();
-	m_ConnectData->getOptiXBuffer()->validate();
-	m_NormalBuffer->getOptiXBuffer()->validate();
-	m_AlbedoBuffer->getOptiXBuffer()->validate();
-	m_InputNormalBuffer->getOptiXBuffer()->validate();
-	m_InputAlbedoBuffer->getOptiXBuffer()->validate();
-	m_InputPixelBuffer->getOptiXBuffer()->validate();
-	m_OutputPixelBuffer->getOptiXBuffer()->validate();
+	m_Context["accumulator"]->setBuffer(m_Accumulator->buffer());
+	m_Context["pathStates"]->setBuffer(m_PathStates->buffer());
+	m_Context["pathOrigins"]->setBuffer(m_PathOrigins->buffer());
+	m_Context["pathDirections"]->setBuffer(m_PathDirections->buffer());
+	m_Context["connectData"]->setBuffer(m_ConnectData->buffer());
 
-	m_Context["accumulator"]->setBuffer(m_Accumulator->getOptiXBuffer());
-	m_Context["pathStates"]->setBuffer(m_PathStates->getOptiXBuffer());
-	m_Context["pathOrigins"]->setBuffer(m_PathOrigins->getOptiXBuffer());
-	m_Context["pathDirections"]->setBuffer(m_PathDirections->getOptiXBuffer());
-	m_Context["connectData"]->setBuffer(m_ConnectData->getOptiXBuffer());
-
-	setAccumulator(m_Accumulator->getDevicePointer());
+	setAccumulator(m_Accumulator->device_data());
 	setStride(pixelCount);
-	setPathStates(m_PathStates->getDevicePointer());
-	setPathOrigins(m_PathOrigins->getDevicePointer());
-	setPathDirections(m_PathDirections->getDevicePointer());
-	setPathThroughputs(m_PathThroughputs->getDevicePointer());
-	setPotentialContributions(m_ConnectData->getDevicePointer());
-	setNormalBuffer(m_NormalBuffer->getDevicePointer());
-	setAlbedoBuffer(m_AlbedoBuffer->getDevicePointer());
-	setInputNormalBuffer(m_InputNormalBuffer->getDevicePointer());
-	setInputAlbedoBuffer(m_InputAlbedoBuffer->getDevicePointer());
-	setInputPixelBuffer(m_InputPixelBuffer->getDevicePointer());
-	setOutputPixelBuffer(m_OutputPixelBuffer->getDevicePointer());
+	setPathStates(m_PathStates->device_data());
+	setPathOrigins(m_PathOrigins->device_data());
+	setPathDirections(m_PathDirections->device_data());
+	setPathThroughputs(m_PathThroughputs->device_data());
+	setPotentialContributions(m_ConnectData->device_data());
+	setNormalBuffer(m_NormalBuffer->device_data());
+	setAlbedoBuffer(m_AlbedoBuffer->device_data());
+	setInputNormalBuffer(m_InputNormalBuffer->device_data());
+	setInputAlbedoBuffer(m_InputAlbedoBuffer->device_data());
+	setInputPixelBuffer(m_InputPixelBuffer->device_data());
+	setOutputPixelBuffer(m_OutputPixelBuffer->device_data());
 
 	setScreenDimensions(m_ScrWidth, m_ScrHeight);
 
+#if ALLOW_DENOISER
 	// Setup OptiX denoiser
 	m_Denoiser = m_Context->createBuiltinPostProcessingStage("DLDenoiser");
 
-	m_Denoiser->declareVariable("input_buffer")->setBuffer(m_InputPixelBuffer->getOptiXBuffer());
-	m_Denoiser->declareVariable("output_buffer")->setBuffer(m_OutputPixelBuffer->getOptiXBuffer());
+	m_Denoiser->declareVariable("input_buffer")->setBuffer(m_InputPixelBuffer->buffer());
+	m_Denoiser->declareVariable("output_buffer")->setBuffer(m_OutputPixelBuffer->buffer());
 	m_Denoiser->declareVariable("blend")->setFloat(0.2f);
-	m_Denoiser->declareVariable("input_albedo_buffer")->setBuffer(m_InputAlbedoBuffer->getOptiXBuffer());
-	m_Denoiser->declareVariable("input_normal_buffer")->setBuffer(m_InputNormalBuffer->getOptiXBuffer());
+	m_Denoiser->declareVariable("input_albedo_buffer")->setBuffer(m_InputAlbedoBuffer->buffer());
+	m_Denoiser->declareVariable("input_normal_buffer")->setBuffer(m_InputNormalBuffer->buffer());
 
 	m_Denoiser->validate();
 
@@ -813,9 +844,10 @@ void OptiXContext::resizeBuffers()
 	m_DenoiseCommandList->finalize();
 
 	m_DenoiseCommandList->validate();
+#endif
 }
 
-void OptiXContext::createTexture()
+void OptiXContext::setupTexture()
 {
 	if (m_CurrentTarget == WINDOW)
 	{

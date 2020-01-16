@@ -62,10 +62,7 @@ __host__ __device__ inline vec3 YCoCgToRGB(const vec3 YCoCg)
 	return vec3(Y + Co - Cg, Y + Cg, Y - Co - Cg);
 }
 
-__host__ __device__ inline float Luminance(vec3 rgb)
-{
-	return 0.299f * min(rgb.x, 10.0f) + 0.587f * min(rgb.y, 10.0f) + 0.114f * min(rgb.z, 10.0f);
-}
+__host__ __device__ inline float Luminance(vec3 rgb) { return 0.299f * min(rgb.x, 10.0f) + 0.587f * min(rgb.y, 10.0f) + 0.114f * min(rgb.z, 10.0f); }
 
 __host__ __device__ inline uint HDRtoRGB32(const vec3 &c)
 {
@@ -77,19 +74,14 @@ __host__ __device__ inline uint HDRtoRGB32(const vec3 &c)
 
 __host__ __device__ inline vec3 RGB32toHDR(const uint c)
 {
-	return vec3((float)(c >> 22) * (1.0f / 1023.0f), (float)((c >> 11) & 2047) * (1.0f / 2047.0f),
-				(float)(c & 2047) * (1.0f / 2047.0f));
+	return vec3((float)(c >> 22) * (1.0f / 1023.0f), (float)((c >> 11) & 2047) * (1.0f / 2047.0f), (float)(c & 2047) * (1.0f / 2047.0f));
 }
 __host__ __device__ inline vec3 RGB32toHDRmin1(const uint c)
 {
-	return vec3((float)max(1u, c >> 22) * (1.0f / 1023.0f), (float)max(1u, (c >> 11) & 2047) * (1.0f / 2047.0f),
-				(float)max(1u, c & 2047) * (1.0f / 2047.0f));
+	return vec3((float)max(1u, c >> 22) * (1.0f / 1023.0f), (float)max(1u, (c >> 11) & 2047) * (1.0f / 2047.0f), (float)max(1u, c & 2047) * (1.0f / 2047.0f));
 }
 
-__host__ __device__ inline float SurvivalProbability(const vec3 &diffuse)
-{
-	return min(1.0f, max(max(diffuse.x, diffuse.y), diffuse.z));
-}
+__host__ __device__ inline float SurvivalProbability(const vec3 &diffuse) { return min(1.0f, max(max(diffuse.x, diffuse.y), diffuse.z)); }
 
 __host__ __device__ inline float FresnelDielectricExact(const vec3 &wo, const vec3 &N, float eta)
 {
@@ -174,14 +166,14 @@ __host__ __device__ inline vec3 SafeOrigin(const vec3 &O, const vec3 &R, const v
 	// along R otherwise
 	const float parallel = 1 - fabs(dot(N, R));
 	const float v = parallel * parallel;
-#if 0
+#if 1
 	// we can go slightly into the surface when iN != N; negate the offset along N in that case
-	const float side = dot( N, R ) < 0 ? -1 : 1;
+	const float side = dot(N, R) < 0 ? -1 : 1;
 #else
 	// negating offset along N only makes sense once we backface cull
 	const float side = 1.0f;
 #endif
-	return O + R * geoEpsilon * (1 - v) + N * side * geoEpsilon * v;
+	return O + R * geoEpsilon * (1.0f - v) + N * side * geoEpsilon * v;
 }
 
 // consistent normal interpolation
@@ -213,30 +205,24 @@ __device__ inline vec4 CombineToFloat4(const vec3 &A, const vec3 &B)
 	// - the input is possitive
 	// - the input can be safely clamped to 31.999
 	// with this in mind, the data is stored as 5:11 unsigned fixed point, which should be plenty.
-	const uint Ar = (uint)(min(A.x, 31.999f) * 2048.0f), Ag = (uint)(min(A.y, 31.999f) * 2048.0f),
-			   Ab = (uint)(min(A.z, 31.999f) * 2048.0f);
-	const uint Br = (uint)(min(B.x, 31.999f) * 2048.0f), Bg = (uint)(min(B.y, 31.999f) * 2048.0f),
-			   Bb = (uint)(min(B.z, 31.999f) * 2048.0f);
-	return vec4(__uint_as_float((Ar << 16) + Ag), __uint_as_float(Ab), __uint_as_float((Br << 16) + Bg),
-				__uint_as_float(Bb));
+	const uint Ar = (uint)(min(A.x, 31.999f) * 2048.0f), Ag = (uint)(min(A.y, 31.999f) * 2048.0f), Ab = (uint)(min(A.z, 31.999f) * 2048.0f);
+	const uint Br = (uint)(min(B.x, 31.999f) * 2048.0f), Bg = (uint)(min(B.y, 31.999f) * 2048.0f), Bb = (uint)(min(B.z, 31.999f) * 2048.0f);
+	return vec4(__uint_as_float((Ar << 16) + Ag), __uint_as_float(Ab), __uint_as_float((Br << 16) + Bg), __uint_as_float(Bb));
 }
 
 __device__ inline vec3 GetDirectFromFloat4(const vec3 &X)
 {
 	const uint v0 = __float_as_uint(X.x), v1 = __float_as_uint(X.y);
-	return vec3((float)(v0 >> 16) * (1.0f / 2048.0f), (float)(v0 & 65535) * (1.0f / 2048.0f),
-				(float)v1 * (1.0f / 2048.0f));
+	return vec3((float)(v0 >> 16) * (1.0f / 2048.0f), (float)(v0 & 65535) * (1.0f / 2048.0f), (float)v1 * (1.0f / 2048.0f));
 }
 
 __device__ inline vec3 GetIndirectFromFloat4(const vec4 &X)
 {
 	const uint v2 = __float_as_uint(X.z), v3 = __float_as_uint(X.w);
-	return vec3((float)(v2 >> 16) * (1.0f / 2048.0f), (float)(v2 & 65535) * (1.0f / 2048.0f),
-				(float)v3 * (1.0f / 2048.0f));
+	return vec3((float)(v2 >> 16) * (1.0f / 2048.0f), (float)(v2 & 65535) * (1.0f / 2048.0f), (float)v3 * (1.0f / 2048.0f));
 }
 
-__host__ __device__ inline float blueNoiseSampler(const uint *blueNoise, int x, int y, int sampleIdx,
-												  int sampleDimension)
+__host__ __device__ inline float blueNoiseSampler(const uint *blueNoise, int x, int y, int sampleIdx, int sampleDimension)
 {
 	// wrap arguments
 	x &= 127;

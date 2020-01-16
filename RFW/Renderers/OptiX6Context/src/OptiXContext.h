@@ -46,11 +46,11 @@ class OptiXContext : public rfw::RenderContext
 	[[nodiscard]] rfw::RenderStats getStats() const override;
 
   private:
-	bool m_Initialized = false, m_Denoise = false, m_FirstFrame = true;
+	bool m_Initialized = false, m_Denoise = false, m_ResetFrame = true;
 	rfw::RenderTarget m_CurrentTarget;
 	rfw::RenderStats m_RenderStats;
 	void resizeBuffers();
-	void createTexture();
+	void setupTexture();
 
 	unsigned int m_SampleIndex = 0;
 	float m_GeometryEpsilon = 0.0001f;
@@ -79,13 +79,13 @@ class OptiXContext : public rfw::RenderContext
 	CUDABuffer<rfw::DeviceMaterial> *m_Materials = nullptr;
 	std::vector<rfw::DeviceInstanceDescriptor> m_InstanceDescriptors;
 	CUDABuffer<rfw::DeviceInstanceDescriptor> *m_DeviceInstanceDescriptors = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_Accumulator = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_PathStates = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_PathOrigins = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_PathDirections = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_PathThroughputs = nullptr;
-	OptiXCUDABuffer<PotentialContribution> *m_ConnectData = nullptr;
-	OptiXCUDABuffer<uint> *m_BlueNoise = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_Accumulator = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_PathStates = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_PathOrigins = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_PathDirections = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_PathThroughputs = nullptr;
+	OptiXCUDABuffer<PotentialContribution, OptiXBufferType::ReadWrite> *m_ConnectData = nullptr;
+	OptiXCUDABuffer<unsigned int, OptiXBufferType::Read> *m_BlueNoise = nullptr;
 
 	CUDABuffer<rfw::DeviceAreaLight> *m_AreaLights = nullptr;
 	CUDABuffer<rfw::DevicePointLight> *m_PointLights = nullptr;
@@ -95,18 +95,21 @@ class OptiXContext : public rfw::RenderContext
 	CUDABuffer<rfw::CameraView> *m_CameraView = nullptr;
 	CUDABuffer<Counters> *m_Counters = nullptr;
 	std::vector<OptiXMesh *> m_Meshes;
+	std::vector<bool> m_MeshChanged;
+	bool m_AnyMeshChanged = true;
 
+	std::vector<size_t> m_InstanceMeshes;
 	std::vector<optix::Transform> m_Instances;
 	std::vector<rfw::TextureData> m_TexDescriptors;
 	std::vector<CUDABuffer<uint> *> m_TextureBuffers;
 	CUDABuffer<uint *> *m_TextureBuffersPointers = nullptr;
 
-	OptiXCUDABuffer<glm::vec4> *m_NormalBuffer = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_AlbedoBuffer = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_InputNormalBuffer = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_InputAlbedoBuffer = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_InputPixelBuffer = nullptr;
-	OptiXCUDABuffer<glm::vec4> *m_OutputPixelBuffer = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_NormalBuffer = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_AlbedoBuffer = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_InputNormalBuffer = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_InputAlbedoBuffer = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_InputPixelBuffer = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_OutputPixelBuffer = nullptr;
 
 	optix::CommandList m_DenoiseCommandList;
 	optix::PostprocessingStage m_Denoiser;

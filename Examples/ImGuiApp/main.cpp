@@ -71,7 +71,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(512, 512, "RenderingFW", VULKANRTX)
+App::App() : Application(512, 512, "RenderingFW", OPTIX6)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -102,8 +102,8 @@ void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 #if PICA_LIGHTS
 	auto lightMaterial = rs->addMaterial(vec3(50), 1);
 	lightQuad = rs->addQuad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
-	pointLight = rs->addPointLight(vec3(-15, 10, -5), vec3(10));
-	spotLight = rs->addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
+	pointLight = rs->addPointLight(vec3(-15, 10, -5), vec3(20));
+	spotLight = rs->addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(30), cos(radians(45.0f)), vec3(0, -1, 0));
 #endif
 #if DRAGON
 	const auto dragonMaterial = rs->addMaterial(vec3(255.f / 255.f, 231.f / 255.f, 102.f / 255.f), 0.05f);

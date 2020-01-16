@@ -224,9 +224,9 @@ vec3 SafeOrigin(const vec3 O, const vec3 R, const vec3 N, const float geoEpsilon
 	// offset outgoing ray direction along R and / or N: along N when strongly parallel to the origin surface; mostly along R otherwise
 	const float parallel = 1 - abs(dot(N, R));
 	const float v = parallel * parallel;
-#if 0
+#if 1
 	// we can go slightly into the surface when iN != N; negate the offset along N in that case
-	const float side = dot( N, R ) < 0 ? -1 : 1;
+	const float side = dot(N, R) < 0 ? -1 : 1;
 #else
 	// negating offset along N only makes sense once we backface cull
 	const float side = 1.0f;
@@ -262,16 +262,11 @@ vec3 safeOrigin(vec3 O, vec3 R, vec3 N, float epsilon)
 {
 	const vec3 _N = dot(N, R) > 0 ? N : -N;
 	ivec3 of_i = ivec3(256.0f * _N);
-	vec3 p_i = vec3(
-	intBitsToFloat(floatBitsToInt(O.x) + ((O.x < 0) ? -of_i.x : of_i.x)),
-	intBitsToFloat(floatBitsToInt(O.y) + ((O.y < 0) ? -of_i.y : of_i.y)),
-	intBitsToFloat(floatBitsToInt(O.z) + ((O.z < 0) ? -of_i.z : of_i.z))
-	);
+	vec3 p_i = vec3(intBitsToFloat(floatBitsToInt(O.x) + ((O.x < 0) ? -of_i.x : of_i.x)), intBitsToFloat(floatBitsToInt(O.y) + ((O.y < 0) ? -of_i.y : of_i.y)),
+					intBitsToFloat(floatBitsToInt(O.z) + ((O.z < 0) ? -of_i.z : of_i.z)));
 
-	return vec3(
-	abs(O.x) < (1.0f / 32.0f) ? O.x + (1.0f / 65536.0f) * _N.x : p_i.x,
-	abs(O.y) < (1.0f / 32.0f) ? O.y + (1.0f / 65536.0f) * _N.y : p_i.y,
-	abs(O.z) < (1.0f / 32.0f) ? O.z + (1.0f / 65536.0f) * _N.z : p_i.z);
+	return vec3(abs(O.x) < (1.0f / 32.0f) ? O.x + (1.0f / 65536.0f) * _N.x : p_i.x, abs(O.y) < (1.0f / 32.0f) ? O.y + (1.0f / 65536.0f) * _N.y : p_i.y,
+				abs(O.z) < (1.0f / 32.0f) ? O.z + (1.0f / 65536.0f) * _N.z : p_i.z);
 }
 
 vec4 CombineToVec4(const vec3 A, const vec3 B)

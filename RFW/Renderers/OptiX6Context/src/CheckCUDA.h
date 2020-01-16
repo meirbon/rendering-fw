@@ -18,4 +18,4 @@ static void _CheckCUDA(const char *file, int line, cudaError code, bool abort = 
 	}
 }
 
-#define CheckCUDA(c) _CheckCUDA(__FILE__, __LINE__, c);
+#define CheckCUDA(c) _CheckCUDA(__FILE__, __LINE__, c)

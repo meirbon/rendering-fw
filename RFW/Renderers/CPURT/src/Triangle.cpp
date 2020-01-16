@@ -153,6 +153,8 @@ int intersect4(cpurt::RayPacket4 &packet, const glm::vec4 &p0, const glm::vec4 &
 		__m128 edge2_4;
 	};
 
+	// const vec3 edge1 = p1 - p0;
+	// const vec3 edge2 = p2 - p0;
 	edge1_4 = _mm_sub_ps(_mm_load_ps(value_ptr(p1)), _mm_load_ps(value_ptr(p0)));
 	edge2_4 = _mm_sub_ps(_mm_load_ps(value_ptr(p2)), _mm_load_ps(value_ptr(p0)));
 
@@ -169,6 +171,7 @@ int intersect4(cpurt::RayPacket4 &packet, const glm::vec4 &p0, const glm::vec4 &
 	// y = (az * bx - ax * bz)
 	// z = (ax * by - ay * bx)
 	// const vec3 h = cross(dir, edge2);
+
 	const __m128 h_x4 = _mm_sub_ps(_mm_mul_ps(packet.direction_y4[0], edge2_z), _mm_mul_ps(packet.direction_z4[0], edge2_y));
 	const __m128 h_y4 = _mm_sub_ps(_mm_mul_ps(packet.direction_z4[0], edge2_x), _mm_mul_ps(packet.direction_x4[0], edge2_z));
 	const __m128 h_z4 = _mm_sub_ps(_mm_mul_ps(packet.direction_x4[0], edge2_y), _mm_mul_ps(packet.direction_y4[0], edge2_x));

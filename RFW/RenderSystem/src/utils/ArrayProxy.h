@@ -19,7 +19,7 @@ template <typename T> class ArrayProxy
   public:
 	constexpr ArrayProxy(std::nullptr_t) : m_Size(0), m_Data(nullptr) {}
 
-	ArrayProxy(T &ptr) : m_Size(1), m_Data(&ptr) {}
+	ArrayProxy(T &data) : m_Size(1), m_Data(&data) {}
 
 	ArrayProxy(uint32_t count, T *ptr) : m_Size(count), m_Data(ptr) {}
 
@@ -64,8 +64,6 @@ template <typename T> class ArrayProxy
 	[[nodiscard]] bool empty() const { return (m_Size == 0); }
 
 	[[nodiscard]] size_t size() const { return m_Size; }
-
-	const T &operator[](const int idx) { return m_Data[idx]; };
 
 	const T &operator[](const size_t idx) { return m_Data[idx]; };
 

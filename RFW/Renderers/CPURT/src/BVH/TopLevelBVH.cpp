@@ -1,7 +1,7 @@
 #include "../PCH.h"
 
-#define USE_TOP_MBVH 1
-#define USE_MBVH 0
+#define USE_TOP_MBVH 0
+#define USE_MBVH 1
 #define REFIT 0
 
 void rfw::TopLevelBVH::constructBVH()
@@ -135,23 +135,20 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, 
 			for (int i = 0; i < count; i++)
 			{
 				const auto primIdx = m_PrimIndices[leftFirst + i];
-				if (transformedAABBs[primIdx].intersect(org, dirInverse, &t_near, &t_far, t_min))
-				{
-					const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
-					const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
+				const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
+				const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
 
-					_mm_maskstore_ps(value_ptr(tmp_org), mask, origin4);
-					_mm_maskstore_ps(value_ptr(tmp_dir), mask, direction4);
+				_mm_maskstore_ps(value_ptr(tmp_org), mask, origin4);
+				_mm_maskstore_ps(value_ptr(tmp_dir), mask, direction4);
 
-					const CPUMesh *mesh = accelerationStructures[primIdx];
+				const CPUMesh *mesh = accelerationStructures[primIdx];
 #if USE_MBVH
-					if (mesh->mbvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
-						instID = primIdx;
+				if (mesh->mbvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
+					instID = primIdx;
 #else
-					if (mesh->bvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
-						instID = primIdx;
+				if (mesh->bvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
+					instID = primIdx;
 #endif
-				}
 			}
 			continue;
 		}
@@ -185,23 +182,20 @@ std::optional<const rfw::Triangle> rfw::TopLevelBVH::intersect(const vec3 &org, 
 			for (int i = 0; i < node.get_count(); i++)
 			{
 				const auto primIdx = m_PrimIndices[node.get_left_first() + i];
-				if (transformedAABBs[primIdx].intersect(org, dirInverse, &tNear1, &tFar1, t_min))
-				{
-					const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
-					const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
+				const glm_vec4 origin4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, org4);
+				const glm_vec4 direction4 = glm_mat4_mul_vec4(inverseMatrices[primIdx].cols, dir4);
 
-					_mm_maskstore_ps(value_ptr(tmp_org), mask, origin4);
-					_mm_maskstore_ps(value_ptr(tmp_dir), mask, direction4);
+				_mm_maskstore_ps(value_ptr(tmp_org), mask, origin4);
+				_mm_maskstore_ps(value_ptr(tmp_dir), mask, direction4);
 
-					const CPUMesh *mesh = accelerationStructures[primIdx];
+				const CPUMesh *mesh = accelerationStructures[primIdx];
 #if USE_MBVH
-					if (mesh->mbvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
-						instID = primIdx;
+				if (mesh->mbvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
+					instID = primIdx;
 #else
-					if (mesh->bvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
-						instID = primIdx;
+				if (mesh->bvh->traverse(tmp_org, tmp_dir, t_min, t, primID))
+					instID = primIdx;
 #endif
-				}
 			}
 		}
 		else
@@ -304,47 +298,44 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 			{
 				__m128 tNear1, tFar1;
 				const auto inst_id = m_PrimIndices[leftFirst + i];
-				if (transformedAABBs[inst_id].intersect(packet, &tNear1, &tFar1, t_min))
+				const auto &matrix = inverseMatrices[inst_id];
+
+				for (int i = 0; i < 4; i++)
 				{
-					const auto &matrix = inverseMatrices[inst_id];
+					union {
+						__m128 org4;
+						float org[4];
+					};
+					org4 = _mm_setr_ps(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i], 1.0f);
+					union {
+						__m128 dir4;
+						float dir[4];
+					};
+					dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
 
-					for (int i = 0; i < 4; i++)
-					{
-						union {
-							__m128 org4;
-							float org[4];
-						};
-						org4 = _mm_setr_ps(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i], 1.0f);
-						union {
-							__m128 dir4;
-							float dir[4];
-						};
-						dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
+					org4 = glm_mat4_mul_vec4(matrix.cols, org4);
+					dir4 = glm_vec4_normalize(glm_mat4_mul_vec4(matrix.cols, dir4));
 
-						org4 = glm_mat4_mul_vec4(matrix.cols, org4);
-						dir4 = glm_vec4_normalize(glm_mat4_mul_vec4(matrix.cols, dir4));
+					transformedPacket.origin_x[i] = org[0];
+					transformedPacket.origin_y[i] = org[1];
+					transformedPacket.origin_z[i] = org[2];
 
-						transformedPacket.origin_x[i] = org[0];
-						transformedPacket.origin_y[i] = org[1];
-						transformedPacket.origin_z[i] = org[2];
-
-						transformedPacket.direction_x[i] = dir[0];
-						transformedPacket.direction_y[i] = dir[1];
-						transformedPacket.direction_z[i] = dir[2];
-					}
-
-					__m128 hit_mask = _mm_setzero_ps();
-					const auto mesh = accelerationStructures[inst_id];
-#if USE_MBVH
-					mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
-#else
-					mesh->bvh->traverse(transformedPacket, t_min, &hit_mask);
-#endif
-					const __m128i storage_mask = _mm_castps_si128(hit_mask);
-					_mm_maskstore_ps(packet.t, storage_mask, transformedPacket.t4[0]);
-					_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
-					_mm_maskstore_epi32(packet.primID, storage_mask, transformedPacket.primID4[0]);
+					transformedPacket.direction_x[i] = dir[0];
+					transformedPacket.direction_y[i] = dir[1];
+					transformedPacket.direction_z[i] = dir[2];
 				}
+
+				__m128 hit_mask = _mm_setzero_ps();
+				const auto mesh = accelerationStructures[inst_id];
+#if USE_MBVH
+				mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
+#else
+				mesh->bvh->traverse(transformedPacket, t_min, &hit_mask);
+#endif
+				const __m128i storage_mask = _mm_castps_si128(hit_mask);
+				_mm_maskstore_ps(packet.t, storage_mask, transformedPacket.t4[0]);
+				_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
+				_mm_maskstore_epi32(packet.primID, storage_mask, transformedPacket.primID4[0]);
 			}
 			continue;
 		}
@@ -376,49 +367,45 @@ void rfw::TopLevelBVH::intersect(cpurt::RayPacket4 &packet, float t_min) const
 			for (int i = 0; i < node.get_count(); i++)
 			{
 				const auto inst_id = m_PrimIndices[node.get_left_first() + i];
+				const auto &matrix = inverseMatrices[inst_id];
 
-				if (transformedAABBs[inst_id].intersect(packet, &tNear1, &tFar1, t_min))
+				for (int i = 0; i < 4; i++)
 				{
-					const auto &matrix = inverseMatrices[inst_id];
+					union {
+						__m128 org4;
+						float org[4];
+					};
+					org4 = _mm_setr_ps(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i], 1.0f);
+					union {
+						__m128 dir4;
+						float dir[4];
+					};
+					dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
 
-					for (int i = 0; i < 4; i++)
-					{
-						union {
-							__m128 org4;
-							float org[4];
-						};
-						org4 = _mm_setr_ps(packet.origin_x[i], packet.origin_y[i], packet.origin_z[i], 1.0f);
-						union {
-							__m128 dir4;
-							float dir[4];
-						};
-						dir4 = _mm_setr_ps(packet.direction_x[i], packet.direction_y[i], packet.direction_z[i], 0.0f);
+					org4 = glm_mat4_mul_vec4(matrix.cols, org4);
+					dir4 = glm_mat4_mul_vec4(matrix.cols, dir4);
+					dir4 = glm_vec4_normalize(dir4);
 
-						org4 = glm_mat4_mul_vec4(matrix.cols, org4);
-						dir4 = glm_mat4_mul_vec4(matrix.cols, dir4);
-						dir4 = glm_vec4_normalize(dir4);
+					transformedPacket.origin_x[i] = org[0];
+					transformedPacket.origin_y[i] = org[1];
+					transformedPacket.origin_z[i] = org[2];
 
-						transformedPacket.origin_x[i] = org[0];
-						transformedPacket.origin_y[i] = org[1];
-						transformedPacket.origin_z[i] = org[2];
-
-						transformedPacket.direction_x[i] = dir[0];
-						transformedPacket.direction_y[i] = dir[1];
-						transformedPacket.direction_z[i] = dir[2];
-					}
-
-					__m128 hit_mask = _mm_setzero_ps();
-					const auto mesh = accelerationStructures[inst_id];
-#if USE_MBVH
-					mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
-#else
-					mesh->bvh->traverse(transformedPacket, t_min, &hit_mask);
-#endif
-					const __m128i storage_mask = _mm_castps_si128(hit_mask);
-					_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
-					_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
-					_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
+					transformedPacket.direction_x[i] = dir[0];
+					transformedPacket.direction_y[i] = dir[1];
+					transformedPacket.direction_z[i] = dir[2];
 				}
+
+				__m128 hit_mask = _mm_setzero_ps();
+				const auto mesh = accelerationStructures[inst_id];
+#if USE_MBVH
+				mesh->mbvh->traverse(transformedPacket, t_min, &hit_mask);
+#else
+				mesh->bvh->traverse(transformedPacket, t_min, &hit_mask);
+#endif
+				const __m128i storage_mask = _mm_castps_si128(hit_mask);
+				_mm_maskstore_ps(packet.t, storage_mask, *reinterpret_cast<__m128 *>(transformedPacket.t));
+				_mm_maskstore_epi32(packet.instID, storage_mask, _mm_set1_epi32(inst_id));
+				_mm_maskstore_epi32(packet.primID, storage_mask, *reinterpret_cast<__m128i *>(transformedPacket.primID));
 			}
 		}
 		else

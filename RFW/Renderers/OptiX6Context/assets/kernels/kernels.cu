@@ -12,9 +12,7 @@
 
 #include "lights.h"
 
-//#include "lambert.h"
-#include "disney.h"
-//#include "microfacet.h"
+#include "bsdf.h"
 
 #define NEXTMULTIPLEOF(a, b) (((a) + ((b)-1)) & (0x7fffffff - ((b)-1)))
 using namespace glm;
@@ -268,7 +266,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		if (NdotL > 0 && lightPdf > 0)
 		{
 			float shadowPdf;
-			const vec3 sampledBSDF = EvaluateBSDF(shadingData, iN, T, B, D * -1.0f, L, shadowPdf);
+			const vec3 sampledBSDF = EvaluateBSDF(shadingData, iN, T, B, D * -1.0f, L, shadowPdf, seed);
 			if (shadowPdf > 0)
 			{
 				// calculate potential contribution
@@ -292,26 +290,27 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		return;
 
 	vec3 R, bsdf;
-	float newBsdfPdf = 0.0f, r3, r4;
-#if BLUENOISE						  // TODO
-	if (counters->samplesTaken < 256) // Blue noise
-	{
-		const int x = int(pathIndex % scrWidth) & 127;
-		const int y = int(pathIndex / scrWidth) & 127;
-		r3 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 4);
-		r4 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 5);
-	}
-	else
-	{
-		r3 = RandomFloat(seed);
-		r4 = RandomFloat(seed);
-	}
-#else
-	r3 = RandomFloat(seed);
-	r4 = RandomFloat(seed);
-#endif
+	float newBsdfPdf = 0.0f;
+	// float r3, r4;
+	//#if BLUENOISE						  // TODO
+	//	if (counters->samplesTaken < 256) // Blue noise
+	//	{
+	//		const int x = int(pathIndex % scrWidth) & 127;
+	//		const int y = int(pathIndex / scrWidth) & 127;
+	//		r3 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 4);
+	//		r4 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 5);
+	//	}
+	//	else
+	//	{
+	//		r3 = RandomFloat(seed);
+	//		r4 = RandomFloat(seed);
+	//	}
+	//#else
+	//	r3 = RandomFloat(seed);
+	//	r4 = RandomFloat(seed);
+	//#endif
 
-	bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, hitData.w, flip < 0, r3, r4, R, newBsdfPdf);
+	bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, hitData.w, flip < 0, R, newBsdfPdf, seed);
 	throughput = throughput * 1.0f / SurvivalProbability(throughput) * bsdf * abs(dot(iN, R));
 
 #if ALLOW_DENOISER

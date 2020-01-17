@@ -133,7 +133,7 @@ vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const 
 	const float LDotH = dot(wi, H);
 	const vec3 Cdlin = shadingData.color.xyz;
 	const float Cdlum = .3f * Cdlin.x + .6f * Cdlin.y + .1f * Cdlin.z; // luminance approx.
-	const vec3 Ctint = Cdlum > 0.0f ? Cdlin / Cdlum : vec3(1.0f);	  // normalize lum. to isolate hue+sat
+	const vec3 Ctint = Cdlum > 0.0f ? Cdlin / Cdlum : vec3(1.0f);	   // normalize lum. to isolate hue+sat
 	const vec3 Cspec0 = mix(SPECULAR * .08f * mix(vec3(1.0f), Ctint, SPECTINT), Cdlin, METALLIC);
 	vec3 bsdf = vec3(0);
 	vec3 brdf = vec3(0);

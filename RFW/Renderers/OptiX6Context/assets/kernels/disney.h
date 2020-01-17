@@ -5,23 +5,6 @@
 #define BSDF_TYPE_TRANSMITTED 1
 #define BSDF_TYPE_SPECULAR 2
 
-#define INLINE_FUNC __device__ static inline
-#define REFERENCE_OF(x) x &
-#define INVPI glm::one_over_pi<float>()
-#define PI glm::pi<float>()
-#define INV2PI glm::one_over_two_pi<float>()
-#define TWOPI glm::two_pi<float>()
-
-#define ETA shadingData.getEta()
-#define SPECULAR shadingData.getSpecular()
-#define METALLIC shadingData.getMetallic()
-#define TRANSMISSION shadingData.getTransmission()
-#define ROUGHNESS shadingData.getRoughness()
-#define SUBSURFACE shadingData.getSubsurface()
-#define SPECTINT shadingData.getSpecularTint()
-#define CLEARCOAT shadingData.getClearCoat()
-#define CLEARCOATGLOSS shadingData.getClearCoatingGloss()
-
 INLINE_FUNC float disney_lerp(const float a, const float b, const float t) { return a + t * (b - a); }
 
 INLINE_FUNC glm::vec2 disney_lerp(const glm::vec2 a, const glm::vec2 b, const float t) { return a + t * (b - a); }
@@ -280,7 +263,7 @@ INLINE_FUNC void BSDFSample(const ShadingData shadingData, const glm::vec3 T, co
 // ----------------------------------------------------------------
 
 INLINE_FUNC glm::vec3 EvaluateBSDF(const ShadingData shadingData, const glm::vec3 iN, const glm::vec3 T, const glm::vec3 B, const glm::vec3 wo,
-								   const glm::vec3 wi, REFERENCE_OF(float) pdf)
+								   const glm::vec3 wi, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
 {
 	const glm::vec3 bsdf = BSDFEval(shadingData, iN, wo, wi, 0.0f, false);
 	pdf = BSDFPdf(shadingData, iN, wo, wi);
@@ -288,10 +271,10 @@ INLINE_FUNC glm::vec3 EvaluateBSDF(const ShadingData shadingData, const glm::vec
 }
 
 INLINE_FUNC glm::vec3 SampleBSDF(const ShadingData shadingData, const glm::vec3 iN, const glm::vec3 N, const glm::vec3 T, const glm::vec3 B, const glm::vec3 wo,
-								 const float t, const bool backfacing, const float r3, const float r4, REFERENCE_OF(glm::vec3) wi, REFERENCE_OF(float) pdf)
+								 const float t, const bool backfacing, REFERENCE_OF(glm::vec3) wi, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
 {
 	int type;
-	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, r3, r4);
+	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, RandomFloat(seed), RandomFloat(seed));
 	return BSDFEval(shadingData, iN, wo, wi, t, backfacing);
 }
 

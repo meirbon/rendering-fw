@@ -198,7 +198,7 @@ void createTangentSpace(const vec3 N, inout vec3 T, inout vec3 B)
 
 vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
 
-vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
+vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return vec3(dot(T, s), dot(B, s), dot(N, s)); }
 
 vec3 DiffuseReflectionUniform(const float r0, const float r1)
 {

@@ -4,6 +4,8 @@
 
 using namespace glm;
 
+#include "compat.h"
+
 // from: https://aras-p.info/texts/CompactNormalStorage.html
 __host__ __device__ inline uint PackNormal(const vec3 &N)
 {
@@ -263,3 +265,16 @@ __host__ __device__ static inline void clampIntensity(vec4 &value, const float c
 		value.z = value.z * m;
 	}
 }
+
+INLINE_FUNC void createTangentSpace(const vec3 N, REFERENCE_OF(vec3) T, REFERENCE_OF(vec3) B)
+{
+	const float s = sign(N.z);
+	const float a = -1.0f / (s + N.z);
+	const float b = N.x * N.y * a;
+	T = vec3(1.0f + s * N.x * N.x * a, s * b, -s * N.x);
+	B = vec3(b, s + N.y * N.y * a, -N.y);
+}
+
+INLINE_FUNC vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
+
+INLINE_FUNC vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return vec3(dot(T, s), dot(B, s), dot(N, s)); }

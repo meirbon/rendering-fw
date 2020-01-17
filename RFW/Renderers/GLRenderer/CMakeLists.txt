@@ -36,3 +36,4 @@ add_custom_target(LINK_GL_SHADERS
 		)
 
 add_dependencies(${PROJECT_NAME} LINK_GL_SHADERS)
+add_dependencies(Renderers ${PROJECT_NAME})

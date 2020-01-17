@@ -113,14 +113,6 @@ add_subdirectory(Examples/ImGuiApp)
 #	add_subdirectory(Examples/MetalApp)
 #endif (APPLE)
 
-foreach (RENDERER ${RENDERERS})
-    add_dependencies(App ${RENDERER})
-    add_dependencies(ImGuiApp ${RENDERER})
-    #if (APPLE)
-    #	add_dependencies(MetalApp ${RENDERER})
-    #endif ()
-endforeach ()
-
 add_custom_target(CopyCommonAssets)
 
 file(GLOB ASSETS ${PROJECT_SOURCE_DIR}/CommonAssets/*)
@@ -134,3 +126,6 @@ foreach (asset ${ASSETS})
 endforeach ()
 
 add_dependencies(RenderContext CopyCommonAssets)
+
+add_dependencies(App Renderers)
+add_dependencies(ImGuiApp Renderers)

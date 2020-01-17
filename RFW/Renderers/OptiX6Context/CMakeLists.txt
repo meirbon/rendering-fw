@@ -41,3 +41,4 @@ set_target_properties(${PROJECT_NAME}
 
 add_subdirectory(assets/optix-kernels)
 add_dependencies(${PROJECT_NAME} OptiX_PTX)
+add_dependencies(Renderers ${PROJECT_NAME})

@@ -66,3 +66,4 @@ add_custom_target(VkShaders DEPENDS ${ASSET_OUTPUT_DIR}/vkshaders ${SPIRV_BINARY
 
 # Make shader compilation a dependency of library
 add_dependencies(${PROJECT_NAME} VkShaders)
+add_dependencies(Renderers ${PROJECT_NAME})

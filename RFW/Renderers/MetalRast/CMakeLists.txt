@@ -52,3 +52,5 @@ foreach (shader ${SHADERS})
 	get_filename_component(basename ${shader} NAME)
 	configure_file(${shader} ${ASSET_OUTPUT_DIR}/metalshaders/${basename})
 endforeach ()
+
+add_dependencies(Renderers ${PROJECT_NAME})

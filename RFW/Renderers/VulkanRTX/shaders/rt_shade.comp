@@ -341,8 +341,7 @@ float PotentialPointLightContribution(const int idx, const vec3 I, const vec3 N)
     return position4.w * NdotL * att;
 }
 
-float PotentialSpotLightContribution(
-const int idx, const vec3 I, const vec3 N)
+float PotentialSpotLightContribution(const int idx, const vec3 I, const vec3 N)
 {
     const DeviceSpotLight light = spotLights[idx];
     const vec4 position4 = light.position_cosInner;
@@ -355,7 +354,7 @@ const int idx, const vec3 I, const vec3 N)
     const float d = (-dot(L, direction4.xyz) - radiance4.w) / (position4.w - radiance4.w);
     const float NdotL = max(0.0f, dot(N, L));
     const float LNdotL = clamp(d, 0.0f, 1.0f);
-    return (radiance4.x + radiance4.y + radiance4.z) * LNdotL * NdotL * att * direction4.w;
+    return direction4.w * LNdotL * NdotL * att;
 }
 
 float PotentialDirectionalLightContribution(const int idx, const vec3 I, const vec3 N)
@@ -534,8 +533,8 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
         const float sqDist = dot(L, L);
         L = normalize(L);
         const float LNdotL = dot(L, LN.xyz);
-        const float reciSolidAngle = sqDist / (LN.w * LNdotL * length(light.radiance.xyz));
-        lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? reciSolidAngle : 0;
+        const float reciSolidAngle = sqDist / (LN.w * LNdotL);
+        lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (reciSolidAngle * (1.0f / length(light.radiance.xyz))) : 0;
         return P;
     }
 
@@ -574,7 +573,7 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
     const vec4 L4 = light.direction_energy;// direction
     lightColor = light.radiance.xyz;// radiance
     const float NdotL = dot(L4.xyz, N);
-    lightPdf = NdotL < 0 ? (1 / L4.w) : 0;
+    lightPdf = NdotL < 0 ? (1 * (1.0f / L4.w)) : 0;
     return I - 1000.0f * L4.xyz;
 }
 

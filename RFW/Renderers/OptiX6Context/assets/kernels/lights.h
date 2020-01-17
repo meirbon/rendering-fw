@@ -57,7 +57,7 @@ __device__ float PotentialSpotLightContribution(const int idx, const vec3 I, con
 	const float d = (max(0.0f, -dot(L, direction)) - cosOuter) / (cosInner - cosOuter);
 	const float NdotL = max(0.0f, dot(N, L));
 	const float LNdotL = max(0.0f, min(1.0f, d));
-	return (radiance.x + radiance.y + radiance.z) * LNdotL * NdotL * att * light.getEnergy();
+	return light.getEnergy() * LNdotL * NdotL * att;
 	// TODO: other lights have radiance4.x+y+z precalculated as 'float energy'. For spots, this
 	// does not help, as we need position4.w and direction4.w for the inner and outer angle anyway,
 	// so we are touching 4 float4's. If we reduce the inner and outer angles to 16-bit values
@@ -223,7 +223,7 @@ __device__ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 
 		L = normalize(L);
 		const float LNdotL = dot(L, LN);
 		const float reciSolidAngle = sqDist / (light.getArea() * LNdotL); // LN.w contains area
-		lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? reciSolidAngle : 0;
+		lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (reciSolidAngle * (1.0f / light.getEnergy())) : 0;
 		return P;
 	}
 
@@ -257,6 +257,6 @@ __device__ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 
 	const vec3 L = light.getDirection();
 	lightColor = light.getRadiance();
 	const float NdotL = dot(L, N);
-	lightPdf = NdotL < 0 ? 1 : 0;
+	lightPdf = NdotL < 0 ? (1 * (1.0 / light.getEnergy())) : 0;
 	return I - 1000.0f * L;
 }

@@ -590,7 +590,7 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 	try
 	{
 		bool addInsteadOfSet = false;
-		if (m_Instances.size() <= instanceIdx)
+		while (m_Instances.size() <= instanceIdx)
 		{
 			m_Instances.push_back(m_Context->createTransform());
 			m_InstanceDescriptors.emplace_back();
@@ -604,8 +604,9 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 			geometryInstance["instanceIdx"]->setUint(static_cast<uint>(instanceIdx));
 
 			auto group = m_Context->createGeometryGroup();
+			group->setChildCount(1);
+			group->setChild(0, geometryInstance);
 			group->setAcceleration(m_Context->createAcceleration("Trbvh"));
-			group->addChild(geometryInstance);
 			group->validate();
 
 			m_InstanceMeshes[instanceIdx] = meshIdx;
@@ -616,21 +617,20 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 			m_SceneGraph->addChild(instance);
 			m_SceneGraph->validate();
 		}
-		else
+
+		auto &instance = m_Instances[instanceIdx];
+		if (m_InstanceMeshes[instanceIdx] != meshIdx)
 		{
-			auto &instance = m_Instances[instanceIdx];
-			if (m_InstanceMeshes[instanceIdx] != meshIdx)
-			{
-				auto group = instance->getChild<optix::GeometryGroup>();
-				group->getChild(0)->setGeometryTriangles(m_Meshes[meshIdx]->optixTriangles);
-				group->validate();
-			}
-
-			instance->setMatrix(true, value_ptr(transform), value_ptr(transpose(transform)));
-			instance->validate();
-
-			m_InstanceMeshes[instanceIdx] = meshIdx;
+			auto group = instance->getChild<optix::GeometryGroup>();
+			group->setChildCount(1);
+			group->getChild(0)->setGeometryTriangles(m_Meshes[meshIdx]->optixTriangles);
+			group->validate();
 		}
+
+		instance->setMatrix(true, value_ptr(transform), value_ptr(transpose(transform)));
+		instance->validate();
+
+		m_InstanceMeshes[instanceIdx] = meshIdx;
 
 		m_InstanceDescriptors[instanceIdx].invTransform = inverse_transform;
 		m_InstanceDescriptors[instanceIdx].triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->triangles->getDevicePointer());
@@ -718,7 +718,7 @@ void OptiXContext::update()
 		auto *mesh = m_Meshes[meshID];
 		auto &instance = m_Instances[i];
 
-		auto &group = instance->getChild<optix::GeometryGroup>();
+		auto group = instance->getChild<optix::GeometryGroup>();
 		group->getAcceleration()->markDirty();
 		group->getAcceleration()->validate();
 		group->validate();

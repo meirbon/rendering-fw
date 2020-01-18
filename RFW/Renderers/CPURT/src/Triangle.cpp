@@ -37,19 +37,11 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 	return false;
 }
 
-bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14, const glm::vec4 &p24,
-			   const float epsilon)
+inline bool intersect_edge(const vec3 org, const vec3 dir, float tmin, float *rayt, const vec3 p0, const vec3 e1, const vec3 e2, const float epsilon)
 {
-	const vec3 p0 = p04;
-	const vec3 p1 = p14;
-	const vec3 p2 = p24;
+	const vec3 h = cross(dir, e2);
 
-	const vec3 edge1 = p1 - p0;
-	const vec3 edge2 = p2 - p0;
-
-	const vec3 h = cross(dir, edge2);
-
-	const float a = dot(edge1, h);
+	const float a = dot(e1, h);
 	if (a > -epsilon && a < epsilon)
 		return false;
 
@@ -59,12 +51,12 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 	if (u < 0.0f || u > 1.0f)
 		return false;
 
-	const vec3 q = cross(s, edge1);
+	const vec3 q = cross(s, e1);
 	const float v = f * dot(dir, q);
 	if (v < 0.0f || u + v > 1.0f)
 		return false;
 
-	const float t = f * dot(edge2, q);
+	const float t = f * dot(e2, q);
 
 	if (t > tmin && *rayt > t) // ray intersection
 	{
@@ -75,11 +67,50 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 	return false;
 }
 
-bool intersect_opt(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec3 &p0, const glm::vec3 &e1, const glm::vec3 &e2)
+bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14, const glm::vec4 &p24,
+			   const float epsilon)
+{
+	const vec3 p0 = p04;
+	const vec3 p1 = p14;
+	const vec3 p2 = p24;
+
+	const vec3 e1 = p1 - p0;
+	const vec3 e2 = p2 - p0;
+
+	const vec3 h = cross(dir, e2);
+
+	const float a = dot(e1, h);
+	if (a > -epsilon && a < epsilon)
+		return false;
+
+	const float f = 1.f / a;
+	const vec3 s = org - p0;
+	const float u = f * dot(s, h);
+	if (u < 0.0f || u > 1.0f)
+		return false;
+
+	const vec3 q = cross(s, e1);
+	const float v = f * dot(dir, q);
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+
+	const float t = f * dot(e2, q);
+
+	if (t > tmin && *rayt > t) // ray intersection
+	{
+		*rayt = t;
+		return true;
+	}
+
+	return false;
+}
+
+bool intersect_opt(const glm::vec3 org, const glm::vec3 dir, float tmin, float *rayt, const glm::vec3 p0, const glm::vec3 e1, const glm::vec3 e2, float epsilon)
 {
 	const vec3 h = cross(dir, e2);
+
 	const float a = dot(e1, h);
-	if (a > -EPSILON_TRIANGLE && a < EPSILON_TRIANGLE)
+	if (a > -epsilon && a < epsilon)
 		return false;
 
 	const float f = 1.f / a;

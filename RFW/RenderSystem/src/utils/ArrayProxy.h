@@ -12,7 +12,9 @@
 #include <tuple>
 #include <type_traits>
 
-namespace rfw::utils
+namespace rfw
+{
+namespace utils
 {
 template <typename T> class ArrayProxy
 {
@@ -65,10 +67,11 @@ template <typename T> class ArrayProxy
 
 	[[nodiscard]] size_t size() const { return m_Size; }
 
-	const T &operator[](const size_t idx) { return m_Data[idx]; };
+	const T &operator[](const size_t idx) const { return m_Data[idx]; };
 
   private:
 	size_t m_Size;
 	const T *m_Data;
 };
-} // namespace rfw::utils
+} // namespace utils
+} // namespace rfw

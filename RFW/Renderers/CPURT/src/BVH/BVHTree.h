@@ -16,6 +16,7 @@ class BVHTree
 	void refit(const glm::vec4 *vertices);
 	void refit(const glm::vec4 *vertices, const glm::uvec3 *indices);
 	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
+	bool traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max);
 	int traverse(cpurt::RayPacket4 &packet, float t_min, __m128* hit_mask);
 
 	void set_vertices(const glm::vec4 *vertices);

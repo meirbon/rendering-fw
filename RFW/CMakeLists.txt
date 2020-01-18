@@ -12,6 +12,7 @@ add_subdirectory(Renderers/GLRenderer)
 find_package(CUDA QUIET)
 if (${CUDA_FOUND})
 	add_subdirectory(Renderers/OptiX6Context)
+	add_subdirectory(Renderers/CUDART)
 endif (${CUDA_FOUND})
 
 if (APPLE)

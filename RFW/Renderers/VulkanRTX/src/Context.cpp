@@ -258,7 +258,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 		pushConstant[2] = STAGE_PRIMARY_RAY;
 		rtPipeline->recordPushConstant(cmdBuffer, 0, 3 * sizeof(uint32_t),
 									   pushConstant); // Push intersection stage to shader
-		rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount);
+		rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount + (64 - (pathCount % 64)));
 
 		// submit primary rays to queue
 		t.reset();
@@ -269,7 +269,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 		// Record shade stage
 		cmdBuffer.begin();
 		shadePipeline->recordPushConstant(cmdBuffer, 0, 2 * sizeof(uint32_t), pushConstant);
-		shadePipeline->recordDispatchCommand(cmdBuffer, pathCount + (pathCount % 64));
+		shadePipeline->recordDispatchCommand(cmdBuffer, pathCount + (64 - (pathCount % 64)));
 
 		// Make sure shading finished before copying counters
 		cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eComputeShader, vk::PipelineStageFlagBits::eTransfer, {}, {}, {}, {});
@@ -306,7 +306,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 				pushConstant[2] = STAGE_SECONDARY_RAY;
 				rtPipeline->recordPushConstant(cmdBuffer.getVkCommandBuffer(), 0, 3 * sizeof(uint32_t),
 											   pushConstant); // Push intersection stage to shader
-				rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount + (pathCount % 64));
+				rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount + (64 - (pathCount % 64)));
 
 				// Run command buffer
 				t.reset();
@@ -325,7 +325,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 				cmdBuffer.begin();
 				// Shade extension rays
 				shadePipeline->recordPushConstant(cmdBuffer, 0, 2 * sizeof(uint32_t), pushConstant);
-				shadePipeline->recordDispatchCommand(cmdBuffer, pathCount + (pathCount % 64));
+				shadePipeline->recordDispatchCommand(cmdBuffer, pathCount + (64 - (pathCount % 64)));
 
 				// Submit shade command buffer
 				t.reset();
@@ -354,7 +354,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 			pushConstant[2] = STAGE_SHADOW_RAY;
 			rtPipeline->recordPushConstant(cmdBuffer.getVkCommandBuffer(), 0, 3 * sizeof(uint32_t),
 										   pushConstant); // Push intersection stage to shader
-			rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount + (pathCount % 64));
+			rtPipeline->recordTraceCommand(cmdBuffer.getVkCommandBuffer(), pathCount + (64 - (pathCount % 64)));
 
 			// submit shadow rays
 			t.reset();

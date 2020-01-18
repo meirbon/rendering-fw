@@ -454,8 +454,8 @@ __host__ void InitCountersSubsequent() { initCountersSubsequent<<<1, 32>>>(); }
 
 __host__ cudaError launchShade(const uint pathCount, const uint pathLength, const glm::mat3 &toEyeSpace)
 {
-	const dim3 gridDim = dim3(NEXTMULTIPLEOF(pathCount, 128) / 128, 1, 1);
-	const dim3 blockDim = dim3(128, 1, 1);
+	const dim3 gridDim = dim3(NEXTMULTIPLEOF(pathCount, 128) / 128);
+	const dim3 blockDim = dim3(128);
 	shade<<<gridDim, blockDim>>>(pathLength, toEyeSpace);
 
 	return cudaGetLastError();
@@ -464,8 +464,8 @@ __host__ cudaError launchShade(const uint pathCount, const uint pathLength, cons
 __host__ cudaError launchFinalize(bool blit, const unsigned int scrwidth, const unsigned int scrheight, const unsigned int samples, const float brightness,
 								  const float contrast)
 {
-	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
-	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);
+	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16) / 16;
+	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16) / 16;
 	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
 	const dim3 blockDim = dim3(16, 16, 1);
 
@@ -479,8 +479,8 @@ __host__ cudaError launchFinalize(bool blit, const unsigned int scrwidth, const 
 
 __host__ cudaError blitBuffer(const unsigned int scrwidth, const unsigned int scrheight)
 {
-	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
-	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);
+	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16) / 16;
+	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16) / 16;
 	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
 	const dim3 blockDim = dim3(16, 16, 1);
 
@@ -491,8 +491,8 @@ __host__ cudaError blitBuffer(const unsigned int scrwidth, const unsigned int sc
 
 cudaError launchTonemap(unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness, float contrast)
 {
-	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
-	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);
+	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16) / 16;
+	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16) / 16;
 	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
 	const dim3 blockDim = dim3(16, 16, 1);
 

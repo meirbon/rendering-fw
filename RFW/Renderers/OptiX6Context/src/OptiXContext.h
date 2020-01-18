@@ -79,6 +79,7 @@ class OptiXContext : public rfw::RenderContext
 	CUDABuffer<rfw::DeviceMaterial> *m_Materials = nullptr;
 	std::vector<rfw::DeviceInstanceDescriptor> m_InstanceDescriptors;
 	CUDABuffer<rfw::DeviceInstanceDescriptor> *m_DeviceInstanceDescriptors = nullptr;
+	
 	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_Accumulator = nullptr;
 	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_PathStates = nullptr;
 	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_PathOrigins = nullptr;
@@ -101,7 +102,6 @@ class OptiXContext : public rfw::RenderContext
 	std::vector<size_t> m_InstanceMeshes;
 	std::vector<optix::Transform> m_Instances;
 	std::vector<rfw::TextureData> m_TexDescriptors;
-	std::vector<CUDABuffer<uint> *> m_TextureBuffers;
 	CUDABuffer<uint *> *m_TextureBuffersPointers = nullptr;
 
 	OptiXCUDABuffer<glm::vec4, OptiXBufferType::ReadWrite> *m_NormalBuffer = nullptr;

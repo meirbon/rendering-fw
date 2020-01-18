@@ -11,16 +11,16 @@ struct MBVHHit
 {
 	MBVHHit()
 	{
-		t_min = _mm_set1_ps(1e34f);
+		// t_min = _mm_set1_ps(1e34f);
 		result = glm::bvec4(false, false, false, false);
 	}
 
 	union {
-		__m128 t_min;
-		__m128i t_mini;
-		glm::vec4 tmin4;
-		float tmin[4];
+		__m128 tmin4;
+		__m128i tmini4;
+
 		int tmini[4];
+		float tmin[4];
 	};
 	glm::bvec4 result;
 };
@@ -29,7 +29,17 @@ class MBVHTree;
 class MBVHNode
 {
   public:
-	MBVHNode() = default;
+	MBVHNode()
+	{
+		for (int i = 0; i < 4; i++)
+		{
+			bminx[i] = bminy[i] = bminz[i] = 1e34f;
+			bmaxx[i] = bmaxy[i] = bmaxz[i] = -1e34f;
+		}
+
+		childs = ivec4(-1);
+		counts = ivec4(-1);
+	}
 
 	~MBVHNode() = default;
 
@@ -76,29 +86,110 @@ class MBVHNode
 	MBVHHit intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t, float t_min) const;
 	MBVHHit intersect4(cpurt::RayPacket4 &packet, float t_min) const;
 
-	void merge_nodes(const BVHNode &node, const BVHNode *bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr);
-
-	void get_bvh_node_info(const BVHNode &node, const BVHNode *pool, int &numChildren);
+	void merge_nodes(const BVHNode &node, const rfw::utils::ArrayProxy<BVHNode> bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr);
 
 	void sort_results(const float *tmin, int &a, int &b, int &c, int &d) const;
 
-	static bool traverse_mbvh(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
-							  const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
-	static bool traverse_mbvh(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
-							  const unsigned int *primIndices, const glm::vec4 *vertices);
-	static bool traverse_mbvh(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes,
-							  const unsigned int *primIndices, const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s);
+	template <typename FUNC>
+	static bool traverse_mbvh(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const MBVHNode *nodes, const uint *primIndices,
+							  const FUNC &func)
+	{
+		bool valid = false;
+		MBVHTraversal todo[32];
+		int stackptr = 0;
+
+		todo[0].leftFirst = 0;
+		todo[0].count = -1;
+
+		const glm::vec3 dirInverse = 1.0f / dir;
+
+		while (stackptr >= 0)
+		{
+			const int leftFirst = todo[stackptr].leftFirst;
+			const int count = todo[stackptr].count;
+			stackptr--;
+
+			if (count > -1) // leaf node
+			{
+				for (int i = 0; i < count; i++)
+				{
+					const auto primID = primIndices[leftFirst + i];
+					if (func(primID))
+					{
+						valid = true;
+						*hit_idx = primID;
+					}
+				}
+				continue;
+			}
+
+			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, t, t_min);
+			for (int i = 3; i >= 0; i--)
+			{ // reversed order, we want to check best nodes first
+				const int idx = (hit.tmini[i] & 0b11);
+				if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] > 0)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];
+					todo[stackptr].count = nodes[leftFirst].counts[idx];
+				}
+			}
+		}
+
+		return valid;
+	}
+
+	template <typename FUNC>
+	static bool traverse_mbvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float t, const MBVHNode *nodes, const uint *primIndices,
+									 const FUNC &func)
+	{
+		MBVHTraversal todo[32];
+		int stackptr = 0;
+
+		todo[0].leftFirst = 0;
+		todo[0].count = -1;
+
+		const glm::vec3 dirInverse = 1.0f / dir;
+
+		while (stackptr >= 0)
+		{
+			const int leftFirst = todo[stackptr].leftFirst;
+			const int count = todo[stackptr].count;
+			stackptr--;
+
+			if (count > -1) // leaf node
+			{
+				for (int i = 0; i < count; i++)
+				{
+					const auto primID = primIndices[leftFirst + i];
+					if (func(primID))
+						return true;
+				}
+				continue;
+			}
+
+			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, &t, t_min);
+			for (int i = 3; i >= 0; i--)
+			{ // reversed order, we want to check best nodes first
+				const int idx = (hit.tmini[i] & 0b11);
+				if (hit.result[idx] == 1)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];
+					todo[stackptr].count = nodes[leftFirst].counts[idx];
+				}
+			}
+		}
+
+		// Nothing occluding
+		return false;
+	}
 	static int traverse_mbvh(cpurt::RayPacket4 &packet, float t_min, const MBVHNode *nodes, const unsigned int *primIndices, const glm::vec3 *p0s,
 							 const glm::vec3 *edge1s, const glm::vec3 *edge2s, __m128 *hit_mask);
 	static int traverse_mbvh(cpurt::RayPacket4 &packet, float t_min, const MBVHNode *nodes, const unsigned int *primIndices, const glm::vec4 *vertices,
 							 const glm::uvec3 *indices, __m128 *hit_mask);
 
-	static bool traverse_mbvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
-									 const unsigned int *primIndices, const glm::vec4 *vertices, const glm::uvec3 *indices);
-	static bool traverse_mbvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
-									 const unsigned int *primIndices, const glm::vec4 *vertices);
-	static bool traverse_mbvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const MBVHNode *nodes,
-									 const unsigned int *primIndices, const glm::vec3 *p0s, const glm::vec3 *edge1s, const glm::vec3 *edge2s);
-
 	void validate(MBVHNode *nodes, unsigned int maxPrimID, unsigned int maxPoolPtr);
+
+	void merge_node(const BVHNode &node, const const rfw::utils::ArrayProxy<BVHNode> pool, int &numChildren);
 };

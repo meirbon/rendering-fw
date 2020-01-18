@@ -2,6 +2,19 @@
 
 using namespace rfw;
 
+const float Camera::DEFAULT_BRIGHTNESS = 0.05f;
+const float Camera::DEFAULT_CONTRAST = 1.f;
+const glm::vec3 Camera::DEFAULT_POSITION = glm::vec3(0.f);
+const glm::vec3 Camera::DEFAULT_DIRECTION = glm::vec3(0.f, 0.f, 1.f);
+
+void rfw::Camera::reset()
+{
+	brightness = DEFAULT_BRIGHTNESS;
+	contrast = DEFAULT_CONTRAST;
+	position = DEFAULT_POSITION;
+	direction = DEFAULT_DIRECTION;
+}
+
 void Camera::lookAt(const glm::vec3 &O, const glm::vec3 &T)
 {
 	position = O;

@@ -14,7 +14,8 @@ bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *ra
 			   float epsilon = EPSILON_TRIANGLE);
 bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2,
 			   float epsilon = EPSILON_TRIANGLE);
-bool intersect_opt(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec3 &p0, const glm::vec3 &e1, const glm::vec3 &e2);
+bool intersect_opt(const glm::vec3 org, const glm::vec3 dir, float tmin, float *rayt, const glm::vec3 p0, const glm::vec3 e1, const glm::vec3 e2,
+				   float epsilon = EPSILON_TRIANGLE);
 
 int intersect4(cpurt::RayPacket4 &packet, const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2, __m128 *store_mask, float epsilon = EPSILON_TRIANGLE);
 

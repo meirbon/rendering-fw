@@ -1,6 +1,6 @@
 #include "PCH.h"
 
-#define PACKET_TRAVERSAL 1
+#define PACKET_TRAVERSAL 0
 
 using namespace rfw;
 
@@ -252,7 +252,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					if (pixelID >= maxPixelID)
 						break;
 
-					unsigned int instID = 0;
+					int instID = -1;
 					result = topLevelBVH.intersect(origin, direction, &t, &primID, 1e-5f, instID);
 					if (result.has_value() && pixelID == probe_id)
 					{
@@ -467,7 +467,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 
 void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
-	topLevelBVH.setInstance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->get_aabb());
+	topLevelBVH.set_instance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->get_aabb());
 }
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
@@ -510,7 +510,7 @@ rfw::AvailableRenderSettings Context::getAvailableSettings() const { return {}; 
 
 void Context::setSetting(const rfw::RenderSetting &setting) {}
 
-void Context::update() { topLevelBVH.constructBVH(); }
+void Context::update() { topLevelBVH.construct_bvh(); }
 
 void Context::setProbePos(glm::uvec2 probePos) { m_ProbePos = probePos; }
 

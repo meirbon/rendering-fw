@@ -14,6 +14,7 @@
 #define VULKAN "VkContext"
 #define GLRENDERER "GLRenderer"
 #define OPTIX6 "OptiX6Context"
+#define CUDART "CUDART"
 #define CPURT "CPURT"
 #define EMBREE "EmbreeRT"
 

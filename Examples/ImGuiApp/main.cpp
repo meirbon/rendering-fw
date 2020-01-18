@@ -71,7 +71,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(512, 512, "RenderingFW", VULKANRTX)
+App::App() : Application(1280, 720, "RenderingFW", CUDART)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -285,6 +285,9 @@ void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Separator();
 	ImGui::BeginGroup();
 	ImGui::Text("Camera");
+	if (ImGui::Button("Reset"))
+		camera.reset();
+
 	ImGui::SliderFloat("Contrast", &camera.contrast, 0.0f, 2.0f, "%.7f");
 	ImGui::SliderFloat("Brightness", &camera.brightness, 0.0f, 2.0f, "%.7f");
 	camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");

@@ -2,7 +2,7 @@
 
 using namespace rfw;
 
-#define REFIT 0
+#define REFIT 1
 
 CPUMesh::CPUMesh()
 {
@@ -48,7 +48,7 @@ void rfw::CPUMesh::setGeometry(const Mesh &mesh)
 
 		bvh->construct_bvh();
 		mbvh = new MBVHTree(bvh);
-		mbvh->constructBVH();
+		mbvh->construct_bvh();
 	}
 	else // Keep same BVH but refit nodes
 	{

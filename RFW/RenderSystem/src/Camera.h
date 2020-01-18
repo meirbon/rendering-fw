@@ -12,21 +12,28 @@ namespace rfw
 class Camera
 {
   public:
+	static const float DEFAULT_BRIGHTNESS;
+	static const float DEFAULT_CONTRAST;
+	static const glm::vec3 DEFAULT_POSITION;
+	static const glm::vec3 DEFAULT_DIRECTION;
+
 	// constructor / destructor
 	Camera() = default;
 
 	// data members
-	glm::vec3 position = glm::vec3(0.0f);			   // position of the centre of the lens
-	glm::vec3 direction = glm::vec3(0.0f, 0.0f, 1.0f); // camera target
+	glm::vec3 position = DEFAULT_POSITION;	 // position of the centre of the lens
+	glm::vec3 direction = DEFAULT_DIRECTION; // camera target
 
 	float focalDistance = 5.0f;				  // distance of the focal plane
 	float aperture = 0.0001f;				  // aperture size
-	float brightness = 0.05f;				  // combined with contrast:
-	float contrast = 1.0f;					  // pragmatic representation of exposure
+	float brightness = DEFAULT_BRIGHTNESS;	  // combined with contrast:
+	float contrast = DEFAULT_CONTRAST;		  // pragmatic representation of exposure
 	float FOV = 40.0f;						  // field of view, in degrees
 	float aspectRatio = 1.0f;				  // image plane aspect ratio
 	float clampValue = 10.0f;				  // firefly clamping
 	glm::ivec2 pixelCount = glm::ivec2(1, 1); // actual pixel count; needed for pixel spread angle
+
+	void reset();
 
 	[[nodiscard]] rfw::CameraView getView() const;
 	[[nodiscard]] mat4 getMatrix(float near = 0.1f, float far = 1e10f) const;

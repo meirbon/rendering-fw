@@ -487,7 +487,7 @@ GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, 
 	SceneTriangles *triangles = nullptr;
 
 #if USE_TINY_GLTF
-	if (utils::string::ends_with(fileName, {".gltf", ".glb"}))
+	if (utils::string::ends_with(fileName.data(), {std::string(".gltf"), std::string(".glb")}))
 		triangles = new gLTFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material);
 	else
 #endif

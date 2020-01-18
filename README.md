@@ -5,7 +5,7 @@ uses a very similar architectural design, but was re-implemented from the ground
 for lighthouse2 was developed by [me](https://github.com/MeirBon) and the Vulkan RTX renderer in this
 project shares most of its code with the Vulkan RTX rendercore of lighthouse2.
 
-![screenshot0](docs/screenshot0.png)
+![screenshot0](docs/screenshot0.jpg)
 ![screenshot0](docs/screenshot1.png)
 
 ## Features

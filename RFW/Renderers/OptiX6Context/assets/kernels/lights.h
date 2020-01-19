@@ -11,8 +11,7 @@ __constant__ __device__ rfw::DeviceSpotLight *spotLights;
 __constant__ __device__ rfw::DeviceDirectionalLight *directionalLights;
 __constant__ __device__ LightCount lightCounts;
 
-__device__ float PotentialAreaLightContribution(const int idx, const vec3 O, const vec3 N, const vec3 I,
-												const vec3 bary)
+__device__ float PotentialAreaLightContribution(const int idx, const vec3 O, const vec3 N, const vec3 I, const vec3 bary)
 {
 	const DeviceAreaLight light = areaLights[idx];
 	const vec4 posEnergy = light.pos_energy;
@@ -58,7 +57,7 @@ __device__ float PotentialSpotLightContribution(const int idx, const vec3 I, con
 	const float d = (max(0.0f, -dot(L, direction)) - cosOuter) / (cosInner - cosOuter);
 	const float NdotL = max(0.0f, dot(N, L));
 	const float LNdotL = max(0.0f, min(1.0f, d));
-	return (radiance.x + radiance.y + radiance.z) * LNdotL * NdotL * att * light.getEnergy();
+	return light.getEnergy() * LNdotL * NdotL * att;
 	// TODO: other lights have radiance4.x+y+z precalculated as 'float energy'. For spots, this
 	// does not help, as we need position4.w and direction4.w for the inner and outer angle anyway,
 	// so we are touching 4 float4's. If we reduce the inner and outer angles to 16-bit values
@@ -109,8 +108,7 @@ __device__ float LightPickProb(const int idx, const vec3 O, const vec3 N, const 
 		return 0; // no potential lights found
 	return potential[idx] / sum;
 #else
-	return 1.0f / (lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.spotLightCount +
-				   lightCounts.directionalLightCount);
+	return 1.0f / (lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.spotLightCount + lightCounts.directionalLightCount);
 #endif
 }
 
@@ -155,11 +153,9 @@ __device__ vec3 RandomBarycentrics(const float r0)
 	return vec3(r.x, r.y, 1.0f - r.x - r.y);
 }
 
-__device__ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, float &pickProb, float &lightPdf,
-								   vec3 &lightColor)
+__device__ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, float &pickProb, float &lightPdf, vec3 &lightColor)
 {
-	const float lightCount = float(lightCounts.areaLightCount + lightCounts.pointLightCount +
-								   lightCounts.spotLightCount + lightCounts.directionalLightCount);
+	const float lightCount = float(lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.spotLightCount + lightCounts.directionalLightCount);
 	const vec3 bary = RandomBarycentrics(r0);
 #if IS_LIGHTS
 	// importance sampling of lights, pickProb is per-light probability
@@ -227,18 +223,18 @@ __device__ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 
 		L = normalize(L);
 		const float LNdotL = dot(L, LN);
 		const float reciSolidAngle = sqDist / (light.getArea() * LNdotL); // LN.w contains area
-		lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? reciSolidAngle : 0;
+		lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (reciSolidAngle * (1.0f / light.getEnergy())) : 0;
 		return P;
 	}
 
 	if (lightIdx < (lightCounts.areaLightCount + lightCounts.pointLightCount))
 	{
 		const DevicePointLight light = pointLights[lightIdx - lightCounts.areaLightCount];
-		const vec3 pos = light.getPosition();				  // position
-		lightColor = light.getRadiance() * light.getEnergy(); // radiance
-		const vec3 L = I - pos;								  // reversed
+		const vec3 pos = light.getPosition(); // position
+		lightColor = light.getRadiance();	  // radiance
+		const vec3 L = I - pos;				  // reversed
 		const float sqDist = dot(L, L);
-		lightPdf = dot(L, N) < 0 ? sqDist : 0;
+		lightPdf = dot(L, N) < 0 ? (sqDist / light.getEnergy()) : 0;
 		return pos;
 	}
 
@@ -252,17 +248,15 @@ __device__ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 
 		L = normalize(L);
 		const float d = max(0.0f, dot(L, D) - light.getCosOuter()) / (light.getCosInner() - light.getCosOuter());
 		const float LNdotL = min(1.0f, d);
-		lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (sqDist / LNdotL) : 0;
-		lightColor = light.getRadiance() * light.getEnergy();
+		lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (sqDist / (LNdotL * light.getEnergy())) : 0;
+		lightColor = light.getRadiance();
 		return P;
 	}
 
-	const DeviceDirectionalLight light =
-		directionalLights[lightIdx -
-						  (lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.spotLightCount)];
+	const DeviceDirectionalLight light = directionalLights[lightIdx - (lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.spotLightCount)];
 	const vec3 L = light.getDirection();
-	lightColor = light.getRadiance() * light.getEnergy();
+	lightColor = light.getRadiance();
 	const float NdotL = dot(L, N);
-	lightPdf = NdotL < 0 ? 1 : 0;
+	lightPdf = NdotL < 0 ? (1 * (1.0 / light.getEnergy())) : 0;
 	return I - 1000.0f * L;
 }

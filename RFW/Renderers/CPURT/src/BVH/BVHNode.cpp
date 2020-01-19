@@ -383,7 +383,7 @@ bool BVHNode::traverse_bvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, fl
 								  const glm::vec3 *vertices)
 {
 	return traverse_bvh_shadow(org, dir, t_min, maxDist, nodes, primIndices, [&](int primID) {
-		const auto idx = uvec3(primIndices[primID] * 3) + uvec3(0, 1, 2);
+		const auto idx = uvec3(primID * 3) + uvec3(0, 1, 2);
 		return rfw::triangle::intersect(org, dir, t_min, &maxDist, vertices[idx.x], vertices[idx.y], vertices[idx.z]);
 	});
 }
@@ -401,7 +401,7 @@ bool BVHNode::traverse_bvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, fl
 								  const glm::vec4 *vertices)
 {
 	return traverse_bvh_shadow(org, dir, t_min, maxDist, nodes, primIndices, [&](int primID) {
-		const auto idx = uvec3(primIndices[primID] * 3) + uvec3(0, 1, 2);
+		const auto idx = uvec3(primID * 3) + uvec3(0, 1, 2);
 		return rfw::triangle::intersect(org, dir, t_min, &maxDist, vertices[idx.x], vertices[idx.y], vertices[idx.z]);
 	});
 }

@@ -11,7 +11,7 @@ struct PotentialContribution
 };
 
 // Provided by optix
-rtDeclareVariable(uint, launch_index, rtLaunchIndex, );
+rtDeclareVariable(uint3, launch_index, rtLaunchIndex, );
 rtDeclareVariable(uint, stride, , );
 
 // Must be set by context
@@ -83,7 +83,7 @@ __device__ inline float blueNoiseSampler(int x, int y, int sampleIdx, int sample
 
 RT_PROGRAM void generatePrimaryRay()
 {
-	const uint pathIdx = launch_index % (scrsize.x * scrsize.y);
+	const uint pathIdx = (launch_index.x + launch_index.y * scrsize.x) % (scrsize.x * scrsize.y);
 	const uint bufferIndex = (pathLength % 2);
 	uint seed = WangHash(pathIdx * 16789 + sampleIndex * 1791);
 
@@ -135,7 +135,7 @@ RT_PROGRAM void generatePrimaryRay()
 
 RT_PROGRAM void generateSecondaryRay()
 {
-	const uint pathIdx = launch_index % (scrsize.x * scrsize.y);
+	const uint pathIdx = (launch_index.x + launch_index.y * scrsize.x) % (scrsize.x * scrsize.y);
 	const uint bufferIndex = (pathLength % 2);
 	const uint bufferIdx = pathIdx + (bufferIndex * stride);
 
@@ -152,7 +152,7 @@ RT_PROGRAM void generateSecondaryRay()
 
 RT_PROGRAM void generateShadowRay()
 {
-	const uint pathIdx = launch_index % (scrsize.x * scrsize.y);
+	const uint pathIdx = (launch_index.x + launch_index.y * scrsize.x) % (scrsize.x * scrsize.y);
 	const float4 O4 = connectData[pathIdx].Origin;
 	const float4 D4 = connectData[pathIdx].Direction;
 
@@ -161,11 +161,11 @@ RT_PROGRAM void generateShadowRay()
 
 	uint isVisible = 0;
 	const auto epsilon = 10.0f * geometryEpsilon;
-	rtTrace(sceneRoot, make_Ray(O, D, 2u, 1e-4f, D4.w - 2.0f * epsilon), isVisible);
+	rtTrace(sceneRoot, make_Ray(O, D, 2u, 1e-4f, D4.w - 2e-5f), isVisible);
 	if (isVisible == 0)
 		return;
 
-	const float4 contribution = connectData[launch_index].Emission;
+	const float4 contribution = connectData[pathIdx].Emission;
 	const uint pixelIdx = __float_as_uint(contribution.w);
 	accumulator[pixelIdx] += make_float4(make_float3(contribution), 1.0f);
 }

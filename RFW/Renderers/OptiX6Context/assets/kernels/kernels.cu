@@ -12,9 +12,7 @@
 
 #include "lights.h"
 
-//#include "lambert.h"
-#include "disney.h"
-//#include "microfacet.h"
+#include "bsdf.h"
 
 #define NEXTMULTIPLEOF(a, b) (((a) + ((b)-1)) & (0x7fffffff - ((b)-1)))
 using namespace glm;
@@ -23,6 +21,8 @@ using namespace glm;
 #define __launch_bounds__(x, y)
 int __float_as_int(float x) { return int(x); }
 uint __float_as_uint(float x) { return uint(x); }
+
+template <typename T, typename B> T atomicAdd(T *, B);
 
 template <typename T, int x> struct surface
 {
@@ -111,25 +111,26 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		const uint v = static_cast<uint>(static_cast<float>(skyboxHeight) * acos(D.y) * glm::one_over_pi<float>());
 		const uint idx = u + v * skyboxWidth;
 		const vec3 skySample = idx < skyboxHeight * skyboxWidth ? skybox[idx] : vec3(0);
-		vec3 contribution = throughput * 1.0f / bsdfPdf * vec3(skySample);
+		vec3 contribution = throughput * (1.0f / bsdfPdf) * vec3(skySample);
 
-		if (!any(isnan(throughput)))
+		if (any(isnan(throughput)))
+			return;
+
+		clampIntensity(contribution, clampValue);
+		accumulator[pathIndex] += vec4(contribution, 0.0f);
+
+#if ALLOW_DENOISER
+		if (pathLength == 0)
 		{
-			clampIntensity(contribution, clampValue);
-			accumulator[pathIndex] += vec4(contribution, 0.0f);
-
-			if (pathLength == 0)
+			if (counters->samplesTaken == 0)
 			{
-				if (counters->samplesTaken == 0)
-				{
-					albedos[pathIndex] = vec4(contribution, 0.0f);
-					normals[pathIndex] = vec4(0.0f);
-				}
-				else
-					albedos[pathIndex] += vec4(contribution, 0.0f);
+				albedos[pathIndex] = vec4(contribution, 0.0f);
+				normals[pathIndex] = vec4(0.0f);
 			}
+			else
+				albedos[pathIndex] += vec4(contribution, 0.0f);
 		}
-
+#endif
 		return;
 	}
 
@@ -200,8 +201,9 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		}
 
 		if (any(isnan(contribution)))
-			return;
+			contribution = vec3(0);
 
+#if ALLOW_DENOISER
 		if (pathLength == 0)
 		{
 			const vec3 albedo = min(contribution, vec3(1.0f));
@@ -216,6 +218,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 				normals[pathIndex] += vec4(toEyeSpace * iN, 0.0f);
 			}
 		}
+#endif
 
 		clampIntensity(contribution, clampValue);
 		accumulator[pathIndex] += vec4(contribution, 0.0f);
@@ -263,7 +266,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		if (NdotL > 0 && lightPdf > 0)
 		{
 			float shadowPdf;
-			const vec3 sampledBSDF = EvaluateBSDF(shadingData, iN, T, B, D * -1.0f, L, shadowPdf);
+			const vec3 sampledBSDF = EvaluateBSDF(shadingData, iN, T, B, D * -1.0f, L, shadowPdf, seed);
 			if (shadowPdf > 0)
 			{
 				// calculate potential contribution
@@ -287,28 +290,30 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		return;
 
 	vec3 R, bsdf;
-	float newBsdfPdf = 0.0f, r3, r4;
-#if BLUENOISE						  // TODO
-	if (counters->samplesTaken < 256) // Blue noise
-	{
-		const int x = int(pathIndex % scrWidth) & 127;
-		const int y = int(pathIndex / scrWidth) & 127;
-		r3 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 4);
-		r4 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 5);
-	}
-	else
-	{
-		r3 = RandomFloat(seed);
-		r4 = RandomFloat(seed);
-	}
-#else
-	r3 = RandomFloat(seed);
-	r4 = RandomFloat(seed);
-#endif
+	float newBsdfPdf = 0.0f;
+	// float r3, r4;
+	//#if BLUENOISE						  // TODO
+	//	if (counters->samplesTaken < 256) // Blue noise
+	//	{
+	//		const int x = int(pathIndex % scrWidth) & 127;
+	//		const int y = int(pathIndex / scrWidth) & 127;
+	//		r3 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 4);
+	//		r4 = blueNoiseSampler(blueNoise, x, y, int(counters->samplesTaken), 5);
+	//	}
+	//	else
+	//	{
+	//		r3 = RandomFloat(seed);
+	//		r4 = RandomFloat(seed);
+	//	}
+	//#else
+	//	r3 = RandomFloat(seed);
+	//	r4 = RandomFloat(seed);
+	//#endif
 
-	bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, hitData.w, flip < 0, r3, r4, R, newBsdfPdf);
+	bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, hitData.w, flip < 0, R, newBsdfPdf, seed);
 	throughput = throughput * 1.0f / SurvivalProbability(throughput) * bsdf * abs(dot(iN, R));
 
+#if ALLOW_DENOISER
 	if (pathLength == 0)
 	{
 		if (counters->samplesTaken == 0)
@@ -322,6 +327,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 			normals[pathIndex] += vec4(toEyeSpace * iN, 0.0f);
 		}
 	}
+#endif
 
 	if (newBsdfPdf < 1e-6f || isnan(newBsdfPdf) || any(isnan(throughput)) || all(lessThanEqual(throughput, vec3(0.0f))))
 		return; // Early out in case we have an invalid bsdf
@@ -383,6 +389,19 @@ __global__ void tonemap(const uint scrwidth, const uint scrheight, const float p
 	surf2Dwrite<glm::vec4>(glm::vec4(r, g, b, value.w), output, x * sizeof(float4), y, cudaBoundaryModeClamp);
 }
 
+__global__ void blitDenoised(const uint scrwidth, const uint scrheight)
+{
+	const int x = threadIdx.x + blockIdx.x * blockDim.x;
+	const int y = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if (x >= scrwidth || y >= scrheight)
+		return;
+
+	const auto index = x + y * scrwidth;
+	const glm::vec4 value = outputPixels[index];
+	surf2Dwrite<glm::vec4>(value, output, x * sizeof(float4), y, cudaBoundaryModeClamp);
+}
+
 __host__ void setCameraView(rfw::CameraView *ptr) { cudaMemcpyToSymbol(view, &ptr, sizeof(void *)); }
 __host__ void setCounters(Counters *ptr) { cudaMemcpyToSymbol(counters, &ptr, sizeof(void *)); }
 __host__ void setAccumulator(glm::vec4 *ptr) { cudaMemcpyToSymbol(accumulator, &ptr, sizeof(void *)); }
@@ -435,8 +454,8 @@ __host__ void InitCountersSubsequent() { initCountersSubsequent<<<1, 32>>>(); }
 
 __host__ cudaError launchShade(const uint pathCount, const uint pathLength, const glm::mat3 &toEyeSpace)
 {
-	const dim3 gridDim = dim3(NEXTMULTIPLEOF(pathCount, 128) / 128, 1, 1);
-	const dim3 blockDim = dim3(128, 1, 1);
+	const dim3 gridDim = dim3(NEXTMULTIPLEOF(pathCount, 128) / 128);
+	const dim3 blockDim = dim3(128);
 	shade<<<gridDim, blockDim>>>(pathLength, toEyeSpace);
 
 	return cudaGetLastError();
@@ -445,8 +464,8 @@ __host__ cudaError launchShade(const uint pathCount, const uint pathLength, cons
 __host__ cudaError launchFinalize(bool blit, const unsigned int scrwidth, const unsigned int scrheight, const unsigned int samples, const float brightness,
 								  const float contrast)
 {
-	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
-	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);
+	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16) / 16;
+	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16) / 16;
 	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
 	const dim3 blockDim = dim3(16, 16, 1);
 
@@ -458,10 +477,22 @@ __host__ cudaError launchFinalize(bool blit, const unsigned int scrwidth, const 
 	return cudaGetLastError();
 }
 
+__host__ cudaError blitBuffer(const unsigned int scrwidth, const unsigned int scrheight)
+{
+	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16) / 16;
+	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16) / 16;
+	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
+	const dim3 blockDim = dim3(16, 16, 1);
+
+	blitDenoised<<<gridDim, blockDim>>>(scrwidth, scrheight);
+
+	return cudaGetLastError();
+}
+
 cudaError launchTonemap(unsigned int scrwidth, unsigned int scrheight, unsigned int samples, float brightness, float contrast)
 {
-	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16);
-	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16);
+	const unsigned int alignedWidth = NEXTMULTIPLEOF(scrwidth, 16) / 16;
+	const unsigned int alignedHeight = NEXTMULTIPLEOF(scrheight, 16) / 16;
 	const dim3 gridDim = dim3(alignedWidth, alignedHeight, 1);
 	const dim3 blockDim = dim3(16, 16, 1);
 

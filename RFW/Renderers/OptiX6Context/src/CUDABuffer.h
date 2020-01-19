@@ -31,8 +31,7 @@ template <typename T> class CUDABuffer
 		{
 			if (async)
 			{
-				CheckCUDA(
-					cudaMemcpyAsync(m_DevicePointer, data.data(), data.size() * sizeof(T), cudaMemcpyHostToDevice));
+				CheckCUDA(cudaMemcpyAsync(m_DevicePointer, data.data(), data.size() * sizeof(T), cudaMemcpyHostToDevice));
 			}
 			else
 			{
@@ -53,8 +52,7 @@ template <typename T> class CUDABuffer
 			CheckCUDA(cudaMalloc(&m_DevicePointer, elementCount * sizeof(T)));
 	}
 
-	CUDABuffer(const T *data, size_t elementCount, uint flags = ON_ALL)
-		: m_Elements(static_cast<uint>(elementCount)), m_Flags(flags)
+	CUDABuffer(const T *data, size_t elementCount, uint flags = ON_ALL) : m_Elements(static_cast<uint>(elementCount)), m_Flags(flags)
 	{
 		const bool allocateHost = (flags & ON_HOST);
 		const bool allocateDevice = (flags & ON_DEVICE);
@@ -83,14 +81,8 @@ template <typename T> class CUDABuffer
 	T *getHostPointer() { return m_HostData.data(); }
 	T *getDevicePointer() { return m_DevicePointer; }
 
-	void copyToHost()
-	{
-		CheckCUDA(cudaMemcpy(m_HostData.data(), m_DevicePointer, m_Elements * sizeof(T), cudaMemcpyDeviceToHost));
-	}
-	void copyToHostAsync()
-	{
-		CheckCUDA(cudaMemcpyAsync(m_HostData.data(), m_DevicePointer, m_Elements * sizeof(T), cudaMemcpyDeviceToHost));
-	}
+	void copyToHost() { CheckCUDA(cudaMemcpy(m_HostData.data(), m_DevicePointer, m_Elements * sizeof(T), cudaMemcpyDeviceToHost)); }
+	void copyToHostAsync() { CheckCUDA(cudaMemcpyAsync(m_HostData.data(), m_DevicePointer, m_Elements * sizeof(T), cudaMemcpyDeviceToHost)); }
 	void copyToDevice(const T *data, size_t elementCount, size_t offset = 0)
 	{
 		assert(data);

@@ -5,7 +5,7 @@ uses a very similar architectural design, but was re-implemented from the ground
 for lighthouse2 was developed by [me](https://github.com/MeirBon) and the Vulkan RTX renderer in this
 project shares most of its code with the Vulkan RTX rendercore of lighthouse2.
 
-![screenshot0](docs/screenshot0.png)
+![screenshot0](docs/screenshot0.jpg)
 ![screenshot0](docs/screenshot1.png)
 
 ## Features
@@ -18,6 +18,7 @@ project shares most of its code with the Vulkan RTX rendercore of lighthouse2.
 - Vulkan RTX path tracer
 - OptiX 6.5 RTX path tracer
 - OpenGL Renderer
+- CUDA (non-RTX) Path tracer
 
 ## WIP Renderers
 - CPU path tracer using Embree
@@ -25,3 +26,11 @@ project shares most of its code with the Vulkan RTX rendercore of lighthouse2.
 ## Planned renderers:
 - Vulkan PBR Rasterizer
 - Metal path tracer using Apple's ray-tracing framework 
+
+## Frequent problems
+- If you're running Linux/MacOS and a renderer cannot open/find a specific
+shared library, set `LD_LIBRARY_PATH=.` as an environment variable on launch.
+- On initial launch, the framework will log 'Camera file "camera.bin" does not exist'.
+This is expected as the file indeed does not (yet) exist. The camera gets saved once the
+program exits and gets loaded back in when relaunching the framework. If the file does not exist,
+a camera with default parameters gets loaded.

@@ -351,7 +351,7 @@ void RenderSystem::synchronize()
 
 			for (int j = 0, sj = static_cast<int>(meshes.size()); j < sj; j++)
 			{
-				if (!changedTransforms[i])
+				if (!changedTransforms[j])
 					continue;
 
 				const auto meshID = meshes[j].first;
@@ -487,7 +487,7 @@ GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, 
 	SceneTriangles *triangles = nullptr;
 
 #if USE_TINY_GLTF
-	if (utils::string::ends_with(fileName, {".gltf", ".glb"}))
+	if (utils::string::ends_with(fileName.data(), {std::string(".gltf"), std::string(".glb")}))
 		triangles = new gLTFObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, material);
 	else
 #endif
@@ -538,15 +538,14 @@ rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3
 	// Add model to list
 	SceneTriangles *triangles = new Quad(N, pos, width, height, material);
 
-	// Update flags
-	m_Changed[MODELS] = true;
-	m_UninitializedMeshes = true;
+	triangles->prepareMeshes(*this);
+	assert(!triangles->getMeshes().empty());
 
 	m_Models.push_back(triangles);
 	m_ModelChanged.push_back(true);
-	triangles->prepareMeshes(*this);
 
 	const auto lightFlags = m_Materials->getMaterialLightFlags();
+
 	const auto lightIndices = m_Models[idx]->getLightIndices(lightFlags, true);
 	assert(lightIndices.size() == m_Models[idx]->getMeshes().size());
 
@@ -560,7 +559,7 @@ rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3
 	}
 
 	m_ObjectLightIndices.push_back(lightIndices);
-	m_ObjectMaterialRange.emplace_back(material, material + 1);
+	m_ObjectMaterialRange.emplace_back(static_cast<uint>(material), static_cast<uint>(material + 1));
 
 	// Update flags
 	m_Changed[MODELS] = true;
@@ -583,8 +582,8 @@ InstanceReference RenderSystem::addInstance(const GeometryReference &geometry, g
 	ref.setRotation(degrees, axes);
 	ref.setTranslation(translation);
 
-	m_Instances.emplace_back(ref);
-	m_InstanceMatrices.emplace_back(ref.getMatrix());
+	m_Instances.push_back(ref);
+	m_InstanceMatrices.push_back(ref.getMatrix());
 
 	if (!m_ObjectLightIndices[geometry.getIndex()].empty())
 	{
@@ -704,14 +703,14 @@ LightReference RenderSystem::addPointLight(const glm::vec3 &position, const glm:
 	return LightReference(index, LightReference::POINT, *this);
 }
 
-LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float cosInner, const glm::vec3 &radiance, float cosOuter, const glm::vec3 &direction)
+LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance, float outer_deg, const glm::vec3 &direction)
 {
 	size_t index = m_SpotLights.size();
 	SpotLight sl{};
 	sl.position = position;
-	sl.cosInner = cosInner;
+	sl.cosInner = cos(radians(inner_deg));
 	sl.radiance = radiance;
-	sl.cosOuter = cosOuter;
+	sl.cosOuter = cos(radians(outer_deg));
 	sl.direction = normalize(direction);
 	sl.energy = sqrt(dot(radiance, radiance));
 	m_SpotLights.push_back(sl);

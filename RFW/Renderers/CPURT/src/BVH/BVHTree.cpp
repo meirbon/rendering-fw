@@ -3,7 +3,7 @@
 using namespace glm;
 using namespace rfw;
 
-#define EDGE_INTERSECTION 0
+#define EDGE_INTERSECTION 1
 
 BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount) : m_VertexCount(vertexCount), m_FaceCount(vertexCount / 3)
 {
@@ -93,6 +93,17 @@ bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_mi
 #endif
 }
 
+bool BVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max)
+{
+#if EDGE_INTERSECTION
+	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max, m_BVHPool.data(), m_PrimitiveIndices.data(), p0s.data(), edge1s.data(), edge2s.data());
+#else
+	if (m_Indices)
+		return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max, m_BVHPool.data(), m_PrimitiveIndices.data(), m_Vertices, m_Indices);
+	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max, m_BVHPool.data(), m_PrimitiveIndices.data(), m_Vertices);
+#endif
+}
+
 int BVHTree::traverse(cpurt::RayPacket4 &packet, float t_min, __m128 *hit_mask)
 {
 #if EDGE_INTERSECTION
@@ -107,6 +118,7 @@ int BVHTree::traverse(cpurt::RayPacket4 &packet, float t_min, __m128 *hit_mask)
 void BVHTree::set_vertices(const glm::vec4 *vertices)
 {
 	m_Vertices = vertices;
+	m_Indices = nullptr;
 
 	aabb = AABB();
 
@@ -116,23 +128,20 @@ void BVHTree::set_vertices(const glm::vec4 *vertices)
 	edge1s.resize(m_FaceCount);
 	edge2s.resize(m_FaceCount);
 
-	rfw::utils::concurrency::parallel_for(0, m_FaceCount, [&](int i) {
-		// for (int i = 0; i < m_FaceCount; i++)
-		//{
+	for (int i = 0; i < m_FaceCount; i++)
+	{
 		const uvec3 idx = uvec3(i * 3) + uvec3(0, 1, 2);
-		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+
+		const vec3 p0 = vec3(vertices[idx.x]);
+		const vec3 p1 = vec3(vertices[idx.y]);
+		const vec3 p2 = vec3(vertices[idx.z]);
+
+		m_AABBs[i] = triangle::getBounds(p0, p1, p2);
 		aabb.grow(m_AABBs[i]);
 
-		p0s[i] = vertices[idx.x];
-		edge1s[i] = vertices[idx.y] - vertices[idx.x];
-		edge2s[i] = vertices[idx.z] - vertices[idx.x];
-	});
-	// }
-
-	for (int i = 0; i < 3; i++)
-	{
-		aabb.bmin[i] -= 1e-6f;
-		aabb.bmax[i] += 1e-6f;
+		p0s[i] = p0;
+		edge1s[i] = p1 - p0;
+		edge2s[i] = p2 - p0;
 	}
 }
 
@@ -149,19 +158,19 @@ void BVHTree::set_vertices(const glm::vec4 *vertices, const glm::uvec3 *indices)
 	edge1s.resize(m_FaceCount);
 	edge2s.resize(m_FaceCount);
 
-	rfw::utils::concurrency::parallel_for(0, m_FaceCount, [&](int i) {
+	for (int i = 0; i < m_FaceCount; i++)
+	{
 		const uvec3 &idx = m_Indices[i];
-		m_AABBs[i] = triangle::getBounds(vertices[idx.x], vertices[idx.y], vertices[idx.z]);
+
+		const vec3 p0 = vec3(vertices[idx.x]);
+		const vec3 p1 = vec3(vertices[idx.y]);
+		const vec3 p2 = vec3(vertices[idx.z]);
+
+		m_AABBs[i] = triangle::getBounds(p0, p1, p2);
 		aabb.grow(m_AABBs[i]);
 
-		p0s[i] = vertices[idx.x];
-		edge1s[i] = vertices[idx.y] - vertices[idx.x];
-		edge2s[i] = vertices[idx.z] - vertices[idx.x];
-	});
-
-	for (int i = 0; i < 3; i++)
-	{
-		aabb.bmin[i] -= 1e-5f;
-		aabb.bmax[i] += 1e-5f;
+		p0s[i] = p0;
+		edge1s[i] = p1 - p0;
+		edge2s[i] = p2 - p0;
 	}
 }

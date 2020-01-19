@@ -118,10 +118,24 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 			const int start = static_cast<int>(t_id * packetsPerThread);
 			const int end = static_cast<int>((t_id + 1) * packetsPerThread);
 
-#if PACKET_TRAVERSAL
 			for (int i = start; i < end; i++)
 			{
+				const int y = (i % wTiles) * TILE_HEIGHT;
+				const int x = (i / wTiles) * TILE_WIDTH;
+
 				auto &packet = m_Packets[i];
+
+#if PACKET_WIDTH == 4
+				const int x4[4] = {x, x + 1, x, x + 1};
+				const int y4[4] = {y, y, y + 1, y + 1};
+				packet = cpurt::Ray::generateRay4(camParams, x4, y4, &m_RNGs[t_id]);
+#elif PACKET_WIDTH == 8
+				const int x8[8] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
+				const int y8[8] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1};
+				packet = Ray::GenerateRay8(camParams, x8, y8, &m_RNGs[t_id]);
+#endif
+
+#if PACKET_TRAVERSAL
 				topLevelBVH.intersect(packet, 1e-5f);
 
 				for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
@@ -225,11 +239,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					m_Pixels[pixelID] = vec4(color, 1.0f);
 				}
-			}
 #else
-			for (int i = start; i < end; i++)
-			{
-				auto &packet = m_Packets[i];
 				for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
 				{
 					std::optional<Triangle> result;
@@ -242,7 +252,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					if (pixelID >= maxPixelID)
 						break;
 
-					unsigned int instID = 0;
+					int instID = -1;
 					result = topLevelBVH.intersect(origin, direction, &t, &primID, 1e-5f, instID);
 					if (result.has_value() && pixelID == probe_id)
 					{
@@ -315,8 +325,8 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 					m_Pixels[pixelID] = vec4(color, 1.0f);
 				}
-			}
 #endif
+			}
 		}));
 	}
 
@@ -457,7 +467,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 
 void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
-	topLevelBVH.setInstance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->get_aabb());
+	topLevelBVH.set_instance(i, transform, &m_Meshes[meshIdx], m_Meshes[meshIdx].mbvh->get_aabb());
 }
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
@@ -500,7 +510,7 @@ rfw::AvailableRenderSettings Context::getAvailableSettings() const { return {}; 
 
 void Context::setSetting(const rfw::RenderSetting &setting) {}
 
-void Context::update() { topLevelBVH.constructBVH(); }
+void Context::update() { topLevelBVH.construct_bvh(); }
 
 void Context::setProbePos(glm::uvec2 probePos) { m_ProbePos = probePos; }
 

@@ -39,3 +39,4 @@ add_custom_target(LINK_CL_KERNELS
 		)
 
 add_dependencies(${PROJECT_NAME} LINK_CL_KERNELS)
+add_dependencies(Renderers ${PROJECT_NAME})

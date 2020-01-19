@@ -34,3 +34,5 @@ set_target_properties(${PROJECT_NAME}
 		RUNTIME_OUTPUT_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
 		CXX_STANDARD 17
 		)
+
+add_dependencies(Renderers ${PROJECT_NAME})

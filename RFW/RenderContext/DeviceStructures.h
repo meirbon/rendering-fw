@@ -112,7 +112,7 @@ struct DeviceAreaLight
 	glm::vec4 vertex2;
 
 	DEVICE_FUNC glm::vec3 getPosition() const { return glm::vec3(pos_energy); }
-	DEVICE_FUNC float getEnergy() const { return pos_energy.w; }
+	DEVICE_FUNC float getEnergy() const { return glm::length(glm::vec3(radiance)); }
 	DEVICE_FUNC glm::vec3 getNormal() const { return glm::vec3(normal_area); }
 	DEVICE_FUNC glm::vec3 getRadiance() const { return glm::vec3(radiance); }
 	DEVICE_FUNC float getArea() const { return normal_area.w; }

@@ -24,7 +24,7 @@ Texture::Texture(const std::string_view &file, uint mods)
 	}
 
 	mipLevels = MIPLEVELCOUNT;
-	const bool isHDR = utils::string::ends_with(file, ".hdr");
+	const bool isHDR = utils::string::ends_with(file.data(), ".hdr");
 	const bool shouldCache = isHDR;
 
 	const std::string binPath = std::string(file) + ".binary";

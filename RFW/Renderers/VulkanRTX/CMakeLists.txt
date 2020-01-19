@@ -75,3 +75,4 @@ add_custom_target(vkrtxShaders DEPENDS ${ASSET_OUTPUT_DIR}/vkrtxshaders ${SPIRV_
 
 # Make shader compilation a dependency of library
 add_dependencies(${PROJECT_NAME} vkrtxShaders)
+add_dependencies(Renderers ${PROJECT_NAME})

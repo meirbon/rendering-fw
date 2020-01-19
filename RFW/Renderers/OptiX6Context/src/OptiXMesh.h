@@ -5,6 +5,7 @@
 #include <optix_world.h>
 
 #include "CUDABuffer.h"
+#include "OptiXCUDABuffer.h"
 #include <Structures.h>
 
 class OptiXMesh
@@ -15,21 +16,17 @@ class OptiXMesh
 
 	void cleanup();
 
-	void setData(const rfw::Mesh &mesh, optix::Material material);
+	void setData(const rfw::Mesh &mesh);
 
-	CUDABuffer<rfw::Triangle> &getTrianglesBuffer() { return *m_Triangles; }
+	optix::GeometryTriangles optixTriangles;
+	CUDABuffer<rfw::Triangle> *triangles = nullptr;
 
-	[[nodiscard]] optix::GeometryTriangles getGeometryTriangles() const { return m_OptiXTriangles; }
-	[[nodiscard]] optix::Acceleration getAcceleration() const { return m_Acceleration; }
   private:
-	CUDABuffer<rfw::Triangle> *m_Triangles = nullptr;
+	OptiXCUDABuffer<glm::vec4, OptiXBufferType::Read> *m_Vertices = nullptr;
+	OptiXCUDABuffer<glm::uvec3, OptiXBufferType::Read> *m_Indices = nullptr;
 
 	uint vertexCount = 0;
 	uint triangleCount = 0;
 	optix::Context m_Context;
-	optix::Buffer m_VertexBuffer;
-	optix::Buffer m_IndexBuffer;
 	optix::Program m_AttribProgram;
-	optix::GeometryTriangles m_OptiXTriangles;
-	optix::Acceleration m_Acceleration;
 };

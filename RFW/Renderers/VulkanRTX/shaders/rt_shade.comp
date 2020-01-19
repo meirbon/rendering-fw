@@ -11,6 +11,7 @@
 //#include "lambert.glsl"
 //#include "disney2.glsl"
 #include "disney.glsl"
+//#include "microfacet.glsl"
 #include "random.glsl"
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
@@ -72,7 +73,7 @@ layout(set = 0, binding = cBLUENOISE) buffer   blueNoiseBuffer { int blueNoise[]
 #define FLAGS data
 #define PATHIDX (data >> 8)
 
-#define ISLIGHTS 0
+#define ISLIGHTS 1
 #define MAXISLIGHTS 16
 
 #define AREALIGHTCOUNT        lightCounts.x
@@ -142,8 +143,7 @@ void main()
     const DeviceTriangle tri = tbuffers[instance_id].tdata[prim_id];
     ShadingData shadingData;
     vec3 N, iN, T, B;
-    GetShadingData(D, HIT_U, HIT_V, camera.right_spreadAngle.w * HIT_T, tri,
-    shadingData, N, iN, T, B, invTransforms[instance_id]);
+    GetShadingData(D, HIT_U, HIT_V, camera.right_spreadAngle.w * HIT_T, tri, shadingData, N, iN, T, B, invTransforms[instance_id]);
 
     if ((floatBitsToUint(shadingData.color.w) & 1u) == 1u)// Check if object hit was translucent
     {
@@ -151,7 +151,7 @@ void main()
         {
             const uint extensionRayIdx = atomicAdd(extensionRays, 1);
             origins[nextBufferIndex].data[extensionRayIdx] = vec4(SafeOrigin(I, D, iN, camera.geometryEpsilon), O4.w);
-            directions[nextBufferIndex].data[extensionRayIdx] = vec4(D, 0.0);
+            directions[nextBufferIndex].data[extensionRayIdx] = vec4(D, uintBitsToFloat(PackNormal(iN)));
             throughputs[nextBufferIndex].data[extensionRayIdx] = T4;
         }
         return;
@@ -160,9 +160,8 @@ void main()
     // Terminate path on light
     if (any(greaterThan(shadingData.color.xyz, vec3(1.0)))) /* r, g or b exceeds 1 */
     {
-
-        #if VARIANCE_REDUCTION
-        const float DdotNL = -dot(D, N);
+#if VARIANCE_REDUCTION
+        const float DdotNL = -dot(D, iN);
         vec3 contribution = vec3(0);
         if (DdotNL > 0)
         {
@@ -174,21 +173,25 @@ void main()
             {
                 // Last vertex was not specular: apply MIS
                 const vec3 lastN = UnpackNormal(floatBitsToUint(D4.w));
-                const float lightPdf = CalculateLightPDF(D, HIT_T, shadingData.absorption.w, N);
-                const float pickProb = LightPickProb(floatBitsToInt(tri.u4.w), RAY_O, lastN, I /* the N at the previous vertex */);
+                const float lightPdf = CalculateLightPDF(D, HIT_T, shadingData.absorption.w, iN);
+                const float pickProb = LightPickProb(floatBitsToInt(tri.u4.w), RAY_O, lastN /* the N at the previous vertex */, I);
                 if ((bsdfPdf + lightPdf * pickProb) <= 0)
-                return;
+                {
+                    return;
+                }
 
                 contribution = throughput * shadingData.color.xyz * (1.0f / (bsdfPdf + lightPdf * pickProb));
             }
         }
-            #else
+#else
         vec3 contribution = throughput * shadingData.color.xyz * 1.0f / bsdfPdf;
-        #endif
+#endif
 
 
         if (any(isnan(contribution)))
-        contribution = vec3(0.0f);
+        {
+            contribution = vec3(0.0f);
+        }
 
         CLAMPINTENSITY(contribution, clampValue);
         acPixels[pixelIdx] += vec4(contribution, 0);
@@ -197,15 +200,22 @@ void main()
 
     const float flip = -sign(dot(D, N));
 
-    N *= flip;// Fix geometric normal
-    iN *= flip;// Fix interpolated normal (consistent normal interpolation)
+    N *= flip; // Fix geometric normal
+    iN *= flip; // Fix interpolated normal
+
     throughput *= 1.0f / bsdfPdf;// Apply postponed bsdf pdf
-    if (ROUGHNESS <= 0.001f || TRANSMISSION > 0.999f)
-    FLAGS |= S_SPECULAR;
-    else FLAGS &= ~S_SPECULAR;
+    if (ROUGHNESS < 0.001f || TRANSMISSION > 0.999f)
+    {
+        FLAGS |= S_SPECULAR;
+    }
+    else 
+    {
+        FLAGS &= ~S_SPECULAR;
+    }
+
     uint seed = WangHash(pathIdx * 16789 + camera.samplesTaken * 1791 + pathLength * 720898027);
 
-    #if VARIANCE_REDUCTION
+#if VARIANCE_REDUCTION
     // Only cast shadow rays for non-specular objects
     if (ROUGHNESS >= 0.01f && any(greaterThan(lightCounts, uvec4(0))))
     {
@@ -226,14 +236,14 @@ void main()
             r1 = RandomFloat(seed);
         }
 
-        vec3 L = RandomPointOnLight(r0, r1, I, N, pickProb, lightPdf, lightColor) - I;
+        vec3 L = RandomPointOnLight(r0, r1, I, iN, pickProb, lightPdf, lightColor) - I;
         const float dist = length(L);
         L *= 1.0f / dist;
         const float NdotL = dot(L, iN);
         if (NdotL > 0 && lightPdf > 0)
         {
             float shadowPdf;
-            const vec3 sampledBSDF = EvaluateBSDF(shadingData, N, T, B, D * -1.0f, L, shadowPdf);
+            const vec3 sampledBSDF = EvaluateBSDF(shadingData, iN, T, B, D * -1.0f, L, shadowPdf);
             if (shadowPdf > 0)
             {
                 // calculate potential contribution
@@ -253,7 +263,7 @@ void main()
     }
 
     if ((FLAGS & S_BOUNCED) > 0) return;
-    #endif
+#endif
 
     // Depth cap
     if (pathLength >= MAXPATHLENGTH)// Early out in case we reached maximum path length
@@ -277,14 +287,18 @@ void main()
     bool specular = false;
     const vec3 bsdf = SampleBSDF(shadingData, iN, N, T, B, D * -1.0f, HIT_T, flip < 0, r3, r4, R, newBsdfPdf, specular);
     if (newBsdfPdf < EPSILON || isnan(newBsdfPdf))
-    return;
+    {
+        return;
+    }
 
     if (specular)
     FLAGS |= S_SPECULAR;
 
     throughput = throughput * bsdf * abs(dot(iN, R));
     if (any(isnan(throughput)))
-    throughput = vec3(0);
+    {
+        throughput = vec3(0);  
+    }
 
     const uint extensionRayIdx = atomicAdd(extensionRays, 1);// Get compacted index for extension ray
 
@@ -327,8 +341,7 @@ float PotentialPointLightContribution(const int idx, const vec3 I, const vec3 N)
     return position4.w * NdotL * att;
 }
 
-float PotentialSpotLightContribution(
-const int idx, const vec3 I, const vec3 N)
+float PotentialSpotLightContribution(const int idx, const vec3 I, const vec3 N)
 {
     const DeviceSpotLight light = spotLights[idx];
     const vec4 position4 = light.position_cosInner;
@@ -339,9 +352,9 @@ const int idx, const vec3 I, const vec3 N)
     const float att = 1.0f / dot(L, L);
     L = normalize(L);
     const float d = (-dot(L, direction4.xyz) - radiance4.w) / (position4.w - radiance4.w);
-    const float NdotL = dot(N, L);
+    const float NdotL = max(0.0f, dot(N, L));
     const float LNdotL = clamp(d, 0.0f, 1.0f);
-    return LNdotL * NdotL * att * direction4.w;
+    return direction4.w * LNdotL * NdotL * att;
 }
 
 float PotentialDirectionalLightContribution(const int idx, const vec3 I, const vec3 N)
@@ -521,7 +534,7 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
         L = normalize(L);
         const float LNdotL = dot(L, LN.xyz);
         const float reciSolidAngle = sqDist / (LN.w * LNdotL);
-        lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? reciSolidAngle : 0;
+        lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (reciSolidAngle * (1.0f / length(light.radiance.xyz))) : 0;
         return P;
     }
 
@@ -533,7 +546,7 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
         lightColor = vec3(light.radiance);// radiance
         const vec3 L = I - pos4.xyz;// reversed
         const float sqDist = dot(L, L);
-        lightPdf = dot(L, N) < 0 ? sqDist : 0;
+        lightPdf = dot(L, N) < 0 ? (sqDist / pos4.w) : 0;
         return pos4.xyz;
     }
 
@@ -541,16 +554,16 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
     {
         // pick a spotlight
         const DeviceSpotLight light = spotLights[lightIdx - (AREALIGHTCOUNT + POINTLIGHTCOUNT)];
-        const vec4 P = light.position_cosInner;// position + cos_inner
-        const vec4 E = light.radiance_cosOuter;// radiance + cos_outer
-        const vec4 D = light.direction_energy;// direction
+        const vec4 P = light.position_cosInner; // position + cos_inner
+        const vec4 E = light.radiance_cosOuter; // radiance + cos_outer
+        const vec4 D = light.direction_energy; // direction
         const vec3 pos = P.xyz;
         vec3 L = I - P.xyz;
         const float sqDist = dot(L, L);
         L = normalize(L);
         const float d = max(0.0f, dot(L, D.xyz) - E.w) / (P.w - E.w);
         const float LNdotL = min(1.0f, d);
-        lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (sqDist / LNdotL) : 0;
+        lightPdf = (LNdotL > 0 && dot(L, N) < 0) ? (sqDist / (LNdotL * D.w)) : 0;
         lightColor = E.xyz;
         return pos;
     }
@@ -560,7 +573,7 @@ vec3 RandomPointOnLight(float r0, float r1, const vec3 I, const vec3 N, inout fl
     const vec4 L4 = light.direction_energy;// direction
     lightColor = light.radiance.xyz;// radiance
     const float NdotL = dot(L4.xyz, N);
-    lightPdf = NdotL < 0 ? 1 : 0;
+    lightPdf = NdotL < 0 ? (1 * (1.0f / L4.w)) : 0;
     return I - 1000.0f * L4.xyz;
 }
 

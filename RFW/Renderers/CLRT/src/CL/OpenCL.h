@@ -49,7 +49,7 @@ template <typename T, BufferType TYPE = DATA> class CLBuffer
 {
   public:
 	CLBuffer() {}
-	CLBuffer(std::shared_ptr<CLContext> context, unsigned int element_count, const T *ptr);
+	CLBuffer(std::shared_ptr<CLContext> context, unsigned int element_count, const T *ptr = nullptr);
 	CLBuffer(std::shared_ptr<CLContext> context, const std::vector<T> &data);
 	CLBuffer(std::shared_ptr<CLContext> context, GLuint texID, GLuint width, GLuint height);
 	~CLBuffer() { clReleaseMemObject(m_DeviceBuffer); }
@@ -57,11 +57,11 @@ template <typename T, BufferType TYPE = DATA> class CLBuffer
 	size_t size_in_bytes() const { return m_HostBuffer.size() * sizeof(T); }
 	size_t size() const { return m_HostBuffer.size(); }
 
-	T &at(size_t idx) { return m_HostBuffer[idx]; }
-	const T &at(size_t idx) const { return m_HostBuffer[idx]; }
-
 	T &operator[](size_t idx) { return m_HostBuffer[idx]; }
 	const T &operator[](size_t idx) const { return m_HostBuffer[idx]; }
+
+	T &at(size_t idx) { return m_HostBuffer[idx]; }
+	const T &at(size_t idx) const { return m_HostBuffer[idx]; }
 
 	const cl_mem *get_device_buffer() const { return &m_DeviceBuffer; }
 
@@ -71,19 +71,25 @@ template <typename T, BufferType TYPE = DATA> class CLBuffer
 
 	void copy_to(cl_mem buffer);
 
-	template <typename U, BufferType K> void copy_to(CLBuffer<U, K> &other) const { copy_to(other.get_device_buffer()); }
+	template <typename U, BufferType K> void copy_to(CLBuffer<U, K> &other) const
+	{
+		copy_to(other.get_device_buffer());
+	}
 
 	void clear(unsigned int value = 0);
 
 	void read(void *dst);
 
+	T *host_data() { return m_HostBuffer.data(); }
+
 	template <typename U> void write(rfw::utils::ArrayProxy<U> data)
 	{
 		assert(data.size() <= m_HostBuffer.size() * sizeof(T));
-		write(data.data());
+		memcpy(m_HostBuffer.data(), data.data(), data.size() * sizeof(U));
+		copy_to_device(true);
 	}
 
-	void write(void *dst);
+	void write(const void *data, size_t size_in_bytes);
 
   private:
 	std::shared_ptr<CLContext> m_Context;
@@ -97,7 +103,8 @@ class CLKernel
 {
   public:
 	// constructor / destructor
-	CLKernel(std::shared_ptr<CLContext> context, const char *file, const char *entryPoint, std::array<size_t, 3> workSize, std::array<size_t, 3> localSize);
+	CLKernel(std::shared_ptr<CLContext> context, const char *file, const char *entryPoint,
+			 std::array<size_t, 3> workSize, std::array<size_t, 3> localSize);
 	~CLKernel();
 
 	cl_kernel get_kernel() const { return m_Kernel; }
@@ -115,6 +122,11 @@ class CLKernel
 
 		static_assert(sizeof(T) % 4 == 0, "CLKernel argument objects should be 4 byte aligned");
 		clSetKernelArg(m_Kernel, idx, sizeof(T), &val);
+	}
+
+	template <typename T, BufferType U> void set_argument(const cl_uint idx, const CLBuffer<T, U> &buffer) const
+	{
+		clSetKernelArg(m_Kernel, idx, sizeof(cl_mem *), buffer.get_device_buffer());
 	}
 
 	template <typename T, BufferType U> void set_buffer(const cl_uint idx, const CLBuffer<T, U> &buffer) const
@@ -136,8 +148,6 @@ class CLKernel
 	const size_t *get_local_size() const { return m_LocalSize.data(); }
 
 	void set_offset(const std::array<size_t, 3> &offset);
-
-	void set_global_size(const std::array<size_t, 3>& global_size);
 
 	void set_work_size(const std::array<size_t, 3> &work_size);
 
@@ -167,8 +177,8 @@ class CLContext
 		assert(m_CanDoInterop);
 		glFinish();
 		CheckCL(clEnqueueAcquireGLObjects(m_Queue, 1, buffer.get_device_buffer(), 0, 0, 0));
-		CheckCL(clEnqueueNDRangeKernel(m_Queue, kernel.get_kernel(), kernel.get_dimensions(), kernel.get_offset(), kernel.get_work_size(),
-									   kernel.get_local_size(), 0, 0, 0));
+		CheckCL(clEnqueueNDRangeKernel(m_Queue, kernel.get_kernel(), kernel.get_dimensions(), kernel.get_offset(),
+									   kernel.get_work_size(), kernel.get_local_size(), 0, 0, 0));
 		CheckCL(clEnqueueReleaseGLObjects(m_Queue, 1, buffer->GetDevicePtr(), 0, 0, 0));
 	}
 
@@ -177,8 +187,8 @@ class CLContext
 		assert(m_CanDoInterop);
 		glFinish();
 		CheckCL(clEnqueueAcquireGLObjects(m_Queue, 1, buffer.get_device_buffer(), 0, 0, 0));
-		CheckCL(clEnqueueNDRangeKernel(m_Queue, kernel.get_kernel(), kernel.get_dimensions(), kernel.get_offset(), kernel.get_work_size(),
-									   kernel.get_local_size(), 0, 0, 0));
+		CheckCL(clEnqueueNDRangeKernel(m_Queue, kernel.get_kernel(), kernel.get_dimensions(), kernel.get_offset(),
+									   kernel.get_work_size(), kernel.get_local_size(), 0, 0, 0));
 		CheckCL(clEnqueueReleaseGLObjects(m_Queue, 1, buffer->GetDevicePtr(), 0, 0, 0));
 	}
 
@@ -200,9 +210,13 @@ class CLContext
 };
 
 template <typename T, BufferType TYPE>
-CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, unsigned int element_count, const T *ptr) : m_Context(context)
+CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, unsigned int element_count, const T *ptr)
+	: m_Context(context)
 {
-	m_DeviceBuffer = clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, element_count * sizeof(T), 0, 0);
+	cl_int error;
+	m_DeviceBuffer = clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, element_count * sizeof(T),
+									const_cast<T *>(ptr), &error);
+	CheckCL(error);
 
 	if (ptr)
 		m_HostBuffer = std::vector<T>(ptr, ptr + element_count);
@@ -210,22 +224,30 @@ CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, unsigned int ele
 		m_HostBuffer.resize(element_count);
 }
 template <typename T, BufferType TYPE>
-CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, const std::vector<T> &data) : m_Context(context), m_HostBuffer(data)
+CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, const std::vector<T> &data)
+	: m_Context(context), m_HostBuffer(data)
 {
-	m_DeviceBuffer = clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, m_HostBuffer.size() * sizeof(T), 0, 0);
+	cl_int error;
+	m_DeviceBuffer = clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, m_HostBuffer.size() * sizeof(T),
+									m_HostBuffer.data(), &error);
+	CheckCL(error);
 }
 template <typename T, BufferType TYPE>
-CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, GLuint texID, GLuint width, GLuint height) : m_Context(context)
+CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, GLuint texID, GLuint width, GLuint height)
+	: m_Context(context)
 {
 	assert(texID != 0);
 	m_TexID = texID;
+	cl_int error;
 
 	if (context->is_interop())
 	{
 		if constexpr (TYPE == TARGET)
-			m_DeviceBuffer = clCreateFromGLTexture(context->get_context(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, texID, 0);
+			m_DeviceBuffer =
+				clCreateFromGLTexture(context->get_context(), CL_MEM_WRITE_ONLY, GL_TEXTURE_2D, 0, texID, &error);
 		else
-			m_DeviceBuffer = clCreateFromGLTexture(context->get_context(), CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, texID, 0);
+			m_DeviceBuffer =
+				clCreateFromGLTexture(context->get_context(), CL_MEM_READ_ONLY, GL_TEXTURE_2D, 0, texID, &error);
 	}
 	else
 	{
@@ -247,48 +269,54 @@ CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, GLuint texID, GL
 		format.image_channel_data_type = CL_FLOAT;
 
 		if constexpr (TYPE == TARGET)
-			m_DeviceBuffer = clCreateImage(context->get_context(), CL_MEM_WRITE_ONLY, &format, &desc, m_HostBuffer.data(), 0);
+			m_DeviceBuffer =
+				clCreateImage(context->get_context(), CL_MEM_WRITE_ONLY, &format, &desc, m_HostBuffer.data(), &error);
 		else
-			m_DeviceBuffer = clCreateImage(context->get_context(), CL_MEM_READ_WRITE, &format, &desc, m_HostBuffer.data(), 0);
+			m_DeviceBuffer =
+				clCreateImage(context->get_context(), CL_MEM_READ_WRITE, &format, &desc, m_HostBuffer.data(), &error);
 	}
+	CheckCL(error);
 }
+
 template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::copy_to_device(bool blocking)
 {
-	CheckCL(clEnqueueWriteBuffer(m_Context->get_queue(), m_DeviceBuffer, blocking, 0, m_HostBuffer.size() * sizeof(T), m_HostBuffer.data(), 0, 0, 0));
+	CheckCL(clEnqueueWriteBuffer(m_Context->get_queue(), m_DeviceBuffer, blocking, 0, m_HostBuffer.size() * sizeof(T),
+								 m_HostBuffer.data(), 0, 0, 0));
 }
 
 template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::copy_to_host(bool blocking)
 {
-	CheckCL(clEnqueueReadBuffer(m_Context->get_queue(), m_DeviceBuffer, blocking, 0, m_HostBuffer.size() * sizeof(T), m_HostBuffer.data(), 0, 0, 0));
+	CheckCL(clEnqueueReadBuffer(m_Context->get_queue(), m_DeviceBuffer, blocking, 0, m_HostBuffer.size() * sizeof(T),
+								m_HostBuffer.data(), 0, 0, 0));
 }
 
 template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::copy_to(cl_mem buffer)
 {
-	CheckCL(clEnqueueCopyBuffer(m_Context->get_queue(), m_DeviceBuffer, buffer, 0, 0, m_HostBuffer.size() * sizeof(T), 0, 0, 0));
+	CheckCL(clEnqueueCopyBuffer(m_Context->get_queue(), m_DeviceBuffer, buffer, 0, 0, m_HostBuffer.size() * sizeof(T),
+								0, 0, 0));
 }
 
 template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::clear(unsigned int value)
 {
-	CheckCL(clEnqueueFillBuffer(m_Context->get_queue(), m_DeviceBuffer, &value, 4, 0, m_HostBuffer.size() * sizeof(T), 0, nullptr, nullptr));
+	CheckCL(clEnqueueFillBuffer(m_Context->get_queue(), m_DeviceBuffer, &value, 4, 0, m_HostBuffer.size() * sizeof(T),
+								0, nullptr, nullptr));
 }
 
 template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::read(void *dst)
 {
-	auto *data = static_cast<unsigned char *>(
-		clEnqueueMapBuffer(m_Context->get_queue(), m_PinnedBuffer, CL_TRUE, CL_MAP_READ, 0, m_HostBuffer.size() * sizeof(T), 0, nullptr, nullptr, nullptr));
-	clEnqueueReadBuffer(m_Context->get_queue(), m_DeviceBuffer, CL_TRUE, 0, m_HostBuffer.size() * sizeof(T), data, 0, nullptr, nullptr);
+	auto *data =
+		static_cast<unsigned char *>(clEnqueueMapBuffer(m_Context->get_queue(), m_PinnedBuffer, CL_TRUE, CL_MAP_READ, 0,
+														m_HostBuffer.size() * sizeof(T), 0, nullptr, nullptr, nullptr));
+	CheckCL(clEnqueueReadBuffer(m_Context->get_queue(), m_DeviceBuffer, CL_TRUE, 0, m_HostBuffer.size() * sizeof(T),
+								data, 0, nullptr, nullptr));
 	memcpy(dst, data, m_HostBuffer.size() * sizeof(T));
-	clEnqueueUnmapMemObject(m_Context->get_queue(), m_PinnedBuffer, nullptr, 0, 0, 0);
+	CheckCL(clEnqueueUnmapMemObject(m_Context->get_queue(), m_PinnedBuffer, nullptr, 0, 0, 0));
 	m_PinnedBuffer = nullptr;
 }
-template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::write(void *dst)
+template <typename T, BufferType TYPE> void CLBuffer<T, TYPE>::write(const void *d, size_t size_in_bytes)
 {
-	auto *data = static_cast<unsigned char *>(
-		clEnqueueMapBuffer(m_Context->get_queue(), m_PinnedBuffer, CL_TRUE, CL_MAP_WRITE, 0, m_HostBuffer.size() * sizeof(T), 0, nullptr, nullptr, nullptr));
-	memcpy(data, dst, m_HostBuffer.size() * sizeof(T));
-	clEnqueueWriteBuffer(m_Context->get_queue(), m_DeviceBuffer, CL_FALSE, 0, m_HostBuffer.size() * sizeof(T), data, 0, nullptr, nullptr);
-	clEnqueueUnmapMemObject(m_Context->get_queue(), m_PinnedBuffer, nullptr, 0, 0, 0);
-	m_PinnedBuffer = nullptr;
+	memcpy(m_HostBuffer.data(), d, size_in_bytes);
+	copy_to_device(true);
 }
 
 template <typename T> void CLKernel::run(CLBuffer<T, TARGET> &buffer) const { m_Context->submit(buffer, *this); }

@@ -930,7 +930,7 @@ void vkrtx::Context::createRayTracingPipeline()
 {
 	rtPipeline = new RTXPipeline(m_Device);
 	// Setup ray generation shader
-	const auto rgenShader = Shader(m_Device, "rt_shaders.rgen");
+	const auto rgenShader = Shader(m_Device, "rt_shaders.comp");
 	const auto chitShader = Shader(m_Device, "rt_shaders.rchit");
 	const auto missShader = Shader(m_Device, "rt_shaders.rmiss");
 	const auto shadowShader = Shader(m_Device, "rt_shadow.rmiss");

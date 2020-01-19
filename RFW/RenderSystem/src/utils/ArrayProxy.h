@@ -19,9 +19,9 @@ template <typename T> class ArrayProxy
   public:
 	constexpr ArrayProxy(std::nullptr_t) : m_Size(0), m_Data(nullptr) {}
 
-	ArrayProxy(T &ptr) : m_Size(1), m_Data(&ptr) {}
+	ArrayProxy(const T &ptr) : m_Size(1), m_Data(&ptr) {}
 
-	ArrayProxy(uint32_t count, T *ptr) : m_Size(count), m_Data(ptr) {}
+	ArrayProxy(uint32_t count, const T *ptr) : m_Size(count), m_Data(ptr) {}
 
 	template <size_t N> ArrayProxy(std::array<typename std::remove_const<T>::type, N> &data) : m_Size(N), m_Data(data.data()) {}
 

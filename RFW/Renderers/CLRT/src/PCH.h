@@ -10,6 +10,10 @@
 #include <utils/LibExport.h>
 #include <utils/gl/GLDraw.h>
 #include <utils/gl/GLTexture.h>
+#include <set>
+#include <map>
+#include <sstream>
+#include <string>
 
 #include <GL/glew.h>
 #if defined(WIN32)
@@ -33,6 +37,9 @@
 #endif
 
 #include <MathIncludes.h>
+
+#define HOST_CODE 1
+#include "../clkernels/shared.h"
 
 #include "CL/CheckCL.h"
 

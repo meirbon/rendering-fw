@@ -319,7 +319,7 @@ void rfw::CUDAContext::setMesh(size_t index, const rfw::Mesh &mesh)
 {
 	while (index >= m_Meshes.size())
 	{
-		m_Meshes.push_back(new bvh::BVHMesh());
+		m_Meshes.push_back(new bvh::rfwMesh());
 		m_MeshVertices.push_back(new CUDABuffer<glm::vec4>());
 		m_MeshIndices.push_back(new CUDABuffer<glm::uvec3>());
 
@@ -329,11 +329,11 @@ void rfw::CUDAContext::setMesh(size_t index, const rfw::Mesh &mesh)
 		m_MeshBVHPrimIndices.push_back(new CUDABuffer<uint>());
 	}
 
-	bvh::BVHMesh *m = m_Meshes[index];
+	bvh::rfwMesh *m = m_Meshes[index];
 
 	m->set_geometry(mesh);
 
-	if (m_MeshBVHs[index]->size() != m->bvh->m_BVHPool.size())
+	if (m_MeshBVHs[index]->size() != m->bvh->bvh_nodes.size())
 	{
 		delete m_MeshVertices[index];
 		delete m_MeshIndices[index];
@@ -345,18 +345,18 @@ void rfw::CUDAContext::setMesh(size_t index, const rfw::Mesh &mesh)
 		m_MeshVertices[index] = new CUDABuffer<glm::vec4>(m->vertexCount);
 		m_MeshIndices[index] = new CUDABuffer<glm::uvec3>(m->triangleCount);
 		m_MeshTriangles[index] = new CUDABuffer<rfw::DeviceTriangle>(m->triangleCount);
-		m_MeshBVHs[index] = new CUDABuffer<bvh::BVHNode>(m->bvh->m_BVHPool.size(), ON_DEVICE);
-		m_MeshMBVHs[index] = new CUDABuffer<bvh::MBVHNode>(m->mbvh->m_Tree.size(), ON_DEVICE);
-		m_MeshBVHPrimIndices[index] = new CUDABuffer<unsigned int>(m->bvh->m_PrimitiveIndices.size(), ON_DEVICE);
+		m_MeshBVHs[index] = new CUDABuffer<bvh::BVHNode>(m->bvh->bvh_nodes.size(), ON_DEVICE);
+		m_MeshMBVHs[index] = new CUDABuffer<bvh::MBVHNode>(m->mbvh->mbvh_nodes.size(), ON_DEVICE);
+		m_MeshBVHPrimIndices[index] = new CUDABuffer<unsigned int>(m->bvh->prim_indices.size(), ON_DEVICE);
 	}
 
 	m_MeshVertices[index]->copy_to_device_async(m->vertices, m->vertexCount);
 	if (m->indices)
 		m_MeshIndices[index]->copy_to_device_async(m->indices, m->triangleCount);
 	m_MeshTriangles[index]->copy_to_device_async((rfw::DeviceTriangle *)(m->triangles), m->triangleCount);
-	m_MeshBVHs[index]->copy_to_device_async(m->bvh->m_BVHPool);
-	m_MeshMBVHs[index]->copy_to_device_async(m->mbvh->m_Tree);
-	m_MeshBVHPrimIndices[index]->copy_to_device_async(m->bvh->m_PrimitiveIndices);
+	m_MeshBVHs[index]->copy_to_device_async(m->bvh->bvh_nodes);
+	m_MeshMBVHs[index]->copy_to_device_async(m->mbvh->mbvh_nodes);
+	m_MeshBVHPrimIndices[index]->copy_to_device_async(m->bvh->prim_indices);
 }
 
 void rfw::CUDAContext::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
@@ -490,21 +490,21 @@ void rfw::CUDAContext::update()
 	m_InstancePrimIdPointers->copy_to_device_async();
 	m_DeviceInstanceDescriptors->copy_to_device_async();
 
-	m_TopLevelCUDABVH = new CUDABuffer<bvh::BVHNode>(m_TopLevelBVH.m_Nodes.size(), ON_DEVICE);
-	m_TopLevelCUDAMBVH = new CUDABuffer<bvh::MBVHNode>(m_TopLevelBVH.m_MNodes.size(), ON_DEVICE);
-	m_TopLevelCUDAPrimIndices = new CUDABuffer<uint>(m_TopLevelBVH.m_PrimIndices.size(), ON_DEVICE);
-	m_TopLevelCUDAABBs = new CUDABuffer<bvh::AABB>(m_TopLevelBVH.transformedAABBs.size(), ON_DEVICE);
+	m_TopLevelCUDABVH = new CUDABuffer<bvh::BVHNode>(m_TopLevelBVH.bvh_nodes.size(), ON_DEVICE);
+	m_TopLevelCUDAMBVH = new CUDABuffer<bvh::MBVHNode>(m_TopLevelBVH.mbvh_nodes.size(), ON_DEVICE);
+	m_TopLevelCUDAPrimIndices = new CUDABuffer<uint>(m_TopLevelBVH.prim_indices.size(), ON_DEVICE);
+	m_TopLevelCUDAABBs = new CUDABuffer<bvh::AABB>(m_TopLevelBVH.instance_aabbs.size(), ON_DEVICE);
 
-	m_CUDAInstanceTransforms = new CUDABuffer<glm::mat4>(m_TopLevelBVH.instanceMatrices.size(), ON_DEVICE);
-	m_CUDAInverseTransforms = new CUDABuffer<glm::mat4>(m_TopLevelBVH.instanceMatrices.size(), ON_DEVICE);
+	m_CUDAInstanceTransforms = new CUDABuffer<glm::mat4>(m_TopLevelBVH.matrices.size(), ON_DEVICE);
+	m_CUDAInverseTransforms = new CUDABuffer<glm::mat4>(m_TopLevelBVH.matrices.size(), ON_DEVICE);
 
-	m_TopLevelCUDABVH->copy_to_device_async(m_TopLevelBVH.m_Nodes);
-	m_TopLevelCUDAMBVH->copy_to_device_async(m_TopLevelBVH.m_MNodes);
-	m_TopLevelCUDAPrimIndices->copy_to_device_async(m_TopLevelBVH.m_PrimIndices);
-	m_TopLevelCUDAABBs->copy_to_device_async(m_TopLevelBVH.transformedAABBs);
+	m_TopLevelCUDABVH->copy_to_device_async(m_TopLevelBVH.bvh_nodes);
+	m_TopLevelCUDAMBVH->copy_to_device_async(m_TopLevelBVH.mbvh_nodes);
+	m_TopLevelCUDAPrimIndices->copy_to_device_async(m_TopLevelBVH.prim_indices);
+	m_TopLevelCUDAABBs->copy_to_device_async(m_TopLevelBVH.instance_aabbs);
 
-	m_CUDAInstanceTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.instanceMatrices.data(), m_TopLevelBVH.instanceMatrices.size());
-	m_CUDAInverseTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.inverseMatrices.data(), m_TopLevelBVH.inverseMatrices.size());
+	m_CUDAInstanceTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.matrices.data(), m_TopLevelBVH.matrices.size());
+	m_CUDAInverseTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.inverse_matrices.data(), m_TopLevelBVH.inverse_matrices.size());
 
 	setTopLevelBVH(m_TopLevelCUDABVH->device_data());
 	setTopLevelMBVH(m_TopLevelCUDAMBVH->device_data());

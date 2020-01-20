@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../PCH.h"
-
 namespace rfw
 {
 namespace bvh
@@ -9,9 +7,9 @@ namespace bvh
 class BVHTree;
 class MBVHTree;
 
-struct BVHMesh
+struct rfwMesh
 {
-	BVHMesh() = default;
+	rfwMesh() = default;
 
 	void set_geometry(const Mesh &mesh);
 
@@ -34,11 +32,9 @@ class TopLevelBVH
 	void construct_bvh();
 	void refit();
 
-	// (Optionally) returns hit triangle
+	rfwMesh &get_mesh(const int ID) { return *instance_meshes[ID]; }
 
-	BVHMesh &get_mesh(const int ID) { return *accelerationStructures[ID]; }
-
-	void set_instance(int idx, glm::mat4 transform, BVHMesh *tree, AABB boundingBox);
+	void set_instance(size_t idx, glm::mat4 transform, rfwMesh *tree, AABB boundingBox);
 
 	static AABB calculate_world_bounds(const AABB &originalBounds, const simd::matrix4 &matrix);
 
@@ -46,24 +42,22 @@ class TopLevelBVH
 	const simd::matrix4 &get_normal_matrix(int instID) const;
 	const simd::matrix4 &get_instance_matrix(int instID) const;
 
-  public:
+	bool count_changed = true;
 	// Top level BVH structure data
-	std::atomic_int m_PoolPtr = 0;
-	std::atomic_int m_MPoolPtr = 0;
-	std::atomic_int m_MThreadCount = 0;
-	std::vector<BVHNode> m_Nodes;
-	std::vector<MBVHNode> m_MNodes;
-	std::vector<AABB> boundingBoxes;
-	std::vector<AABB> transformedAABBs;
-	std::vector<unsigned int> m_PrimIndices;
+	std::atomic_int pool_ptr = 0;
+	std::atomic_int mpool_ptr = 0;
+	std::atomic_int thread_count = 0;
+	std::vector<BVHNode> bvh_nodes;
+	std::vector<MBVHNode> mbvh_nodes;
+	std::vector<AABB> aabbs;
+	std::vector<AABB> instance_aabbs;
+	std::vector<uint> prim_indices;
 
 	// Instance data
-	std::vector<BVHMesh *> accelerationStructures;
-	std::vector<simd::matrix4> instanceMatrices;
-	std::vector<simd::matrix4> inverseMatrices;
-	std::vector<simd::matrix4> inverseNormalMatrices;
-
-	bool instanceCountChanged = true;
+	std::vector<rfwMesh *> instance_meshes;
+	std::vector<simd::matrix4> matrices;
+	std::vector<simd::matrix4> inverse_matrices;
+	std::vector<simd::matrix4> normal_matrices;
 };
 
 } // namespace bvh

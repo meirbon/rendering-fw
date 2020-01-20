@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../PCH.h"
-
 #include "BVHNode.h"
 #include "AABB.h"
 
@@ -17,34 +15,36 @@ class BVHTree
 
 	void construct_bvh(bool printBuildTime = false);
 	void reset();
+
 	void refit(const glm::vec4 *vertices);
 	void refit(const glm::vec4 *vertices, const glm::uvec3 *indices);
+
 	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
 	bool traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max);
 
 	void set_vertices(const glm::vec4 *vertices);
 	void set_vertices(const glm::vec4 *vertices, const glm::uvec3 *indices);
 
-	operator bool() const { return !m_BVHPool.empty(); }
+	operator bool() const { return !bvh_nodes.empty(); }
 
   public:
-	const glm::vec4 *m_Vertices;
-	const glm::uvec3 *m_Indices;
+	const glm::vec4 *vertices;
+	const glm::uvec3 *indices;
 
-	const int m_VertexCount;
-	const int m_FaceCount;
+	const int vertex_count;
+	const int face_count;
 
 	AABB aabb;
-	std::vector<AABB> m_AABBs;
-	std::vector<BVHNode> m_BVHPool;
-	std::vector<unsigned int> m_PrimitiveIndices;
+	std::vector<AABB> aabbs;
+	std::vector<BVHNode> bvh_nodes;
+	std::vector<unsigned int> prim_indices;
 
 	std::vector<glm::vec3> p0s;
 	std::vector<glm::vec3> edge1s;
 	std::vector<glm::vec3> edge2s;
 
-	std::atomic_int m_PoolPtr;
-	std::atomic_int m_BuildingThreads = 0;
+	std::atomic_int pool_ptr;
+	std::atomic_int building_threads = 0;
 };
 } // namespace bvh
 } // namespace rfw

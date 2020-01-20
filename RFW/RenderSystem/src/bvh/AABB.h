@@ -12,6 +12,7 @@ class AABB
 	AABB(__m128 mi, __m128 ma);
 
 	AABB(glm::vec3 mi, glm::vec3 ma);
+	static AABB invalid();
 
 	bool intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const;
 	void reset();
@@ -34,6 +35,10 @@ class AABB
 	[[nodiscard]] float area() const;
 	[[nodiscard]] glm::vec3 lengths() const;
 	[[nodiscard]] int longest_axis() const;
+	void set_bounds(const AABB &other);
+	void set_bounds(const __m128 min4, const __m128 max4);
+	[[nodiscard]] __m128 center() const;
+	[[nodiscard]] float center(unsigned int axis) const;
 
 	struct
 	{
@@ -56,14 +61,6 @@ class AABB
 			};
 		};
 	};
-
-	void set_bounds(const AABB &other);
-
-	void set_bounds(const __m128 min4, const __m128 max4);
-
-	[[nodiscard]] __m128 center() const;
-
-	[[nodiscard]] float center(unsigned int axis) const;
 };
 } // namespace bvh
 } // namespace rfw

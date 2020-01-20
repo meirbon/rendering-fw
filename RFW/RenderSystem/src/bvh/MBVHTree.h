@@ -1,7 +1,5 @@
 #pragma once
 
-#include "../PCH.h"
-
 namespace rfw
 {
 namespace bvh
@@ -16,8 +14,8 @@ class MBVHTree
 	friend class MBVHNode;
 	explicit MBVHTree(BVHTree *orgTree);
 
-	BVHTree *m_OriginalTree;
-	std::vector<MBVHNode> m_Tree;
+	BVHTree *bvh;
+	std::vector<MBVHNode> mbvh_nodes;
 	void construct_bvh(bool printBuildTime = false);
 
 	void refit(const glm::vec4 *vertices);
@@ -26,14 +24,10 @@ class MBVHTree
 	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
 	bool traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float tmax);
 
-	AABB get_aabb() const { return m_OriginalTree->aabb; }
+	AABB get_aabb() const { return bvh->aabb; }
+	operator bool() const { return !mbvh_nodes.empty(); }
 
-	operator bool() const { return !m_Tree.empty(); }
-
-  private:
-	std::atomic_int m_BuildingThreads = 0;
-	std::atomic_int m_PoolPtr = 0;
-	bool m_ThreadLimitReached = false;
+	std::atomic_int pool_ptr = 0;
 };
 
 } // namespace bvh

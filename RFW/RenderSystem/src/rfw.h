@@ -73,3 +73,5 @@
 #include "gLTF/Skinning.h"
 
 #include "RenderSystem.h"
+
+#include "bvh/BVH.h"

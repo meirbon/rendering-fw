@@ -1,4 +1,4 @@
-#include "../PCH.h"
+#include "../rfw.h"
 
 namespace rfw
 {
@@ -37,6 +37,17 @@ AABB::AABB(glm::vec3 mi, glm::vec3 ma)
 	bmax[1] = ma.y;
 	bmax[2] = ma.z;
 	bmax[3] = 0;
+}
+
+AABB AABB::invalid()
+{
+	AABB aabb;
+	for (int i = 0; i < 4; i++)
+	{
+		aabb.bmin[i] = 1e34f;
+		aabb.bmax[i] = -1e34f;
+	}
+	return aabb;
 }
 
 bool AABB::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const

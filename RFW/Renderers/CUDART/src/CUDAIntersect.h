@@ -7,7 +7,7 @@
 #include "BVH/MBVHNode.h"
 
 __host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14,
-											const glm::vec4 &p24, const float epsilon = 1e-6f)
+											const glm::vec4 &p24, const float epsilon = 1e-7f)
 {
 	const vec3 p0 = p04;
 
@@ -42,6 +42,53 @@ __host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec
 	return false;
 }
 
+__host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14,
+											const glm::vec4 &p24, glm::vec2 *bary, const float epsilon = 1e-7f)
+{
+	const vec3 p0 = p04;
+	const vec3 p1 = p14;
+	const vec3 p2 = p24;
+
+	const vec3 e1 = p1 - p0;
+	const vec3 e2 = p2 - p0;
+
+	const vec3 h = cross(dir, e2);
+
+	const float a = dot(e1, h);
+	if (a > -epsilon && a < epsilon)
+		return false;
+
+	const float f = 1.f / a;
+	const vec3 s = org - p0;
+	const float u = f * dot(s, h);
+
+	if (u < 0.0f || u > 1.0f)
+		return false;
+
+	const vec3 q = cross(s, e1);
+	const float v = f * dot(dir, q);
+	if (v < 0.0f || u + v > 1.0f)
+		return false;
+
+	const float t = f * dot(e2, q);
+
+	if (t > tmin && *rayt > t) // ray intersection
+	{
+		// Barycentrics
+		const vec3 p = org + t * dir;
+		const vec3 N = normalize(cross(e1, e2));
+		const float areaABC = glm::dot(N, cross(e1, e2));
+		const float areaPBC = glm::dot(N, cross(p1 - p, p2 - p));
+		const float areaPCA = glm::dot(N, cross(p2 - p, p0 - p));
+		*bary = glm::vec2(areaPBC / areaABC, areaPCA / areaABC);
+
+		*rayt = t;
+		return true;
+	}
+
+	return false;
+}
+
 __host__ __device__ glm::vec2 get_barycentrics(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec4 &p04, const glm::vec4 &p14, const glm::vec4 &p24)
 {
 	const vec3 p0 = vec3(p04);
@@ -58,7 +105,7 @@ __host__ __device__ glm::vec2 get_barycentrics(const glm::vec3 &p, const glm::ve
 	return vec2(alpha, beta);
 }
 
-__host__ __device__ bool intersect_node(const rfw::bvh::AABB &aabb, const glm::vec3 &org, const glm::vec3 &dirInverse, float *tmin, float *tmax, float min_t)
+__host__ __device__ bool intersect_node(const rfw::bvh::AABB &aabb, const glm::vec3 &org, const glm::vec3 &dirInverse, float *tmin, float *tmax, float t)
 {
 	const float tx1 = (aabb.bmin[0] - org.x) * dirInverse.x;
 	const float tx2 = (aabb.bmax[0] - org.x) * dirInverse.x;
@@ -78,7 +125,7 @@ __host__ __device__ bool intersect_node(const rfw::bvh::AABB &aabb, const glm::v
 	*tmin = glm::max(*tmin, glm::min(tz1, tz2));
 	*tmax = glm::min(*tmax, glm::max(tz1, tz2));
 
-	return (*tmax) >= (*tmin) && (*tmin) < (*tmax);
+	return (*tmax) > (0.0f) && (*tmin) < (*tmax) && (*tmin) < t;
 }
 
 template <typename T> __host__ __device__ void swap(T &a, T &b)
@@ -88,8 +135,7 @@ template <typename T> __host__ __device__ void swap(T &a, T &b)
 	b = temp;
 }
 
-__host__ __device__ rfw::bvh::MBVHHit intersect_quad_node(const rfw::bvh::MBVHNode &node, const glm::vec3 &org, const glm::vec3 &dirInverse, float *t,
-														  float tmin = 1e-5f)
+__host__ __device__ rfw::bvh::MBVHHit intersect_quad_node(const rfw::bvh::MBVHNode &node, const glm::vec3 &org, const glm::vec3 &dirInverse, float *t)
 {
 	rfw::bvh::MBVHHit hit;
 
@@ -111,12 +157,12 @@ __host__ __device__ rfw::bvh::MBVHHit intersect_quad_node(const rfw::bvh::MBVHNo
 	hit.tminv = glm::max(hit.tminv, glm::min(t1, t2));
 	tmax = glm::min(tmax, glm::max(t1, t2));
 
+	hit.result = glm::greaterThan(tmax, glm::vec4(0)) && glm::lessThan(hit.tminv, tmax) && glm::lessThan(hit.tminv, glm::vec4(*t));
+
 	hit.tmini[0] = ((hit.tmini[0] & 0xFFFFFFFCu) | 0b00u);
 	hit.tmini[1] = ((hit.tmini[1] & 0xFFFFFFFCu) | 0b01u);
 	hit.tmini[2] = ((hit.tmini[2] & 0xFFFFFFFCu) | 0b10u);
 	hit.tmini[3] = ((hit.tmini[3] & 0xFFFFFFFCu) | 0b11u);
-
-	hit.result = glm::greaterThan(tmax, glm::vec4(tmin)) && glm::lessThanEqual(hit.tminv, tmax) && glm::lessThanEqual(hit.tminv, glm::vec4(*t));
 
 	if (hit.tmin[0] > hit.tmin[1])
 		swap<float>(hit.tmin[0], hit.tmin[1]);
@@ -164,8 +210,8 @@ __host__ __device__ bool intersect_bvh(const glm::vec3 &org, const glm::vec3 &di
 		}
 		else
 		{
-			const bool hit_left = intersect_node(nodes[node.get_left_first()].bounds, org, dirInverse, &tNear1, &tFar1, t_min);
-			const bool hit_right = intersect_node(nodes[node.get_left_first() + 1].bounds, org, dirInverse, &tNear2, &tFar2, t_min);
+			const bool hit_left = intersect_node(nodes[node.get_left_first()].bounds, org, dirInverse, &tNear1, &tFar1, *t);
+			const bool hit_right = intersect_node(nodes[node.get_left_first() + 1].bounds, org, dirInverse, &tNear2, &tFar2, *t);
 
 			if (hit_left && hit_right)
 			{
@@ -233,11 +279,11 @@ __host__ __device__ bool intersect_mbvh(const glm::vec3 &org, const glm::vec3 &d
 			continue;
 		}
 
-		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, t, t_min);
+		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, t);
 		for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
 		{
 			const int idx = (hit.tmini[i] & 0b11);
-			if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] > 0)
+			if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] >= 0)
 			{
 				stackptr++;
 				todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];
@@ -277,8 +323,8 @@ __host__ __device__ bool intersect_bvh_shadow(const glm::vec3 &org, const glm::v
 		}
 		else
 		{
-			const bool hit_left = intersect_node(nodes[node.get_left_first()].bounds, org, dirInverse, &tNear1, &tFar1, t_min);
-			const bool hit_right = intersect_node(nodes[node.get_left_first() + 1].bounds, org, dirInverse, &tNear2, &tFar2, t_min);
+			const bool hit_left = intersect_node(nodes[node.get_left_first()].bounds, org, dirInverse, &tNear1, &tFar1, t_max);
+			const bool hit_right = intersect_node(nodes[node.get_left_first() + 1].bounds, org, dirInverse, &tNear2, &tFar2, t_max);
 
 			if (hit_left && hit_right)
 			{
@@ -342,7 +388,7 @@ __host__ __device__ bool intersect_mbvh_shadow(const glm::vec3 &org, const glm::
 			continue;
 		}
 
-		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, &t_max, t_min);
+		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, &t_max);
 		for (int i = 3; i >= 0; i--)
 		{ // reversed order, we want to check best nodes first
 			const int idx = (hit.tmini[i] & 0b11);

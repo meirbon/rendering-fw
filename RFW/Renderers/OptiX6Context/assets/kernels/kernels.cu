@@ -113,7 +113,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 		const vec3 skySample = idx < skyboxHeight * skyboxWidth ? skybox[idx] : vec3(0);
 		vec3 contribution = throughput * (1.0f / bsdfPdf) * vec3(skySample);
 
-		if (any(isnan(throughput)))
+		if (any(isnan(contribution)))
 			return;
 
 		clampIntensity(contribution, clampValue);
@@ -184,7 +184,7 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 			}
 			else if (flags & IS_SPECULAR)
 			{
-				contribution = throughput * shadingData.color;
+				contribution = throughput * shadingData.color * (1.0f / bsdfPdf);
 			}
 			else
 			{
@@ -329,12 +329,12 @@ __global__ __launch_bounds__(128 /* Max block size */, 8 /* Min blocks per sm */
 	}
 #endif
 
-	if (newBsdfPdf < 1e-6f || isnan(newBsdfPdf) || any(isnan(throughput)) || all(lessThanEqual(throughput, vec3(0.0f))))
+	if (newBsdfPdf < 1e-6f || isnan(newBsdfPdf) || any(lessThan(throughput, vec3(0.0f))))
 		return; // Early out in case we have an invalid bsdf
 
 	const uint extensionRayIdx = atomicAdd(&counters->extensionRays, 1u); // Get compacted index for extension ray
 
-	pathOrigins[extensionRayIdx + nextBufferIndex * stride] = vec4(I + R * geometryEpsilon, uintBitsToFloat((pathIndex << 8u) | flags));
+	pathOrigins[extensionRayIdx + nextBufferIndex * stride] = vec4(SafeOrigin(I, R, N, geometryEpsilon), uintBitsToFloat((pathIndex << 8u) | flags));
 	pathDirections[extensionRayIdx + nextBufferIndex * stride] = vec4(R, uintBitsToFloat(PackNormal(iN)));
 	pathThroughputs[extensionRayIdx + nextBufferIndex * stride] = vec4(throughput, newBsdfPdf);
 }

@@ -37,10 +37,10 @@ class CUDAContext : public RenderContext
 	bool m_Initialized = false;
 
 	uint m_SampleIndex;
-	bvh::TopLevelBVH m_TopLevelBVH;
+	bvh::TopLevelBVH m_TopLevelBVH = {};
 	std::vector<uint> m_InstanceMeshIDs;
 
-	std::vector<bvh::BVHMesh *> m_Meshes;
+	std::vector<bvh::rfwMesh *> m_Meshes;
 	std::vector<CUDABuffer<glm::vec4> *> m_MeshVertices;
 	std::vector<CUDABuffer<glm::uvec3> *> m_MeshIndices;
 	std::vector<CUDABuffer<rfw::DeviceTriangle> *> m_MeshTriangles;

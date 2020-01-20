@@ -161,7 +161,7 @@ RT_PROGRAM void generateShadowRay()
 
 	uint isVisible = 0;
 	const auto epsilon = 10.0f * geometryEpsilon;
-	rtTrace(sceneRoot, make_Ray(O, D, 2u, 1e-4f, D4.w - 2e-5f), isVisible);
+	rtTrace(sceneRoot, make_Ray(O, D, 2u, epsilon, D4.w - epsilon), isVisible);
 	if (isVisible == 0)
 		return;
 

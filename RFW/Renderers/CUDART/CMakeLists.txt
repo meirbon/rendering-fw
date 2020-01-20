@@ -4,9 +4,9 @@ project(CUDART CXX CUDA)
 find_package(CUDA REQUIRED)
 
 if (WIN32)
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -use_fast_math -rdc=true --expt-relaxed-constexpr)
+	set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ${CUDA_NVCC_FLAGS_RELWITHDEBINFO} -use_fast_math -O3 -rdc=true --expt-relaxed-constexpr -gencode arch=compute_75,code=sm_75)
 else (WIN32)
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS} -use_fast_math -rdc=true --expt-relaxed-constexpr -ccbin g++-8 -gencode arch=compute_75,code=sm_75)
+    set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ${CUDA_NVCC_FLAGS_RELWITHDEBINFO} -use_fast_math -O3 -rdc=true --expt-relaxed-constexpr -ccbin g++-8 -gencode arch=compute_75,code=sm_75)
 endif (WIN32)
 
 set(CUDA_NVCC_COMPILE_DEFINITIONS "${CUDA_NVCC_COMPILE_DEFINITIONS}" "GLM_FORCE_PURE")

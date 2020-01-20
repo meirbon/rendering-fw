@@ -3,7 +3,7 @@
 #include "AABB.h"
 
 #include <atomic>
-#include <utils/ArrayProxy.h>
+#include "../utils/ArrayProxy.h"
 
 namespace rfw
 {
@@ -130,10 +130,10 @@ class MBVHNode
 			}
 
 			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, t, t_min);
-			for (int i = 3; i >= 0; i--)
-			{ // reversed order, we want to check best nodes first
+			for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
+			{
 				const int idx = (hit.tmini[i] & 0b11);
-				if (hit.result[idx] == 1)
+				if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] >= 0)
 				{
 					stackptr++;
 					todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];
@@ -178,7 +178,7 @@ class MBVHNode
 			for (int i = 3; i >= 0; i--)
 			{ // reversed order, we want to check best nodes first
 				const int idx = (hit.tmini[i] & 0b11);
-				if (hit.result[idx] == 1)
+				if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] >= 0)
 				{
 					stackptr++;
 					todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];

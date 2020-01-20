@@ -17,6 +17,6 @@
 //}
 
 //#include "lambert.h"
-//#include "disney.h"
-#include "microfacet.h"
+#include "disney.h"
+//#include "microfacet.h"
 //#include "microsurface_scattering.h"

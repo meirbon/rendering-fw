@@ -1,4 +1,4 @@
-#include "../PCH.h"
+#include "../rfw.h"
 
 using namespace glm;
 
@@ -308,8 +308,8 @@ void MBVHNode::sort_results(const float *tmin, int &a, int &b, int &c, int &d) c
 		std::swap(b, c);
 }
 
-void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw::utils::ArrayProxy<uint> primIDs, uint maxPoolPtr,
-						uint maxPrimIndex) const
+void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw::utils::ArrayProxy<uint> primIDs, const uint maxPoolPtr,
+						const uint maxPrimIndex) const
 {
 	for (int i = 0; i < 4; i++)
 	{
@@ -322,9 +322,15 @@ void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw:
 			{
 				const uint prim_index = childs[i] + j;
 				if (prim_index >= primIDs.size())
+				{
+					WARNING("Invalid node: PrimID is larger than maximum: %i >= %i", prim_index, primIDs.size());
 					throw std::runtime_error("Invalid node: PrimID is larger than maximum.");
+				}
 				else if (primIDs[prim_index] >= maxPrimIndex)
+				{
+					WARNING("Invalid node: PrimID points to object larger than maximum: %i >= %i", primIDs[prim_index] >= maxPrimIndex);
 					throw std::runtime_error("Invalid node: PrimID points to object larger than maximum");
+				}
 			}
 		}
 		else

@@ -71,7 +71,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", CPURT)
+App::App() : Application(1280, 720, "RenderingFW", EMBREE)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());

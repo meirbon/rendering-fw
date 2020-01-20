@@ -101,13 +101,12 @@ std::vector<std::string> split_path(const std::string &str, const std::set<char>
 
 static std::string loadSource(const char *file, size_t *size)
 {
-	printf("Loading file: %s\n", file);
 	std::string source;
 	// extract path from source file name
 	char path[2048];
 	strcpy(path, file);
 	char *marker = path;
-	char *fileName = (char *)file;
+	char *fileName = const_cast<char *>(file);
 
 	while (strstr(marker + 1, "\\"))
 		marker = strstr(marker + 1, "\\");
@@ -176,15 +175,15 @@ static std::string loadSource(const char *file, size_t *size)
 			char *end = strstr(start + 1, "\"");
 			if (!end)
 				FAILURE("Preprocessor error in #include statement line");
-			char file[2048];
+			char included_file[2048];
 			*end = 0;
-			strcpy(file, path);
-			strcat(file, "/");
-			strcat(file, start + 1);
+			strcpy(included_file, path);
+			strcat(included_file, "/");
+			strcat(included_file, start + 1);
 			if (!rfw::utils::file::exists(file))
-				FAILURE("Included file (%s) of (%s) could not be found.", fileName, file);
+				FAILURE("Included file (%s) of (%s) could not be found.", fileName, included_file);
 
-			const auto incText = loadSource(file, size);
+			const auto incText = loadSource(included_file, size);
 			source.append(incText.data());
 		}
 		else
@@ -356,7 +355,7 @@ bool CLContext::init_cl()
 	return CheckCL(error);
 }
 
-void CLContext::submit(CLKernel &k) const
+void CLContext::submit(const CLKernel &k) const
 {
 	const auto kernel = k.get_kernel();
 	const auto dims = k.get_dimensions();

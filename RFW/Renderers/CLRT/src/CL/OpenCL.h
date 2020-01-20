@@ -170,26 +170,26 @@ class CLContext
 	CLContext();
 	~CLContext();
 
-	void submit(CLKernel &kernel) const;
+	void submit(const CLKernel &kernel) const;
 
-	template <typename T> void submit(CLBuffer<T, TARGET> &buffer, CLKernel &kernel) const
+	template <typename T> void submit(const CLBuffer<T, TARGET> &buffer, const CLKernel &kernel) const
 	{
 		assert(m_CanDoInterop);
 		glFinish();
 		CheckCL(clEnqueueAcquireGLObjects(m_Queue, 1, buffer.get_device_buffer(), 0, 0, 0));
 		CheckCL(clEnqueueNDRangeKernel(m_Queue, kernel.get_kernel(), kernel.get_dimensions(), kernel.get_offset(),
 									   kernel.get_work_size(), kernel.get_local_size(), 0, 0, 0));
-		CheckCL(clEnqueueReleaseGLObjects(m_Queue, 1, buffer->GetDevicePtr(), 0, 0, 0));
+		CheckCL(clEnqueueReleaseGLObjects(m_Queue, 1, buffer.get_device_buffer(), 0, 0, 0));
 	}
 
-	template <typename T> void submit(CLBuffer<T, TEXTURE> &buffer, CLKernel &kernel) const
+	template <typename T> void submit(const CLBuffer<T, TEXTURE> &buffer, const CLKernel &kernel) const
 	{
 		assert(m_CanDoInterop);
 		glFinish();
 		CheckCL(clEnqueueAcquireGLObjects(m_Queue, 1, buffer.get_device_buffer(), 0, 0, 0));
 		CheckCL(clEnqueueNDRangeKernel(m_Queue, kernel.get_kernel(), kernel.get_dimensions(), kernel.get_offset(),
 									   kernel.get_work_size(), kernel.get_local_size(), 0, 0, 0));
-		CheckCL(clEnqueueReleaseGLObjects(m_Queue, 1, buffer->GetDevicePtr(), 0, 0, 0));
+		CheckCL(clEnqueueReleaseGLObjects(m_Queue, 1, buffer->get_device_buffer(), 0, 0, 0));
 	}
 
 	void finish() const;
@@ -214,12 +214,15 @@ CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, unsigned int ele
 	: m_Context(context)
 {
 	cl_int error;
-	m_DeviceBuffer = clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, element_count * sizeof(T),
-									const_cast<T *>(ptr), &error);
+	m_DeviceBuffer =
+		clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, element_count * sizeof(T), nullptr, &error);
 	CheckCL(error);
 
 	if (ptr)
+	{
 		m_HostBuffer = std::vector<T>(ptr, ptr + element_count);
+		copy_to_device(false);
+	}
 	else
 		m_HostBuffer.resize(element_count);
 }
@@ -228,9 +231,11 @@ CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, const std::vecto
 	: m_Context(context), m_HostBuffer(data)
 {
 	cl_int error;
-	m_DeviceBuffer = clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, m_HostBuffer.size() * sizeof(T),
-									m_HostBuffer.data(), &error);
+	m_DeviceBuffer =
+		clCreateBuffer(context->get_context(), CL_MEM_READ_WRITE, m_HostBuffer.size() * sizeof(T), nullptr, &error);
 	CheckCL(error);
+
+	copy_to_device(false);
 }
 template <typename T, BufferType TYPE>
 CLBuffer<T, TYPE>::CLBuffer(std::shared_ptr<CLContext> context, GLuint texID, GLuint width, GLuint height)

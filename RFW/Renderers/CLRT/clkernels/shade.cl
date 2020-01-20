@@ -17,7 +17,7 @@ kernel void shade_rays(global float4 *accumulator,							   // 0
 					   global float4 *skybox,								   // 9
 					   uint s_width,										   // 10
 					   uint s_height,										   // 11
-					   global CLMaterial *material,							   // 12
+					   global CLMaterial *materials,						   // 12
 					   global uint *uintTextures,							   // 13
 					   global float4 *floatTextures,						   // 14
 					   global uint *counters,								   // 15
@@ -38,7 +38,8 @@ kernel void shade_rays(global float4 *accumulator,							   // 0
 	const float4 O = origins[shadeBufferIndex];
 	const float4 D = directions[shadeBufferIndex];
 
-	const uint pixelID = (as_uint(O.w) >> 8u);
+	const uint pixelID = (uint)(as_uint(O.w) >> 8u);
+	printf("%i\n", pixelID);
 
-	accumulator[pathIdx] = (float4)(D.xyz, 1.0f);
+	accumulator[pixelID] += (float4)(D.xyz, 1.0f);
 }

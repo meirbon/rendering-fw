@@ -120,6 +120,7 @@ void RTContext::init(GLuint *glTextureID, uint width, uint height)
 	m_DebugKernel->set_work_size({width, height});
 	m_RayGenKernel->set_work_size({width * height});
 	m_IntersectKernel->set_work_size({width * height});
+	m_ShadeKernel->set_work_size({width * height});
 	m_FinalizeKernel->set_work_size({width, height});
 
 	m_Width = width;
@@ -137,10 +138,18 @@ void RTContext::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	const vec3 right = view.p2 - view.p1;
 	const vec3 up = view.p3 - view.p1;
-	const vec4 posLensSize = cam->pos_lensSize = vec4(view.pos, view.aperture);
-	cam->right_spreadAngle = vec4(right, view.spreadAngle);
-	cam->up = vec4(up, 0.0f);
-	cam->p1 = vec4(view.p1, 1.0f);
+	const vec4 posLensSize = vec4(view.pos, view.aperture);
+	//	cam->right_spreadAngle = vec4(right, view.spreadAngle);
+	//	cam->up = vec4(up, 0.0f);
+	//	cam->p1 = vec4(view.p1, 0.0f);
+
+	m_RayGenKernel->set_argument(5, posLensSize);
+	m_RayGenKernel->set_argument(6, vec4(view.p1, 1.0f));
+	m_RayGenKernel->set_argument(7, vec4(right, view.spreadAngle));
+	m_RayGenKernel->set_argument(8, vec4(up, 1.0f));
+	m_RayGenKernel->set_argument(9, m_Width);
+	m_RayGenKernel->set_argument(10, m_Height);
+
 	cam->samplesTaken = m_SampleIndex;
 	cam->geometryEpsilon = 1e-5f;
 	cam->scrwidth = m_Width;
@@ -159,23 +168,25 @@ void RTContext::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	m_Counters->clear(0);
 
 	m_Context->finish();
-	m_RayGenKernel->set_work_size({m_Width * m_Height, 0, 0});
+	m_RayGenKernel->set_work_size({m_Width * m_Height});
 	m_RayGenKernel->run();
 	m_Context->finish();
 
-	m_IntersectKernel->set_work_size({m_Width * m_Height, 0, 0});
+	m_IntersectKernel->set_work_size({m_Width * m_Height});
 	m_IntersectKernel->run();
 	m_Context->finish();
 
-	m_ShadeKernel->set_work_size({m_Width * m_Height, 0, 0});
+	m_ShadeKernel->set_work_size({m_Width * m_Height});
 	m_ShadeKernel->run();
 	m_Context->finish();
 
 	glFinish();
 	m_SampleIndex++;
 	m_FinalizeKernel->set_work_size({m_Width, m_Height});
+	m_FinalizeKernel->set_argument(2, m_Width);
+	m_FinalizeKernel->set_argument(3, m_Height);
 	m_FinalizeKernel->set_argument(4, 1.0f / float(m_SampleIndex));
-	m_FinalizeKernel->run();
+	m_FinalizeKernel->run(*m_Target);
 	m_Context->finish();
 }
 

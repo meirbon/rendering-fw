@@ -1,8 +1,15 @@
 #include "shared.h"
 
-kernel void intersect_rays(uint pathLength, uint pathCount, uint stride,
-						   global CLPotentialContribution *potentialContributions, global float4 *states,
-						   global float4 *origins, global float4 *directions, uint phase, global float4 *accumulator)
+kernel void intersect_rays(uint pathLength,										   // 0
+						   uint pathCount,										   // 1
+						   uint stride,											   // 2
+						   global CLPotentialContribution *potentialContributions, // 3
+						   global float4 *states,								   // 4
+						   global float4 *origins,								   // 5
+						   global float4 *directions,							   // 6
+						   uint phase,											   // 7
+						   global float4 *accumulator							   // 8
+)
 {
 	const uint pathIdx = (uint)get_global_id(0);
 	if (pathIdx >= pathCount)

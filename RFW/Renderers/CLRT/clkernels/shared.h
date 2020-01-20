@@ -33,6 +33,7 @@ typedef struct
 	float4 right_spreadAngle;
 	float4 up;
 	float4 p1;
+
 	uint samplesTaken;
 	float geometryEpsilon;
 	int scrwidth;

@@ -85,7 +85,7 @@ void Context::setTextures(const std::vector<rfw::TextureData> &textures) {}
 
 void Context::setMesh(size_t index, const rfw::Mesh &mesh) {}
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const glm::mat3 &inverse_transform) {}
+void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) {}
 
 void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 

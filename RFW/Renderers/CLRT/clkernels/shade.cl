@@ -38,8 +38,8 @@ kernel void shade_rays(global float4 *accumulator,							   // 0
 	const float4 O = origins[shadeBufferIndex];
 	const float4 D = directions[shadeBufferIndex];
 
+	// TODO: PixelID is always 0, why?
 	const uint pixelID = (uint)(as_uint(O.w) >> 8u);
-	printf("%i\n", pixelID);
 
-	accumulator[pixelID] += (float4)(D.xyz, 1.0f);
+	accumulator[pathIdx] += (float4)(D.xyz, 1.0f);
 }

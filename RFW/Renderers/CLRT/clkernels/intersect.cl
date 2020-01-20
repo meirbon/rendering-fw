@@ -24,7 +24,7 @@ kernel void intersect_rays(uint pathLength,										   // 0
 		const float4 D4 = directions[shadeBufferIndex];
 		float4 result = (float4)(0, 0, as_float(-1), 0);
 
-		states[shadeBufferIndex] = result;
+		//states[shadeBufferIndex] = result;
 	}
 	else if (phase == STAGE_SHADOW_RAY)
 	{

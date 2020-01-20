@@ -71,6 +71,7 @@ kernel void generate_rays(uint pathCount,			 // 0
 	const float3 pointOnPixel = p1.xyz + u * right_spreadAngle.xyz + v * up.xyz;
 	const float3 D = normalize(pointOnPixel - O);
 
+	// TODO: Data doesn't seem to get written correctly
 	origins[pathIdx] = (float4)(O.xyz, as_float(((pixelIdx << 8) | 1 /* Camera rays are specular */)));
 	directions[pathIdx] = (float4)(D.xyz, 0.0);
 }

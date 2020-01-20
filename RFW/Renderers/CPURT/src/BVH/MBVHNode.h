@@ -191,5 +191,5 @@ class MBVHNode
 
 	void validate(MBVHNode *nodes, unsigned int maxPrimID, unsigned int maxPoolPtr);
 
-	void merge_node(const BVHNode &node, const const rfw::utils::ArrayProxy<BVHNode> pool, int &numChildren);
+	void merge_node(const BVHNode &node, const rfw::utils::ArrayProxy<BVHNode> pool, int &numChildren);
 };

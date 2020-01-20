@@ -15,7 +15,7 @@ class TopLevelBVH
 	// (Optionally) returns hit triangle
 	std::optional<const rfw::Triangle> intersect(cpurt::Ray &ray, float t_min, int &instID) const;
 	std::optional<const rfw::Triangle> intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, float t_min, int &instID) const;
-	bool rfw::TopLevelBVH::occluded(const vec3 &origin, const vec3 &direction, float t_min, float t_max) const;
+	bool occluded(const vec3 &origin, const vec3 &direction, float t_min, float t_max) const;
 
 	void intersect(cpurt::RayPacket4 &packet, float t_min) const;
 

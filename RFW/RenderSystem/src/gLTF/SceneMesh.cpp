@@ -13,12 +13,12 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 {
 	using namespace glm;
 
-	const simd::vector4 normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
-	auto vertices = getVertices();
+	const simd::vector4 normal_mask = simd::vector4(_mm_set_epi32(0, ~0, ~0, ~0));
+	auto vertices = get_vertices();
 	const auto baseVertices = getBaseVertices();
 	auto normals = getNormals();
 	const auto baseNormals = getBaseNormals();
-	auto triangles = getTriangles();
+	auto triangles = get_triangles();
 
 	if (flags & HAS_INDICES)
 	{
@@ -145,7 +145,7 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 {
 	const simd::vector4 normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
 
-	auto vertices = getVertices();
+	auto vertices = get_vertices();
 	const auto baseVertices = getBaseVertices();
 	auto normals = getNormals();
 	const auto baseNormals = getBaseNormals();
@@ -159,15 +159,15 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 	dirty = true;
 }
 
-vec4 *rfw::SceneMesh::getVertices() { return &object->vertices[vertexOffset]; }
-const vec4 *rfw::SceneMesh::getVertices() const { return &object->vertices[vertexOffset]; }
+vec4 *rfw::SceneMesh::get_vertices() { return &object->vertices[vertexOffset]; }
+const vec4 *rfw::SceneMesh::get_vertices() const { return &object->vertices[vertexOffset]; }
 
 rfw::simd::vector4 *rfw::SceneMesh::getBaseVertices() { return &object->baseVertices[vertexOffset]; }
 const rfw::simd::vector4 *rfw::SceneMesh::getBaseVertices() const { return &object->baseVertices[vertexOffset]; }
 
-rfw::Triangle *rfw::SceneMesh::getTriangles() { return &object->triangles[triangleOffset]; }
+rfw::Triangle *rfw::SceneMesh::get_triangles() { return &object->triangles[triangleOffset]; }
 
-const rfw::Triangle *rfw::SceneMesh::getTriangles() const { return &object->triangles[triangleOffset]; }
+const rfw::Triangle *rfw::SceneMesh::get_triangles() const { return &object->triangles[triangleOffset]; }
 
 glm::uvec3 *rfw::SceneMesh::getIndices()
 {

@@ -1,6 +1,7 @@
 #pragma once
 
-#include <MathIncludes.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 
 #include <DeviceStructures.h>
 
@@ -35,19 +36,19 @@ class Camera
 
 	void reset();
 
-	[[nodiscard]] rfw::CameraView getView() const;
-	[[nodiscard]] mat4 getMatrix(float near = 0.1f, float far = 1e10f) const;
+	[[nodiscard]] rfw::CameraView get_view() const;
+	[[nodiscard]] mat4 get_matrix(float near = 0.1f, float far = 1e10f) const;
 	void resize(int w, int h);
-	void lookAt(const glm::vec3 &O, const glm::vec3 &T); // position the camera at O, looking at T
-	void translateRelative(const glm::vec3 &T);			 // move camera relative to orientation
-	void translateTarget(const glm::vec3 &T);			 // move camera target; used for rotating camera
+	void look_at(const glm::vec3 &O, const glm::vec3 &T); // position the camera at O, looking at T
+	void translate_relative(const glm::vec3 &T);		  // move camera relative to orientation
+	void translate_target(const glm::vec3 &T);			  // move camera target; used for rotating camera
 
 	void serialize(std::string_view file) const;
 	[[nodiscard]] rfw::utils::Serializable<rfw::Camera, 1> serialize() const;
 	static rfw::Camera deserialize(std::string_view file);
 
   private:
-	void calculateMatrix(glm::vec3 &x, glm::vec3 &y, glm::vec3 &z) const;
+	void calculate_matrix(glm::vec3 &x, glm::vec3 &y, glm::vec3 &z) const;
 };
 
 } // namespace rfw

@@ -40,7 +40,7 @@ template <typename T> class UniformObject
 		memcpy(m_Data + index, data, count * sizeof(T));
 	}
 
-	T *getData() { return m_Data; }
+	T *get_data() { return m_Data; }
 
 	T *readDataFromDevice()
 	{
@@ -64,7 +64,7 @@ template <typename T> class UniformObject
 
 	[[nodiscard]] vk::Buffer getVkBuffer() const { return m_Buffer; }
 	[[nodiscard]] vk::DeviceMemory getVkMemory() const { return m_Buffer; }
-	VmaBuffer<T> &getBuffer() { return m_Buffer; }
+	VmaBuffer<T> &get_buffer() { return m_Buffer; }
 	[[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo() const
 	{
 		return m_Buffer.getDescriptorBufferInfo();
@@ -100,7 +100,7 @@ template <typename T> class UniformObject
 		assert(index + count < m_Buffer.GetElementCount());
 		memcpy(m_Buffer.GetHostBuffer() + index, data, count * sizeof(T));
 	}
-	T *getData() { return m_Buffer.GetHostBuffer(); }
+	T *get_data() { return m_Buffer.GetHostBuffer(); }
 	T *readDataFromDevice()
 	{
 		m_Buffer.copyToHost();
@@ -111,7 +111,7 @@ template <typename T> class UniformObject
 
 	[[nodiscard]] vk::Buffer getVkBuffer() const { return m_Buffer.getVkBuffer(); }
 	[[nodiscard]] vk::DeviceMemory getVkMemory() const { return m_Buffer.getVkMemory(); }
-	Buffer<T> &getBuffer() { return m_Buffer; }
+	Buffer<T> &get_buffer() { return m_Buffer; }
 	[[nodiscard]] vk::DescriptorBufferInfo getDescriptorBufferInfo() const
 	{
 		return m_Buffer.getDescriptorBufferInfo();

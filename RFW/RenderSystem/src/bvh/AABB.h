@@ -1,5 +1,7 @@
 #pragma once
 
+#include <MathIncludes.h>
+
 namespace rfw
 {
 namespace bvh
@@ -9,20 +11,25 @@ class AABB
   public:
 	AABB();
 
-	AABB(__m128 mi, __m128 ma);
+	AABB(simd::vector4 mi, simd::vector4 ma);
 
 	AABB(glm::vec3 mi, glm::vec3 ma);
 	static AABB invalid();
 
 	bool intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const;
+	int intersect4(const float origin_x[4], const float origin_y[4], const float origin_z[4], const float dir_x[4],
+				   const float dir_y[4], const float dir_z[4], float t[4], simd::vector4 *t_min,
+				   simd::vector4 *t_max) const;
+
 	void reset();
-	[[nodiscard]] bool contains(const __m128 &p) const;
+	[[nodiscard]] bool contains(const simd::vector4 &p) const;
 	void grow_safe(const AABB &bb);
 	void offset_by(const float offset);
 	void offset_by(const float mi, const float ma);
 	void grow(const AABB &bb);
-	void grow(const __m128 &p);
-	void grow(const __m128 min4, const __m128 max4);
+	void grow(const simd::vector4 &p);
+	void grow(const simd::vector4 min4, const simd::vector4 max4);
+
 	void grow(const glm::vec3 &p);
 	AABB union_of(const AABB &bb) const;
 	static AABB union_of(const AABB &a, const AABB &b);
@@ -36,14 +43,14 @@ class AABB
 	[[nodiscard]] glm::vec3 lengths() const;
 	[[nodiscard]] int longest_axis() const;
 	void set_bounds(const AABB &other);
-	void set_bounds(const __m128 min4, const __m128 max4);
-	[[nodiscard]] __m128 center() const;
+	void set_bounds(const simd::vector4 min4, const simd::vector4 max4);
+	[[nodiscard]] simd::vector4 center() const;
 	[[nodiscard]] float center(unsigned int axis) const;
 
 	struct
 	{
 		union {
-			__m128 bmin4;
+			simd::vector4 bmin4;
 			float bmin[4];
 			struct
 			{
@@ -52,7 +59,7 @@ class AABB
 			};
 		};
 		union {
-			__m128 bmax4;
+			simd::vector4 bmax4;
 			float bmax[4];
 			struct
 			{

@@ -4,10 +4,13 @@ file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.h)
 
 add_library(${PROJECT_NAME} OBJECT ${SOURCES} ${HEADERS})
-if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
+if (${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
 	target_precompile_headers(${PROJECT_NAME} PUBLIC src/rfw.h)
 	target_precompile_headers(${PROJECT_NAME} PRIVATE src/Internal.h)
-endif()
+endif ()
+
+add_subdirectory(utils)
+add_subdirectory(math)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 find_package(OpenGL REQUIRED)
@@ -26,6 +29,9 @@ else ()
 	target_include_directories(${PROJECT_NAME} PRIVATE ${ASSIMP_INCLUDE_DIR} ${FREEIMAGE_INCLUDE_DIR})
 	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")
 endif ()
+
+target_link_libraries(${PROJECT_NAME} PUBLIC rfwUtils rfwMath)
+target_include_directories(${PROJECT_NAME} PUBLIC rfwUtils rfwMath)
 
 target_compile_definitions(${PROJECT_NAME} PUBLIC GLEW_STATIC GLFW_DLL)
 target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf ImGuiWrapper)

@@ -36,7 +36,10 @@ struct BVHNode
 
 	[[nodiscard]] bool is_leaf() const noexcept { return bounds.count >= 0; }
 
-	bool intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t = 1e-6f) const;
+	bool intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const
+	{
+		return bounds.intersect(org, dirInverse, t_min, t_max, min_t);
+	}
 
 	AABB refit(BVHNode *bvhTree, uint *primIDs, AABB *aabbs);
 
@@ -49,7 +52,8 @@ struct BVHNode
 	[[nodiscard]] inline int get_left_first() const noexcept { return bounds.leftFirst; }
 
 	template <int BINS = 9, int MAX_DEPTH = 32, int MAX_PRIMITIVES = 3>
-	void subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, unsigned int depth, std::atomic_int &poolPtr)
+	void subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, unsigned int depth,
+				   std::atomic_int &poolPtr)
 	{
 		depth++;
 		if (get_count() < MAX_PRIMITIVES || depth >= MAX_DEPTH)
@@ -75,8 +79,8 @@ struct BVHNode
 	}
 
 	template <int BINS = 9, int MAX_DEPTH = 32, int MAX_PRIMITIVES = 3>
-	void subdivide_mt(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::atomic_int &threadCount, unsigned int depth,
-							   std::atomic_int &poolPtr)
+	void subdivide_mt(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, std::atomic_int &threadCount,
+					  unsigned int depth, std::atomic_int &poolPtr)
 	{
 		depth++;
 		if (get_count() < MAX_PRIMITIVES || depth >= MAX_DEPTH)
@@ -102,16 +106,21 @@ struct BVHNode
 			if (subLeft && subRight)
 			{
 				threadCount.fetch_add(1);
-				auto leftThread =
-					std::async([&]() { leftNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr); });
+				auto leftThread = std::async([&]() {
+					leftNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount,
+																			depth, poolPtr);
+				});
 
-				rightNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+				rightNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount,
+																		 depth, poolPtr);
 				leftThread.get();
 			}
 			else if (subLeft)
-				leftNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+				leftNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount, depth,
+																		poolPtr);
 			else if (subRight)
-				rightNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount, depth, poolPtr);
+				rightNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount,
+																		 depth, poolPtr);
 		}
 		else // No more need to create more threads
 		{
@@ -122,7 +131,9 @@ struct BVHNode
 		}
 	}
 
-	template <int BINS> bool partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, int *left, int *right, std::atomic_int &poolPtr)
+	template <int BINS>
+	bool partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, int *left, int *right,
+				   std::atomic_int &poolPtr)
 	{
 		const int lFirst = bounds.leftFirst;
 		int lCount = 0;
@@ -143,7 +154,8 @@ struct BVHNode
 
 		for (int axis = 0; axis < 3; axis++)
 		{
-			for (int i = 1; i < (BINS + 2 /* add 2 bins since we don't check walls of node and thus check 2 bins less */); i++)
+			for (int i = 1;
+				 i < (BINS + 2 /* add 2 bins since we don't check walls of node and thus check 2 bins less */); i++)
 			{
 				const auto bin_offset = float(i) * bin_size;
 				const auto split_offset = bounds.bmin[axis] + lengths[axis] * bin_offset;
@@ -220,9 +232,79 @@ struct BVHNode
 
 	void calculate_bounds(const AABB *aabbs, const unsigned int *primitiveIndices);
 
-	template <typename FUNC>
-	static bool traverse_bvh(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx, const BVHNode *nodes,
-							 const unsigned int *primIndices, const FUNC &intersection)
+	template <typename FUNC> // (int primIdx, __m128* store_mask) -> int
+	static int traverse_bvh4(const float origin_x[4], const float origin_y[4], const float origin_z[4],
+							 const float dir_x[4], const float dir_y[4], const float dir_z[4], float t[4],
+							 int primID[4], const BVHNode *nodes, const unsigned int *primIndices, __m128 *hit_mask,
+							 const FUNC &intersection)
+	{
+		BVHTraversal todo[32];
+		int stackPtr = 0;
+		int hitMask = 0;
+		simd::vector4 tNear1 = _mm_setzero_ps(), tFar1 = _mm_setzero_ps();
+		simd::vector4 tNear2 = _mm_setzero_ps(), tFar2 = _mm_setzero_ps();
+
+		todo[stackPtr].nodeIdx = 0;
+		while (stackPtr >= 0)
+		{
+			const auto &node = nodes[todo[stackPtr].nodeIdx];
+			stackPtr--;
+
+			if (node.get_count() > -1)
+			{
+				for (int i = 0; i < node.get_count(); i++)
+				{
+					const auto primIDx = primIndices[node.get_left_first() + i];
+					__m128 store_mask = _mm_setzero_ps();
+					int mask = intersection(primIDx, &store_mask);
+					*hit_mask = _mm_or_ps(*hit_mask, store_mask);
+					hitMask |= mask;
+					_mm_maskstore_epi32(primID, _mm_castps_si128(store_mask), _mm_set1_epi32(primIDx));
+				}
+			}
+			else
+			{
+				const int hitLeft = nodes[node.get_left_first()].bounds.intersect4(origin_x, origin_y, origin_z, dir_x,
+																				   dir_y, dir_z, t, &tNear2, &tFar2);
+				const int hitRight = nodes[node.get_left_first() + 1].bounds.intersect4(
+					origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, &tNear2, &tFar2);
+
+				if (hitLeft > 0 && hitRight > 0)
+				{
+					if ((tNear1 < tNear2).move_mask() > 0 /* tNear1 < tNear2*/)
+					{
+						stackPtr++;
+						todo[stackPtr] = {node.get_left_first()};
+						stackPtr++;
+						todo[stackPtr] = {node.get_left_first() + 1};
+					}
+					else
+					{
+						stackPtr++;
+						todo[stackPtr] = {node.get_left_first() + 1};
+						stackPtr++;
+						todo[stackPtr] = {node.get_left_first()};
+					}
+				}
+				else if (hitLeft)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.get_left_first()};
+				}
+				else if (hitRight)
+				{
+					stackPtr++;
+					todo[stackPtr] = {node.get_left_first() + 1};
+				}
+			}
+		}
+
+		return hitMask;
+	}
+
+	template <typename FUNC> // (int primIdx) -> bool
+	static bool traverse_bvh(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float *t, int *hit_idx,
+							 const BVHNode *nodes, const unsigned int *primIndices, const FUNC &intersection)
 	{
 		bool valid = false;
 		BVHTraversal todo[32];
@@ -252,8 +334,8 @@ struct BVHNode
 			}
 			else
 			{
-				const bool hit_left = nodes[node.get_left_first()].intersect(org, dirInverse, &tNear1, &tFar1);
-				const bool hit_right = nodes[node.get_left_first() + 1].intersect(org, dirInverse, &tNear2, &tFar2);
+				const bool hit_left = nodes[node.get_left_first()].intersect(org, dirInverse, &tNear1, &tFar1, *t);
+				const bool hit_right = nodes[node.get_left_first() + 1].intersect(org, dirInverse, &tNear2, &tFar2, *t);
 
 				if (hit_left && hit_right)
 				{
@@ -288,9 +370,9 @@ struct BVHNode
 		return valid;
 	}
 
-	template <typename FUNC>
-	static bool traverse_bvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist, const BVHNode *nodes,
-									const unsigned int *primIndices, const FUNC &intersection)
+	template <typename FUNC> // (int primIdx) -> bool
+	static bool traverse_bvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float maxDist,
+									const BVHNode *nodes, const unsigned int *primIndices, const FUNC &intersection)
 	{
 		BVHTraversal todo[32];
 		int stackPtr = 0;
@@ -316,8 +398,9 @@ struct BVHNode
 			}
 			else
 			{
-				const bool hit_left = nodes[node.get_left_first()].intersect(org, dirInverse, &tNear1, &tFar1);
-				const bool hit_right = nodes[node.get_left_first() + 1].intersect(org, dirInverse, &tNear2, &tFar2);
+				const bool hit_left = nodes[node.get_left_first()].intersect(org, dirInverse, &tNear1, &tFar1, maxDist);
+				const bool hit_right =
+					nodes[node.get_left_first() + 1].intersect(org, dirInverse, &tNear2, &tFar2, maxDist);
 
 				if (hit_left && hit_right)
 				{

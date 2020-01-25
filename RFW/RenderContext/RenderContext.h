@@ -8,7 +8,8 @@
 #include <vector>
 #include <memory>
 
-#include <MathIncludes.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 
 #include <Structures.h>
 
@@ -80,7 +81,7 @@ class RenderContext
 	RenderContext() = default;
 	virtual ~RenderContext() = default;
 
-	[[nodiscard]] virtual std::vector<rfw::RenderTarget> getSupportedTargets() const = 0;
+	[[nodiscard]] virtual std::vector<rfw::RenderTarget> get_supported_targets() const = 0;
 
 	// Initialization methods, by default these throw to indicate the chosen rendercontext does not support the
 	// specified target
@@ -88,20 +89,20 @@ class RenderContext
 	virtual void init(GLuint *glTextureID, uint width, uint height) { throw std::runtime_error("RenderContext does not support given target type."); };
 
 	virtual void cleanup() = 0;
-	virtual void renderFrame(const rfw::Camera &camera, rfw::RenderStatus status) = 0;
-	virtual void setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) = 0;
-	virtual void setTextures(const std::vector<rfw::TextureData> &textures) = 0;
-	virtual void setMesh(size_t index, const rfw::Mesh &mesh) = 0;
-	virtual void setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) = 0;
-	virtual void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) = 0;
-	virtual void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-						   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) = 0;
-	virtual void getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const = 0;
-	virtual rfw::AvailableRenderSettings getAvailableSettings() const = 0;
-	virtual void setSetting(const rfw::RenderSetting &setting) = 0;
+	virtual void render_frame(const rfw::Camera &camera, rfw::RenderStatus status) = 0;
+	virtual void set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) = 0;
+	virtual void set_textures(const std::vector<rfw::TextureData> &textures) = 0;
+	virtual void set_mesh(size_t index, const rfw::Mesh &mesh) = 0;
+	virtual void set_instance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) = 0;
+	virtual void set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) = 0;
+	virtual void set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+							const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) = 0;
+	virtual void get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const = 0;
+	virtual rfw::AvailableRenderSettings get_settings() const = 0;
+	virtual void set_setting(const rfw::RenderSetting &setting) = 0;
 	virtual void update() = 0;
-	virtual void setProbePos(glm::uvec2 probePos) = 0;
-	virtual rfw::RenderStats getStats() const = 0;
+	virtual void set_probe_index(glm::uvec2 probePos) = 0;
+	virtual rfw::RenderStats get_stats() const = 0;
 };
 
 } // namespace rfw

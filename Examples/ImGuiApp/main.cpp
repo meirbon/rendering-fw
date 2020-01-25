@@ -71,88 +71,88 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(1280, 720, "RenderingFW", CUDART)
+App::App() : Application(512, 512, "RenderingFW", CPURT)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
 	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
-		mouseX = static_cast<uint>(x * double(window.getWidth()));
-		mouseY = static_cast<uint>(y * double(window.getHeight()));
+		mouseX = static_cast<uint>(x * double(window.get_width()));
+		mouseY = static_cast<uint>(y * double(window.get_height()));
 	});
 }
 
 void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 {
 	// Initialization of your application
-	rs->setSkybox("Envmaps/sky_15.hdr");
+	rs->set_skybox("Envmaps/sky_15.hdr");
 #if SKINNED_MESH
-	skinnedMesh = rs->addObject("Models/capture.DAE");
+	skinnedMesh = rs->add_object("Models/capture.DAE");
 #endif
 #if CESIUMMAN
-	cesiumMan = rs->addObject("Models/CesiumMan/CesiumMan.gltf");
+	cesiumMan = rs->add_object("Models/CesiumMan/CesiumMan.gltf");
 #endif
 #if POLLY
-	polly = rs->addObject("Models/project_polly.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+	polly = rs->add_object("Models/project_polly.glb", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
 #endif
 #if PICA
-	pica = rs->addObject("Models/pica/scene.gltf");
+	pica = rs->add_object("Models/pica/scene.gltf");
 #elif SPONZA
-	sponza = rs->addObject("Models/sponza/sponza.obj");
+	sponza = rs->add_object("Models/sponza/sponza.obj");
 #endif
 #if PICA_LIGHTS
-	auto lightMaterial = rs->addMaterial(vec3(10), 1);
-	lightQuad = rs->addQuad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
-	pointLight = rs->addPointLight(vec3(-15, 10, -5), vec3(20));
-	spotLight = rs->addSpotLight(vec3(10, 10, 3), 10.0f, vec3(30), 30.0f, vec3(0, -1, 0));
+	auto lightMaterial = rs->add_material(vec3(10), 1);
+	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
+	pointLight = rs->add_point_light(vec3(-15, 10, -5), vec3(20));
+	spotLight = rs->add_spot_light(vec3(10, 10, 3), 10.0f, vec3(30), 30.0f, vec3(0, -1, 0));
 #endif
 #if DRAGON
-	const auto dragonMaterial = rs->addMaterial(vec3(255.f / 255.f, 231.f / 255.f, 102.f / 255.f), 0.05f);
-	auto material = rs->getMaterial(dragonMaterial);
+	const auto dragonMaterial = rs->add_material(vec3(255.f / 255.f, 231.f / 255.f, 102.f / 255.f), 0.05f);
+	auto material = rs->get_material(dragonMaterial);
 	material.metallic = 1.0f;
-	rs->setMaterial(dragonMaterial, material);
-	dragon = rs->addObject("Models/dragon.obj", dragonMaterial);
-	const auto planeMat = rs->addMaterial(vec3(1.f, 0.4f, 0.4f), 0.03f);
-	material = rs->getMaterial(planeMat);
+	rs->set_material(dragonMaterial, material);
+	dragon = rs->add_object("Models/dragon.obj", dragonMaterial);
+	const auto planeMat = rs->add_material(vec3(1.f, 0.4f, 0.4f), 0.03f);
+	material = rs->get_material(planeMat);
 	material.metallic = 0.2f;
-	rs->setMaterial(planeMat, material);
-	plane = rs->addQuad(vec3(0, 1, 0), vec3(5, 1.47f, -2), 3.0f, 3.0f, planeMat);
+	rs->set_material(planeMat, material);
+	plane = rs->add_quad(vec3(0, 1, 0), vec3(5, 1.47f, -2), 3.0f, 3.0f, planeMat);
 
-	rs->addPointLight(vec3(5, 10, 2), vec3(100));
+	rs->add_point_light(vec3(5, 10, 2), vec3(100));
 #endif
 }
 
 void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
 {
 #if SKINNED_MESH
-	skinnedMeshInstance = rs->addInstance(skinnedMesh, vec3(4));
+	skinnedMeshInstance = rs->add_instance(skinnedMesh, vec3(4));
 #endif
 #if CESIUMMAN
-	cesiumManInstance = rs->addInstance(cesiumMan, vec3(3), vec3(10, 0.2f, 3));
+	cesiumManInstance = rs->add_instance(cesiumMan, vec3(3), vec3(10, 0.2f, 3));
 #endif
 #if POLLY
-	pollyInstance = rs->addInstance(polly, vec3(1), vec3(8, 2, 1));
+	pollyInstance = rs->add_instance(polly, vec3(1), vec3(8, 2, 1));
 #endif
 #if PICA
-	picaInstance = rs->addInstance(pica);
+	picaInstance = rs->add_instance(pica);
 	picaInstance.rotate(180.0f, vec3(0, 1, 0));
 	picaInstance.update();
 #elif SPONZA
-	sponzaInstance = rs->addInstance(sponza, vec3(0.2f));
+	sponzaInstance = rs->add_instance(sponza, vec3(0.2f));
 #endif
 #if PICA_LIGHTS
-	lightQuadInstance = rs->addInstance(lightQuad);
+	lightQuadInstance = rs->add_instance(lightQuad);
 #endif
 #if DRAGON
-	dragonInstance = rs->addInstance(dragon, vec3(1), vec3(5, 1.83f, -2));
-	planeInstance = rs->addInstance(plane);
+	dragonInstance = rs->add_instance(dragon, vec3(1), vec3(5, 1.83f, -2));
+	planeInstance = rs->add_instance(plane);
 #endif
 }
 
 void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 {
-	stats = rs->getRenderStats();
+	stats = rs->get_statistics();
 	if (playAnimations)
-		rs->updateAnimationsTo(static_cast<float>(glfwGetTime()));
+		rs->set_animations_to(static_cast<float>(glfwGetTime()));
 
 	status = window.pressed(KEY_B) ? Reset : Converge;
 	auto translation = vec3(0.0f);
@@ -211,25 +211,25 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 	if (any(notEqual(translation, vec3(0.0f))))
 	{
 		camChanged = true;
-		camera.translateRelative(translation);
+		camera.translate_relative(translation);
 	}
 	if (any(notEqual(target, vec3(0.0f))))
 	{
 		camChanged = true;
-		camera.translateTarget(target);
+		camera.translate_target(target);
 	}
 
 	if (window.mousePressed(Mousekey::BUTTON_RIGHT))
 	{
 		updateFocus = true;
-		rs->setProbeIndex(uvec2(mouseX, mouseY));
+		rs->set_probe_index(uvec2(mouseX, mouseY));
 		try
 		{
-			probe = rs->getProbeResult();
-			instanceID = probe.object.getIndex();
+			probe = rs->get_probe_result();
+			instanceID = probe.object.get_index();
 			materialID = probe.materialIdx;
 
-			hostMaterial = rs->getMaterial(materialID);
+			hostMaterial = rs->get_material(materialID);
 		}
 		catch (const std::exception &e)
 		{
@@ -264,7 +264,7 @@ void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 	for (int i = 0, s = static_cast<int>(settingKeys.size()); i < s; i++)
 	{
 		if (ImGui::ListBox(settingKeys[i], &settingsCurrentValues[i], settingAvailableValues[i].data(), static_cast<int>(settingAvailableValues[i].size())))
-			rs->setSetting(rfw::RenderSetting(settingKeys[i], settingAvailableValues[i][settingsCurrentValues[i]]));
+			rs->set_setting(rfw::RenderSetting(settingKeys[i], settingAvailableValues[i][settingsCurrentValues[i]]));
 	}
 
 	ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000, stats.primaryCount / (max(1.0f, stats.primaryTime * 1000000)));
@@ -299,31 +299,31 @@ void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Separator();
 
 	ImGui::BeginGroup();
-	ImGui::Text("Probe pixel (%u %u)", rs->getProbeIndex().x, rs->getProbeIndex().y);
+	ImGui::Text("Probe pixel (%u %u)", rs->get_probe_index().x, rs->get_probe_index().y);
 	ImGui::Text("Distance %f", distance);
 	ImGui::Text("Instance %zu", instanceID);
 	try
 	{
-		auto instanceObject = rs->getInstanceReference(instanceID);
+		auto instanceObject = rs->get_instance_ref(instanceID);
 
-		auto instanceTranslation = instanceObject.getTranslation();
-		auto instanceScaling = instanceObject.getScaling();
-		auto instanceRotation = instanceObject.getRotation();
+		auto instanceTranslation = instanceObject.get_translation();
+		auto instanceScaling = instanceObject.get_scaling();
+		auto instanceRotation = instanceObject.get_rotation();
 
 		ImGui::Text("Instance");
 		if (ImGui::DragFloat3("Translation", value_ptr(instanceTranslation), 0.1f, -1e20f, 1e20f))
 		{
-			instanceObject.setTranslation(instanceTranslation);
+			instanceObject.set_translation(instanceTranslation);
 			instanceObject.update();
 		}
 		if (ImGui::DragFloat3("Scaling", value_ptr(instanceScaling), 0.1f, -1e20f, 1e20f))
 		{
-			instanceObject.setScaling(instanceScaling);
+			instanceObject.set_scaling(instanceScaling);
 			instanceObject.update();
 		}
 		if (ImGui::DragFloat3("Rotation", value_ptr(instanceRotation), 0.01f, -1e20f, 1e20f))
 		{
-			instanceObject.setRotation(instanceRotation);
+			instanceObject.set_rotation(instanceRotation);
 			instanceObject.update();
 		}
 	}
@@ -338,7 +338,7 @@ void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::BeginGroup();
 	ImGui::Text("Material");
 	if (ImGui::Button("Save"))
-		rs->setMaterial(materialID, hostMaterial);
+		rs->set_material(materialID, hostMaterial);
 	ImGui::Text("Material %zu", materialID);
 	ImGui::ColorEdit3("Color", value_ptr(hostMaterial.color), ImGuiColorEditFlags_DisplayRGB);
 	ImGui::SliderFloat3("Absorption", value_ptr(hostMaterial.absorption), 0.0f, 10.0f, "%.0f");

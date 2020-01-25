@@ -1,6 +1,8 @@
 #include "rfw.h"
 #include "Internal.h"
 
+#include <glm/gtx/matrix_major_storage.hpp>
+
 #define USE_PARALLEL_FOR 1
 
 namespace rfw
@@ -328,7 +330,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 	object.nodes.at(0).update(mat4(1.0f));
 
-	object.transformTo(0.0f);
+	object.set_time(0.0f);
 
 	object.updateTriangles();
 
@@ -693,7 +695,7 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		m_SceneGraph[0].localTransform = matrix * m_SceneGraph[0].localTransform.matrix;
 
 	// Transform meshes according to node transformations in scene graph
-	AssimpObject::transformTo(0.0f);
+	AssimpObject::set_time(0.0f);
 
 	updateTriangles(m_TexCoords);
 
@@ -731,13 +733,13 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	DEBUG("Loaded file: %s with %u vertices and %u triangles", filename.data(), m_CurrentVertices.size(), m_Triangles.size());
 }
 
-void AssimpObject::transformTo(const float timeInSeconds)
+void AssimpObject::set_time(const float timeInSeconds)
 {
 	const simd::vector4 normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
 
 	if (!object.vertices.empty())
 	{
-		object.transformTo(timeInSeconds);
+		object.set_time(timeInSeconds);
 		return;
 	}
 
@@ -1028,7 +1030,7 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 	return currentNodeIndex;
 }
 
-const std::vector<std::vector<int>> &rfw::AssimpObject::getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize)
+const std::vector<std::vector<int>> &rfw::AssimpObject::get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize)
 {
 	// TODO: rewrite to initialize per mesh
 	if (reinitialize)
@@ -1054,11 +1056,11 @@ const std::vector<std::vector<int>> &rfw::AssimpObject::getLightIndices(const st
 	return m_LightIndices;
 }
 
-const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::AssimpObject::getMeshes() const { return m_RfwMeshes; }
+const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::AssimpObject::get_meshes() const { return m_RfwMeshes; }
 
-const std::vector<rfw::simd::matrix4> &rfw::AssimpObject::getMeshTransforms() const { return m_MeshTransforms; }
+const std::vector<rfw::simd::matrix4> &rfw::AssimpObject::get_mesh_matrices() const { return m_MeshTransforms; }
 
-std::vector<bool> rfw::AssimpObject::getChangedMeshes()
+std::vector<bool> rfw::AssimpObject::get_changed_meshes()
 {
 	assert(m_Meshes.size() == m_RfwMeshes.size());
 
@@ -1075,14 +1077,14 @@ std::vector<bool> rfw::AssimpObject::getChangedMeshes()
 	return changed;
 }
 
-std::vector<bool> rfw::AssimpObject::getChangedMeshMatrices()
+std::vector<bool> rfw::AssimpObject::get_changed_matrices()
 {
 	auto values = std::move(m_ChangedMeshTransforms);
 	m_ChangedMeshTransforms.resize(m_Meshes.size(), false);
 	return values;
 }
 
-void rfw::AssimpObject::prepareMeshes(RenderSystem &rs)
+void rfw::AssimpObject::prepare_meshes(RenderSystem &rs)
 {
 	m_RfwMeshes.reserve(m_Meshes.size());
 	for (const auto &mesh : m_Meshes)
@@ -1097,7 +1099,7 @@ void rfw::AssimpObject::prepareMeshes(RenderSystem &rs)
 
 		rfwMesh.vertexCount = mesh.vertexCount;
 		rfwMesh.triangleCount = mesh.faceCount;
-		m_RfwMeshes.emplace_back(rs.requestMeshIndex(), rfwMesh);
+		m_RfwMeshes.emplace_back(rs.request_mesh_index(), rfwMesh);
 	}
 }
 

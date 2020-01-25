@@ -2,8 +2,9 @@
 
 #include <cstring>
 
-#include <Settings.h>
 #include "CheckGL.h"
+
+using uint = unsigned int;
 
 rfw::utils::GLTexture2DArray::GLTexture2DArray(uint depth, uint width, uint height)
 {
@@ -14,7 +15,7 @@ rfw::utils::GLTexture2DArray::GLTexture2DArray(uint depth, uint width, uint heig
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexStorage3D(GL_TEXTURE_2D_ARRAY, MIPLEVELCOUNT, GL_RGBA8, width, height, depth);
+	glTexStorage3D(GL_TEXTURE_2D_ARRAY, 5, GL_RGBA8, width, height, depth);
 
 	unbind();
 	CheckGL();

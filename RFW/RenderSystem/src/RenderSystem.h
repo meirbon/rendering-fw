@@ -67,67 +67,68 @@ class RenderSystem
 	RenderSystem();
 	~RenderSystem();
 
-	void loadRenderAPI(std::string name);
-	void unloadRenderAPI();
+	void load_render_api(std::string name);
+	void unload_render_api();
 
-	void setTarget(GLuint *textureID, uint width, uint height);
-	void setTarget(rfw::utils::GLTexture *texture);
-	void setSkybox(std::string filename);
+	void set_target(GLuint *textureID, uint width, uint height);
+	void set_target(rfw::utils::GLTexture *texture);
+	void set_skybox(std::string filename);
+	void set_skybox(rfw::utils::ArrayProxy<vec3> data, int width, int height);
 	void synchronize();
-	void updateAnimationsTo(float timeInSeconds);
+	void set_animations_to(float timeInSeconds);
 
-	rfw::GeometryReference getGeometryReference(size_t index);
-	rfw::InstanceReference getInstanceReference(size_t index);
+	GeometryReference get_geometry_ref(size_t index);
+	InstanceReference get_instance_ref(size_t index);
 
-	rfw::GeometryReference addObject(std::string fileName, int material = -1);
-	rfw::GeometryReference addObject(std::string fileName, bool normalize, int material = -1);
-	rfw::GeometryReference addObject(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
-	rfw::GeometryReference addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, uint material);
-	rfw::InstanceReference addInstance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f), glm::vec3 translation = glm::vec3(0.0f),
-									   float degrees = 1.0f, glm::vec3 axes = glm::vec3(1.0f));
-	void updateInstance(const rfw::InstanceReference &instanceRef, const mat4 &transform);
-	void setAnimationTime(const rfw::GeometryReference &instanceRef, float timeInSeconds);
+	GeometryReference add_object(std::string fileName, int material = -1);
+	GeometryReference add_object(std::string fileName, bool normalize, int material = -1);
+	GeometryReference add_object(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
+	GeometryReference add_quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, uint material);
+	InstanceReference add_instance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f), glm::vec3 translation = glm::vec3(0.0f),
+								   float degrees = 1.0f, glm::vec3 axes = glm::vec3(1.0f));
+	void update_instance(const rfw::InstanceReference &instanceRef, const mat4 &transform);
+	void set_animation_to(const rfw::GeometryReference &instanceRef, float timeInSeconds);
 
-	rfw::HostMaterial getMaterial(size_t index) const;
-	void setMaterial(size_t index, const rfw::HostMaterial &mat);
-	int addMaterial(const glm::vec3 &color, float roughness = 1.0f);
-	void renderFrame(const Camera &camera, RenderStatus status = Converge, bool toneMap = true);
+	rfw::HostMaterial get_material(size_t index) const;
+	void set_material(size_t index, const rfw::HostMaterial &mat);
+	int add_material(const glm::vec3 &color, float roughness = 1.0f);
+	void render_frame(const Camera &camera, RenderStatus status = Converge, bool toneMap = true);
 
-	LightReference addPointLight(const glm::vec3 &position, const glm::vec3 &radiance);
-	LightReference addSpotLight(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance, float outer_deg, const glm::vec3 &direction);
-	LightReference addDirectionalLight(const glm::vec3 &direction, const glm::vec3 &radiance);
+	LightReference add_point_light(const glm::vec3 &position, const glm::vec3 &radiance);
+	LightReference add_spot_light(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance, float outer_deg, const glm::vec3 &direction);
+	LightReference add_directional_light(const glm::vec3 &direction, const glm::vec3 &radiance);
 
-	LightReference getAreaLightReference(size_t index);
-	LightReference getPointLightReference(size_t index);
-	LightReference getSpotLightReference(size_t index);
-	LightReference getDirectionalLightReference(size_t index);
+	LightReference get_area_light_ref(size_t index);
+	LightReference get_point_light_ref(size_t index);
+	LightReference get_spot_light_ref(size_t index);
+	LightReference get_directional_light_ref(size_t index);
 
-	void setPosition(const LightReference &reference, const glm::vec3 &position);
-	void setRadiance(const LightReference &reference, const glm::vec3 &radiance);
-	void setEnergy(const LightReference &reference, float energy);
-	rfw::AvailableRenderSettings getAvailableSettings() const;
-	void setSetting(const rfw::RenderSetting &setting) const;
+	void set_light_position(const LightReference &reference, const glm::vec3 &position);
+	void set_light_radiance(const LightReference &reference, const glm::vec3 &radiance);
+	AvailableRenderSettings get_available_settings() const;
+	void set_setting(const rfw::RenderSetting &setting) const;
 
-	void setProbeIndex(glm::uvec2 pixelIdx);
-	glm::uvec2 getProbeIndex() const;
-	ProbeResult getProbeResult();
+	void set_probe_index(glm::uvec2 pixelIdx);
+	glm::uvec2 get_probe_index() const;
+	ProbeResult get_probe_result();
 
-	const std::vector<rfw::InstanceReference> &getInstances() const;
-	rfw::InstanceReference *getMutableInstances();
-	size_t getInstanceCount() const;
+	utils::ArrayProxy<rfw::InstanceReference> get_instances() const;
+	rfw::InstanceReference *get_mutable_instances(size_t *size = nullptr);
+	size_t get_instance_count() const;
 
-	std::vector<rfw::GeometryReference> getGeometry();
-	size_t getGeometryCount() const;
-	rfw::RenderStats getRenderStats() const;
-	bool hasContext() const { return m_Context != nullptr; }
-	bool hasRenderer() const { return m_Context != nullptr; }
+	std::vector<rfw::GeometryReference> get_geometry();
+	size_t get_geometry_count() const;
+	rfw::RenderStats get_statistics() const;
+
+	bool has_context() const { return m_Context != nullptr; }
+	bool has_renderer() const { return m_Context != nullptr; }
 
   protected:
-	size_t requestMeshIndex();
-	size_t requestInstanceIndex();
+	size_t request_mesh_index();
+	size_t request_instance_index();
 
   private:
-	void updateAreaLights();
+	void update_area_lights();
 
 	utils::ThreadPool m_ThreadPool;
 	GLuint m_TargetID = 0, m_FrameBufferID = 0;

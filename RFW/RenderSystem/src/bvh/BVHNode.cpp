@@ -1,4 +1,4 @@
-#include "../rfw.h"
+#include "BVH.h"
 
 using namespace glm;
 
@@ -15,11 +15,6 @@ BVHNode::BVHNode(int leftFirst, int count, AABB bounds) : bounds(bounds)
 {
 	set_left_first(leftFirst);
 	set_count(-1);
-}
-
-bool BVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, const float min_t) const
-{
-	return bounds.intersect(org, dirInverse, t_min, t_max, min_t);
 }
 
 AABB BVHNode::refit(BVHNode *bvhTree, uint *primIDs, AABB *aabbs)

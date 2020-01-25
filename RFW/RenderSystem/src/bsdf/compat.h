@@ -2,6 +2,7 @@
 #define COMPAT_H
 
 #include "tools.h"
+#include "../Settings.h"
 
 #define INVPI 0.318309886183790671537767526745028724f
 #define PI 3.14159265358979323846264338327950288f

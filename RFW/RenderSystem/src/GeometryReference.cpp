@@ -3,20 +3,20 @@
 namespace rfw
 {
 
-bool GeometryReference::isAnimated() const { return m_System->m_Models[m_Index]->isAnimated(); }
+bool GeometryReference::is_animated() const { return m_System->m_Models[m_Index]->is_animated(); }
 
-void GeometryReference::setAnimationTime(const float time) const { m_System->setAnimationTime(*this, time); }
+void GeometryReference::set_animation_to(const float time) const { m_System->set_animation_to(*this, time); }
 
-const std::vector<std::pair<size_t, Mesh>> &GeometryReference::getMeshes() const { return m_System->m_Models[m_Index]->getMeshes(); }
+const std::vector<std::pair<size_t, Mesh>> &GeometryReference::get_meshes() const { return m_System->m_Models[m_Index]->get_meshes(); }
 
-const std::vector<simd::matrix4> &GeometryReference::getMeshMatrices() const { return m_System->m_Models[m_Index]->getMeshTransforms(); }
+const std::vector<simd::matrix4> &GeometryReference::get_mesh_matrices() const { return m_System->m_Models[m_Index]->get_mesh_matrices(); }
 
-const std::vector<std::vector<int>> &GeometryReference::getLightIndices() const
+const std::vector<std::vector<int>> &GeometryReference::get_light_indices() const
 {
 	const auto lightFlags = m_System->m_Materials->getMaterialLightFlags();
-	return m_System->m_Models[m_Index]->getLightIndices(lightFlags, false);
+	return m_System->m_Models[m_Index]->get_light_indices(lightFlags, false);
 }
 
-SceneTriangles *GeometryReference::getObject() const { return m_System->m_Models[m_Index]; }
+SceneTriangles *GeometryReference::get_object() const { return m_System->m_Models[m_Index]; }
 
 } // namespace rfw

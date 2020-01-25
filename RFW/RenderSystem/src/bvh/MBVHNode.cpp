@@ -1,4 +1,6 @@
-#include "../rfw.h"
+#include "BVH.h"
+
+#include <utils/Logger.h>
 
 using namespace glm;
 
@@ -27,7 +29,7 @@ void MBVHNode::set_bounds(unsigned int nodeIdx, const AABB &bounds)
 	this->bmaxz[nodeIdx] = bounds.zMax;
 }
 
-MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t, const float t_min) const
+MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float t) const
 {
 	MBVHHit hit;
 
@@ -62,41 +64,42 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 	hit.tmin4 = _mm_max_ps(hit.tmin4, _mm_min_ps(t1, t2));
 	t_max = _mm_min_ps(t_max, _mm_max_ps(t1, t2));
 
-	const __m128 greaterThan0 = _mm_cmpge_ps(t_max, _mm_set1_ps(t_min));
-	const __m128 lessThanEqualMax = _mm_cmplt_ps(hit.tmin4, t_max);
-	const __m128 lessThanT = _mm_cmplt_ps(hit.tmin4, _mm_set1_ps(*t));
-
-	const __m128 result = _mm_and_ps(greaterThan0, _mm_and_ps(lessThanEqualMax, lessThanT));
+	// return (*tmax) > (*tmin) && (*tmin) < t;
+	const __m128 greaterThanMin = _mm_cmpge_ps(t_max, hit.tmin4);
+	const __m128 lessThanT = _mm_cmplt_ps(hit.tmin4, _mm_set1_ps(t));
+	const __m128 result = _mm_and_ps(greaterThanMin, lessThanT);
 	const int resultMask = _mm_movemask_ps(result);
 
 	hit.tmini4 = _mm_and_si128(hit.tmini4, mask);
 	hit.tmini4 = _mm_or_si128(hit.tmini4, or_mask);
 	hit.result = bvec4(resultMask & 1, resultMask & 2, resultMask & 4, resultMask & 8);
 #else
-	glm::vec4 t1 = (bminx4 - org.x) * dirInverse.x;
-	glm::vec4 t2 = (bmaxx4 - org.x) * dirInverse.x;
+	rfw::bvh::MBVHHit hit;
 
-	hit.tmin4 = glm::min(t1, t2);
+	glm::vec4 t1 = (node.bminx4 - org.x) * dirInverse.x;
+	glm::vec4 t2 = (node.bmaxx4 - org.x) * dirInverse.x;
+
+	hit.tminv = glm::min(t1, t2);
 	glm::vec4 tmax = glm::max(t1, t2);
 
-	t1 = (bminy4 - org.y) * dirInverse.y;
-	t2 = (bmaxy4 - org.y) * dirInverse.y;
+	t1 = (node.bminy4 - org.y) * dirInverse.y;
+	t2 = (node.bmaxy4 - org.y) * dirInverse.y;
 
-	hit.tmin4 = glm::max(hit.tmin4, glm::min(t1, t2));
+	hit.tminv = glm::max(hit.tminv, glm::min(t1, t2));
 	tmax = glm::min(tmax, glm::max(t1, t2));
 
-	t1 = (bminz4 - org.z) * dirInverse.z;
-	t2 = (bmaxz4 - org.z) * dirInverse.z;
+	t1 = (node.bminz4 - org.z) * dirInverse.z;
+	t2 = (node.bmaxz4 - org.z) * dirInverse.z;
 
-	hit.tmin4 = glm::max(hit.tmin4, glm::min(t1, t2));
+	hit.tminv = glm::max(hit.tminv, glm::min(t1, t2));
 	tmax = glm::min(tmax, glm::max(t1, t2));
+
+	hit.result = glm::greaterThanEqual(tmax, hit.tminv) && glm::lessThan(hit.tminv, glm::vec4(t));
 
 	hit.tmini[0] = ((hit.tmini[0] & 0xFFFFFFFCu) | 0b00u);
 	hit.tmini[1] = ((hit.tmini[1] & 0xFFFFFFFCu) | 0b01u);
 	hit.tmini[2] = ((hit.tmini[2] & 0xFFFFFFFCu) | 0b10u);
 	hit.tmini[3] = ((hit.tmini[3] & 0xFFFFFFFCu) | 0b11u);
-
-	hit.result = greaterThan(tmax, glm::vec4(0.0f)) && lessThanEqual(hit.tmin4, tmax) && lessThanEqual(hit.tmin4, glm::vec4(*t));
 #endif
 
 	if (hit.tmin[0] > hit.tmin[1])

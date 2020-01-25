@@ -110,7 +110,5 @@ struct Ray
 	}
 
 	static Ray generateFromView(const CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3);
-	static RayPacket4 generateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng);
-	static RayPacket8 generateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng);
 };
 } // namespace cpurt

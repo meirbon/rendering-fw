@@ -16,28 +16,28 @@ class InstanceReference
 
 	explicit operator size_t() const { return m_Members->index; }
 
-	[[nodiscard]] const GeometryReference &getGeometryReference() const { return m_Members->geomReference; }
+	[[nodiscard]] const GeometryReference &get_geometry_ref() const { return m_Members->geomReference; }
 
-	void setTranslation(glm::vec3 value);
-	void setRotation(float degrees, glm::vec3 axis);
-	void setRotation(const glm::quat &q);
-	void setRotation(const glm::vec3 &euler);
-	void setScaling(glm::vec3 value);
+	void set_translation(glm::vec3 value);
+	void set_rotation(float degrees, glm::vec3 axis);
+	void set_rotation(const glm::quat &q);
+	void set_rotation(const glm::vec3 &euler);
+	void set_scaling(glm::vec3 value);
 
 	void translate(glm::vec3 offset);
 	void rotate(float degrees, glm::vec3 axis);
 	void scale(glm::vec3 offset);
 	void update() const;
 
-	[[nodiscard]] size_t getIndex() const { return m_Members->index; }
+	[[nodiscard]] size_t get_index() const { return m_Members->index; }
 	[[nodiscard]] const std::vector<size_t> &getIndices() const { return m_Members->instanceIDs; }
 
-	[[nodiscard]] rfw::simd::matrix4 getMatrix() const;
-	[[nodiscard]] glm::mat3 getInverseMatrix() const;
+	[[nodiscard]] simd::matrix4 get_matrix() const;
+	[[nodiscard]] glm::mat3 get_normal_matrix() const;
 
-	[[nodiscard]] glm::vec3 getScaling() const { return m_Members->scaling; }
-	[[nodiscard]] glm::vec3 getRotation() const { return glm::eulerAngles(m_Members->rotation); }
-	[[nodiscard]] glm::vec3 getTranslation() const { return m_Members->translation; }
+	[[nodiscard]] glm::vec3 get_scaling() const { return m_Members->scaling; }
+	[[nodiscard]] glm::vec3 get_rotation() const { return glm::eulerAngles(m_Members->rotation); }
+	[[nodiscard]] glm::vec3 get_translation() const { return m_Members->translation; }
 
   private:
 	struct Members

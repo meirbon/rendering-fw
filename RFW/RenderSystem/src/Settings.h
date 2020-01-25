@@ -15,4 +15,4 @@
 #define MAX_PATH_LENGTH 3
 #define MAX_IS_LIGHTS 16
 #define IS_LIGHTS 1
-#define MIN_ROUGHNESS 0.1f
+#define MIN_ROUGHNESS 0.01f

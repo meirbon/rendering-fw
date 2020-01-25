@@ -79,32 +79,32 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	[cmdBuffer commit];
 }
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
+void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
 
-void Context::setTextures(const std::vector<rfw::TextureData> &textures) {}
+void Context::set_textures(const std::vector<rfw::TextureData> &textures) {}
 
-void Context::setMesh(size_t index, const rfw::Mesh &mesh) {}
+void Context::set_mesh(size_t index, const rfw::Mesh &mesh) {}
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) {}
+void Context::set_instance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) {}
 
-void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
+void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 
-void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
 						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 }
 
-void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
+void Context::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
 
-rfw::AvailableRenderSettings Context::getAvailableSettings() const { return rfw::AvailableRenderSettings(); }
+rfw::AvailableRenderSettings Context::get_settings() const { return rfw::AvailableRenderSettings(); }
 
-void Context::setSetting(const rfw::RenderSetting &setting) {}
+void Context::set_setting(const rfw::RenderSetting &setting) {}
 
 void Context::update() {}
 
-void Context::setProbePos(glm::uvec2 probePos) {}
+void Context::set_probe_index(glm::uvec2 probePos) {}
 
-rfw::RenderStats Context::getStats() const { return rfw::RenderStats(); }
+rfw::RenderStats Context::get_stats() const { return rfw::RenderStats(); }
 
 rfw::RenderContext *createRenderContext() { return new Context(); }
 

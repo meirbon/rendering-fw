@@ -514,7 +514,7 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 	scene.vertices.resize(scene.baseVertices.size(), vec4(0, 0, 0, 1));
 	scene.normals.resize(scene.baseNormals.size(), vec3(0.0f));
 
-	scene.transformTo(0.0f);
+	scene.set_time(0.0f);
 
 	scene.updateTriangles();
 	//// Update triangle data that only has to be calculated once
@@ -523,17 +523,17 @@ rfw::gLTFObject::gLTFObject(std::string_view filename, MaterialList *matList, ui
 	DEBUG("Loaded file: %s with %u vertices and %u triangles", filename.data(), scene.vertices.size(), scene.triangles.size());
 }
 
-void rfw::gLTFObject::transformTo(float timeInSeconds) { scene.transformTo(timeInSeconds); }
+void rfw::gLTFObject::set_time(float timeInSeconds) { scene.set_time(timeInSeconds); }
 
-rfw::Triangle *rfw::gLTFObject::getTriangles() { return scene.triangles.data(); }
+rfw::Triangle *rfw::gLTFObject::get_triangles() { return scene.triangles.data(); }
 
-glm::vec4 *rfw::gLTFObject::getVertices() { return scene.vertices.data(); }
+glm::vec4 *rfw::gLTFObject::get_vertices() { return scene.vertices.data(); }
 
-const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::gLTFObject::getMeshes() const { return m_Meshes; }
+const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::gLTFObject::get_meshes() const { return m_Meshes; }
 
-const std::vector<rfw::simd::matrix4> &rfw::gLTFObject::getMeshTransforms() const { return scene.meshTranforms; }
+const std::vector<rfw::simd::matrix4> &rfw::gLTFObject::get_mesh_matrices() const { return scene.meshTranforms; }
 
-std::vector<bool> rfw::gLTFObject::getChangedMeshes()
+std::vector<bool> rfw::gLTFObject::get_changed_meshes()
 {
 	auto changed = std::vector<bool>(m_Meshes.size(), false);
 	for (int i = 0, s = static_cast<int>(m_Meshes.size()); i < s; i++)
@@ -548,16 +548,16 @@ std::vector<bool> rfw::gLTFObject::getChangedMeshes()
 	return changed;
 }
 
-std::vector<bool> rfw::gLTFObject::getChangedMeshMatrices()
+std::vector<bool> rfw::gLTFObject::get_changed_matrices()
 {
 	auto values = std::move(scene.changedMeshNodeTransforms);
 	scene.changedMeshNodeTransforms.resize(m_Meshes.size(), false);
 	return values;
 }
 
-bool rfw::gLTFObject::isAnimated() const { return !scene.animations.empty(); }
+bool rfw::gLTFObject::is_animated() const { return !scene.animations.empty(); }
 
-const std::vector<std::vector<int>> &rfw::gLTFObject::getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize)
+const std::vector<std::vector<int>> &rfw::gLTFObject::get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize)
 {
 	if (reinitialize)
 	{
@@ -569,7 +569,7 @@ const std::vector<std::vector<int>> &rfw::gLTFObject::getLightIndices(const std:
 			auto &currentLightVector = m_LightIndices[i];
 
 			const auto &mesh = scene.meshes[i];
-			const Triangle *triangles = scene.meshes[i].getTriangles();
+			const Triangle *triangles = scene.meshes[i].get_triangles();
 
 			for (int t = 0, st = static_cast<int>(mesh.faceCount); t < st; t++)
 			{
@@ -582,19 +582,19 @@ const std::vector<std::vector<int>> &rfw::gLTFObject::getLightIndices(const std:
 	return m_LightIndices;
 }
 
-void rfw::gLTFObject::prepareMeshes(RenderSystem &rs)
+void rfw::gLTFObject::prepare_meshes(RenderSystem &rs)
 {
 	m_Meshes.clear();
 	for (const auto &mesh : scene.meshes)
 	{
 		auto m = rfw::Mesh();
-		m.vertices = mesh.getVertices();
+		m.vertices = mesh.get_vertices();
 		m.normals = mesh.getNormals();
 		m.vertexCount = mesh.vertexCount;
 		m.triangleCount = mesh.faceCount;
-		m.triangles = mesh.getTriangles();
+		m.triangles = mesh.get_triangles();
 		m.indices = mesh.getIndices();
 		m.texCoords = mesh.getTexCoords();
-		m_Meshes.emplace_back(rs.requestMeshIndex(), m);
+		m_Meshes.emplace_back(rs.request_mesh_index(), m);
 	}
 }

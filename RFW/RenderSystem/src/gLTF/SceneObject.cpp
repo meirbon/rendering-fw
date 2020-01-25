@@ -6,7 +6,7 @@
 
 using namespace rfw;
 
-bool rfw::SceneObject::transformTo(float timeInSeconds)
+bool rfw::SceneObject::set_time(float timeInSeconds)
 {
 	vertices.resize(baseVertices.size());
 	normals.resize(baseNormals.size());

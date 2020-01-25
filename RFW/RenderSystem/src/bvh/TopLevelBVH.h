@@ -34,6 +34,14 @@ class TopLevelBVH
 
 	rfwMesh &get_mesh(const int ID) { return *instance_meshes[ID]; }
 
+	const rfw::Triangle *intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, int *instID, glm::vec2 *bary, float t_min = 1e-5f) const;
+	const rfw::Triangle *intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, int *instID, float t_min = 1e-5f) const;
+
+	int intersect4(float origin_x[4], float origin_y[4], float origin_z[4], float dir_x[4], float dir_y[4], float dir_z[4], float t[4], int primID[4],
+				   int instID[4], float t_min) const;
+
+	bool is_occluded(const vec3 &origin, const vec3 &direction, float t_max, float t_min = 1e-5f) const;
+
 	void set_instance(size_t idx, glm::mat4 transform, rfwMesh *tree, AABB boundingBox);
 
 	static AABB calculate_world_bounds(const AABB &originalBounds, const simd::matrix4 &matrix);

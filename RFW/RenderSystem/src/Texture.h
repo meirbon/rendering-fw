@@ -52,8 +52,8 @@ struct Texture
 
 	uint sample(float x, float y);
 
-	void constructMipMaps();
-	static uint requiredNumberOfPixels(uint width, uint height, uint mipLevels);
+	void construct_mipmaps();
+	static uint required_pixel_count(uint width, uint height, uint mipLevels);
 
 	Type type;
 	uint texelCount;

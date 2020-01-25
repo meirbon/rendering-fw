@@ -23,7 +23,11 @@ inline static int radicalInverse9bit(const int v)
 
 rfw::Skybox::Skybox(std::string_view file) { load(file); }
 
-rfw::Skybox rfw::Skybox::generateTestSky()
+rfw::Skybox::Skybox(rfw::utils::ArrayProxy<vec3> pixels, int width, int height) { set(pixels, width, height); }
+
+rfw::Skybox::Skybox(rfw::utils::ArrayProxy<vec4> pixels, int width, int height) { set(pixels, width, height); }
+
+rfw::Skybox rfw::Skybox::generate_test_sky()
 {
 	Skybox skybox;
 	// red / green / blue test environment
@@ -46,13 +50,13 @@ rfw::Skybox rfw::Skybox::generateTestSky()
 	return skybox;
 }
 
-const std::vector<glm::vec3> &rfw::Skybox::getBuffer() const { return m_Pixels; }
+const std::vector<glm::vec3> &rfw::Skybox::get_buffer() const { return m_Pixels; }
 
-const glm::vec3 *rfw::Skybox::getData() const { return m_Pixels.data(); }
+const glm::vec3 *rfw::Skybox::get_data() const { return m_Pixels.data(); }
 
-unsigned rfw::Skybox::getWidth() const { return m_Width; }
+unsigned rfw::Skybox::get_width() const { return m_Width; }
 
-unsigned rfw::Skybox::getHeight() const { return m_Height; }
+unsigned rfw::Skybox::get_height() const { return m_Height; }
 
 void rfw::Skybox::load(std::string_view file)
 {
@@ -95,7 +99,7 @@ void rfw::Skybox::load(std::string_view file)
 			else
 			{
 				m_Pixels.resize(m_Width * m_Height);
-				memcpy(m_Pixels.data(), image.getData(), m_Width * m_Height * sizeof(glm::vec3));
+				memcpy(m_Pixels.data(), image.get_data(), m_Width * m_Height * sizeof(glm::vec3));
 			}
 			loaded = true;
 		}
@@ -160,4 +164,44 @@ void rfw::Skybox::load(std::string_view file)
 	}
 
 	DEBUG("Loaded skybox \"%s\" in %3.3f seconds", filename, timer.elapsed() / 1000.0f);
+}
+
+void rfw::Skybox::set(rfw::utils::ArrayProxy<vec3> pixels, int width, int height)
+{
+	if (width <= 0 || height <= 0)
+	{
+		throw RfwException("Invalid width (%i) or height (%i)", width, height);
+	}
+	else if (pixels.size() < (width * height))
+	{
+		throw RfwException("Data has less than specified number of pixels (%i < %i)", pixels.size(), (width * height));
+	}
+
+	m_Pixels.resize(width * height);
+	m_Width = width;
+	m_Height = height;
+	for (int i = 0, s = width * height; i < s; i++)
+		m_Pixels[i] = pixels[i];
+
+	m_File = "";
+}
+
+void rfw::Skybox::set(rfw::utils::ArrayProxy<vec4> pixels, int width, int height)
+{
+	if (width <= 0 || height <= 0)
+	{
+		throw RfwException("Invalid width (%i) or height (%i)", width, height);
+	}
+	else if (pixels.size() < (width * height))
+	{
+		throw RfwException("Data has less than specified number of pixels (%i < %i)", pixels.size(), (width * height));
+	}
+
+	m_Pixels.resize(width * height);
+	m_Width = width;
+	m_Height = height;
+	for (int i = 0, s = width * height; i < s; i++)
+		m_Pixels[i] = vec3(pixels[i]);
+
+	m_File = "";
 }

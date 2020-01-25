@@ -121,8 +121,8 @@ class FrameBuffer
 	vk::Framebuffer &getFramebuffer() { return m_Framebuffer; }
 	vk::RenderPass &getRenderPass() { return m_RenderPass; }
 	vk::Sampler &getSampler() { return m_Sampler; }
-	uint32_t getWidth() const { return width; }
-	uint32_t getHeight() const { return height; }
+	uint32_t get_width() const { return width; }
+	uint32_t get_height() const { return height; }
 	[[nodiscard]] std::vector<FrameBufferAttachment *> &getAttachments() { return m_Attachments; }
 	[[nodiscard]] const std::vector<FrameBufferAttachment *> &getAttachments() const { return m_Attachments; }
 

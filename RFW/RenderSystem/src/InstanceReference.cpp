@@ -14,27 +14,27 @@ InstanceReference::InstanceReference(size_t index, GeometryReference reference, 
 	m_Members->rotation = glm::identity<glm::quat>();
 	m_Members->scaling = glm::vec3(1.0f);
 
-	const auto &meshes = reference.getMeshes();
+	const auto &meshes = reference.get_meshes();
 	m_Members->instanceIDs.resize(meshes.size());
 	for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 	{
-		const int instanceID = static_cast<int>(system.requestInstanceIndex());
-		system.m_InverseInstanceMapping[instanceID] = std::make_tuple(static_cast<int>(index), static_cast<int>(reference.getIndex()), i);
+		const int instanceID = static_cast<int>(system.request_instance_index());
+		system.m_InverseInstanceMapping[instanceID] = std::make_tuple(static_cast<int>(index), static_cast<int>(reference.get_index()), i);
 		m_Members->instanceIDs[i] = instanceID;
 	}
 }
 
-void InstanceReference::setTranslation(const glm::vec3 value) { m_Members->translation = value; }
+void InstanceReference::set_translation(const glm::vec3 value) { m_Members->translation = value; }
 
-void InstanceReference::setRotation(const float degrees, const glm::vec3 axis)
+void InstanceReference::set_rotation(const float degrees, const glm::vec3 axis)
 {
 	m_Members->rotation = glm::rotate(glm::identity<glm::quat>(), radians(degrees), axis);
 }
-void InstanceReference::setRotation(const glm::quat &q) { m_Members->rotation = q; }
+void InstanceReference::set_rotation(const glm::quat &q) { m_Members->rotation = q; }
 
-void InstanceReference::setRotation(const glm::vec3 &euler) { m_Members->rotation = glm::quat(euler); }
+void InstanceReference::set_rotation(const glm::vec3 &euler) { m_Members->rotation = glm::quat(euler); }
 
-void InstanceReference::setScaling(const glm::vec3 value) { m_Members->scaling = value; }
+void InstanceReference::set_scaling(const glm::vec3 value) { m_Members->scaling = value; }
 
 void InstanceReference::translate(const glm::vec3 offset) { m_Members->translation = offset; }
 
@@ -42,9 +42,9 @@ void InstanceReference::rotate(const float degrees, const glm::vec3 axis) { m_Me
 
 void InstanceReference::scale(const glm::vec3 offset) { m_Members->scaling = offset; }
 
-void InstanceReference::update() const { m_Members->rSystem->updateInstance(*this, getMatrix().matrix); }
+void InstanceReference::update() const { m_Members->rSystem->update_instance(*this, get_matrix().matrix); }
 
-rfw::simd::matrix4 InstanceReference::getMatrix() const
+rfw::simd::matrix4 InstanceReference::get_matrix() const
 {
 	const simd::matrix4 T = glm::translate(glm::mat4(1.0f), m_Members->translation);
 	const simd::matrix4 R = glm::mat4(m_Members->rotation);
@@ -52,7 +52,7 @@ rfw::simd::matrix4 InstanceReference::getMatrix() const
 	return T * R * S;
 }
 
-glm::mat3 InstanceReference::getInverseMatrix() const
+glm::mat3 InstanceReference::get_normal_matrix() const
 {
 	const simd::matrix4 T = glm::translate(glm::mat4(1.0f), m_Members->translation);
 	const simd::matrix4 R = glm::mat4(m_Members->rotation);

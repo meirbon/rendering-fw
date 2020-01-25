@@ -1,7 +1,14 @@
-#include "../rfw.h"
+#include "BVH.h"
+
+#include <utils/Timer.h>
+#include <utils/Logger.h>
+
+#include <atomic>
 
 using namespace glm;
 using namespace rfw;
+
+using namespace simd;
 
 namespace rfw::bvh
 {
@@ -14,7 +21,8 @@ BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount) : vertex_count(vert
 	set_vertices(vertices);
 }
 
-BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount, const glm::uvec3 *indices, int faceCount) : vertex_count(vertexCount), face_count(faceCount)
+BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount, const glm::uvec3 *indices, int faceCount)
+	: vertex_count(vertexCount), face_count(faceCount)
 {
 	pool_ptr.store(0);
 	reset();
@@ -38,7 +46,8 @@ void BVHTree::construct_bvh(bool printBuildTime)
 		rootNode.calculate_bounds(aabbs.data(), prim_indices.data());
 
 		// rootNode.Subdivide(m_AABBs.data(), m_BVHPool.data(), m_PrimitiveIndices.data(), 1, m_PoolPtr);
-		rootNode.subdivide_mt<7, 64, 5>(aabbs.data(), bvh_nodes.data(), prim_indices.data(), building_threads, 1, pool_ptr);
+		rootNode.subdivide_mt<7, 64, 5>(aabbs.data(), bvh_nodes.data(), prim_indices.data(), building_threads, 1,
+										pool_ptr);
 
 		if (pool_ptr > 2)
 		{
@@ -54,7 +63,8 @@ void BVHTree::construct_bvh(bool printBuildTime)
 		bvh_nodes.resize(pool_ptr);
 
 		if (printBuildTime)
-			std::cout << "Building BVH took: " << t.elapsed() << " ms for " << face_count << " triangles. Poolptr: " << pool_ptr << std::endl;
+			utils::logger::log("Building BVH took: %f ms for %i triangles. Poolptr: %i", t.elapsed(), face_count,
+							   pool_ptr.load());
 	}
 }
 
@@ -83,9 +93,56 @@ void BVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 	aabb = bvh_nodes[0].refit(bvh_nodes.data(), prim_indices.data(), aabbs.data());
 }
 
+bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx,
+					   glm::vec2 *bary)
+{
+	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx, bvh_nodes.data(), prim_indices.data(),
+								 [&](uint primID) {
+									 const vec3 &p0 = p0s[primID];
+									 const vec3 &e1 = edge1s[primID];
+									 const vec3 &e2 = edge2s[primID];
+									 const vec3 h = cross(dir, e2);
+
+									 const float a = dot(e1, h);
+									 if (a > -1e-6f && a < 1e-6f)
+										 return false;
+
+									 const float f = 1.f / a;
+									 const vec3 s = origin - p0;
+									 const float u = f * dot(s, h);
+									 if (u < 0.0f || u > 1.0f)
+										 return false;
+
+									 const vec3 q = cross(s, e1);
+									 const float v = f * dot(dir, q);
+									 if (v < 0.0f || u + v > 1.0f)
+										 return false;
+
+									 const float t = f * dot(e2, q);
+
+									 if (t > t_min && *ray_t > t) // ray intersection
+									 {
+										 // Barycentrics
+										 const vec3 p1 = e1 + p0;
+										 const vec3 p2 = e2 + p0;
+
+										 const vec3 p = origin + t * dir;
+										 const vec3 N = normalize(cross(e1, e2));
+										 const float areaABC = glm::dot(N, cross(e1, e2));
+										 const float areaPBC = glm::dot(N, cross(p1 - p, p2 - p));
+										 const float areaPCA = glm::dot(N, cross(p2 - p, p0 - p));
+										 *bary = glm::vec2(areaPBC / areaABC, areaPCA / areaABC);
+										 *ray_t = t;
+										 return true;
+									 }
+
+									 return false;
+								 });
+}
+
 bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx)
 {
-	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx, bvh_nodes.data(), prim_indices.data(), [&](uint primID) {
+	const auto intersection = [&](uint primID) {
 		const vec3 &p0 = p0s[primID];
 		const vec3 &e1 = edge1s[primID];
 		const vec3 &e2 = edge2s[primID];
@@ -115,45 +172,198 @@ bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_mi
 		}
 
 		return false;
-	});
+	};
+
+	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx, bvh_nodes.data(), prim_indices.data(),
+								 intersection);
+}
+int BVHTree::traverse4(const float origin_x[4], const float origin_y[4], const float origin_z[4], const float dir_x[4],
+					   const float dir_y[4], const float dir_z[4], float t[4], int primID[4], float t_min,
+					   __m128 *hit_mask)
+{
+	const auto intersection = [&](const int primId, __m128 *store_mask) {
+		const vec3 &p0 = p0s[primId];
+		const vec3 &edge1 = edge1s[primId];
+		const vec3 &edge2 = edge2s[primId];
+
+#define PER_RAY 0
+#if PER_RAY
+		bool result[4] = {false, false, false, false};
+
+		const auto t_intersect = [&](uint primID, vec3 org, vec3 dir, float *ray_t) {
+			const vec3 h = cross(dir, edge2);
+
+			const float a = dot(edge1, h);
+			if (a > -1e-6f && a < 1e-6f)
+				return false;
+
+			const float f = 1.f / a;
+			const vec3 s = org - p0;
+			const float u = f * dot(s, h);
+			if (u < 0.0f || u > 1.0f)
+				return false;
+
+			const vec3 q = cross(s, edge1);
+			const float v = f * dot(dir, q);
+			if (v < 0.0f || u + v > 1.0f)
+				return false;
+
+			const float t = f * dot(edge2, q);
+
+			if (t > t_min && *ray_t > t) // ray intersection
+			{
+				*ray_t = t;
+				return true;
+			}
+
+			return false;
+		};
+
+		result[0] =
+			t_intersect(primId, vec3(origin_x[0], origin_y[0], origin_z[0]), vec3(dir_x[0], dir_y[0], dir_z[0]), &t[0]);
+		result[1] =
+			t_intersect(primId, vec3(origin_x[1], origin_y[1], origin_z[1]), vec3(dir_x[1], dir_y[1], dir_z[1]), &t[1]);
+		result[2] =
+			t_intersect(primId, vec3(origin_x[2], origin_y[2], origin_z[2]), vec3(dir_x[2], dir_y[2], dir_z[2]), &t[2]);
+		result[3] =
+			t_intersect(primId, vec3(origin_x[3], origin_y[3], origin_z[3]), vec3(dir_x[3], dir_y[3], dir_z[3]), &t[3]);
+
+		*store_mask = _mm_castsi128_ps(
+			_mm_set_epi32(result[3] ? ~0 : 0, result[2] ? ~0 : 0, result[1] ? ~0 : 0, result[0] ? ~0 : 0));
+
+		int res = 0;
+		res |= result[0] ? 1 : 0;
+		res |= result[1] ? 2 : 0;
+		res |= result[2] ? 4 : 0;
+		res |= result[3] ? 8 : 0;
+		return res;
+#else
+		const vector4 p0_x = _mm_set1_ps(p0.x);
+		const vector4 p0_y = _mm_set1_ps(p0.y);
+		const vector4 p0_z = _mm_set1_ps(p0.z);
+
+		const vector4 edge1_x = _mm_set1_ps(edge1.x);
+		const vector4 edge1_y = _mm_set1_ps(edge1.y);
+		const vector4 edge1_z = _mm_set1_ps(edge1.z);
+
+		const vector4 edge2_x = _mm_set1_ps(edge2.x);
+		const vector4 edge2_y = _mm_set1_ps(edge2.y);
+		const vector4 edge2_z = _mm_set1_ps(edge2.z);
+
+		// Cross product
+		// x = (ay * bz - az * by)
+		// y = (az * bx - ax * bz)
+		// z = (ax * by - ay * bx)
+
+		vector4 hit_mask = _mm_set_epi32(~0, ~0, ~0, ~0);
+
+		// const vec3 h = cross(dir, edge2);
+		const vector4 h_x4 = vector4(dir_y) * edge2_z - vector4(dir_z) * edge2_y;
+		const vector4 h_y4 = vector4(dir_z) * edge2_x - vector4(dir_x) * edge2_z;
+		const vector4 h_z4 = vector4(dir_x) * edge2_y - vector4(dir_y) * edge2_x;
+
+		// const float a = dot(edge1, h);
+		const vector4 a4 = (edge1_x * h_x4) + (edge1_y * h_y4) + (edge1_z * h_z4);
+		// if (a > -1e-6f && a < 1e-6f)
+		//	return false;
+		const vector4 mask_a4 = ((a4 <= vector4(-1e-6f)) | (a4 >= vector4(1e-6f)));
+		if (mask_a4.move_mask() == 0)
+			return 0;
+
+		hit_mask &= mask_a4;
+
+		// const float f = 1.f / a;
+		const vector4 f4 = ONE4 / a4;
+
+		// const vec3 s = org - p0;
+		const vector4 s_x4 = vector4(origin_x) - p0_x;
+		const vector4 s_y4 = vector4(origin_y) - p0_y;
+		const vector4 s_z4 = vector4(origin_z) - p0_z;
+
+		// const float u = f * dot(s, h);
+		const vector4 u4 = f4 * ((s_x4 * h_x4) + (s_y4 * h_y4) + (s_z4 * h_z4));
+
+		// if (u < 0.0f || u > 1.0f)
+		//	return false;
+		const vector4 mask_u = ((u4 >= ZERO4) & (u4 <= ONE4));
+		if (mask_u.move_mask() == 0)
+			return 0;
+
+		hit_mask &= mask_u;
+
+		// const vec3 q = cross(s, edge1);
+		const vector4 q_x4 = (s_y4 * edge1_z) - (s_z4 * edge1_y);
+		const vector4 q_y4 = (s_z4 * edge1_x) - (s_x4 * edge1_z);
+		const vector4 q_z4 = (s_x4 * edge1_y) - (s_y4 * edge1_x);
+
+		// const float v = f * dot(dir, q);
+		const vector4 v4 = f4 * ((vector4(dir_x) * q_x4) + (vector4(dir_y) * q_y4) + (vector4(dir_z) * q_z4));
+
+		// if (v < 0.0f || u + v > 1.0f)
+		//	return false;
+		const vector4 mask_uv = ((v4 >= ZERO4) & ((u4 + v4) <= ONE4));
+		if (mask_uv.move_mask() == 0)
+			return 0;
+
+		hit_mask &= mask_uv;
+
+		// const float t = f * dot(edge2, q);
+		const vector4 t4 = f4 * ((edge2_x * q_x4) + (edge2_y * q_y4) + (edge2_z * q_z4));
+
+		// if (t > tmin && *rayt > t) // ray intersection
+		*store_mask = (((t4 > ZERO4) & (vector4(t) > t4)) & hit_mask).vec_4;
+		const int storage_mask = _mm_movemask_ps(*store_mask);
+		if (storage_mask > 0)
+		{
+			// *rayt = t;
+			t4.write_to(t, *store_mask);
+		}
+
+		return storage_mask;
+#endif
+	};
+
+	return BVHNode::traverse_bvh4(origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, primID, bvh_nodes.data(),
+								  prim_indices.data(), hit_mask, intersection);
 }
 
 bool BVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max)
 {
-	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max, bvh_nodes.data(), prim_indices.data(), [&](uint primID) {
-		const vec3 &p0 = p0s[primID];
-		const vec3 &e1 = edge1s[primID];
-		const vec3 &e2 = edge2s[primID];
+	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max, bvh_nodes.data(), prim_indices.data(),
+										[&](uint primID) {
+											const vec3 &p0 = p0s[primID];
+											const vec3 &e1 = edge1s[primID];
+											const vec3 &e2 = edge2s[primID];
 
-		const vec3 h = cross(dir, e2);
+											const vec3 h = cross(dir, e2);
 
-		const float a = dot(e1, h);
-		if (a > -1e-6f && a < 1e-6f)
-			return false;
+											const float a = dot(e1, h);
+											if (a > -1e-6f && a < 1e-6f)
+												return false;
 
-		const float f = 1.f / a;
-		const vec3 s = origin - p0;
-		const float u = f * dot(s, h);
-		if (u < 0.0f || u > 1.0f)
-			return false;
+											const float f = 1.f / a;
+											const vec3 s = origin - p0;
+											const float u = f * dot(s, h);
+											if (u < 0.0f || u > 1.0f)
+												return false;
 
-		const vec3 q = cross(s, e1);
-		const float v = f * dot(dir, q);
-		if (v < 0.0f || u + v > 1.0f)
-			return false;
+											const vec3 q = cross(s, e1);
+											const float v = f * dot(dir, q);
+											if (v < 0.0f || u + v > 1.0f)
+												return false;
 
-		const float t = f * dot(e2, q);
+											const float t = f * dot(e2, q);
 
-		if (t > t_min && t_max > t) // ray intersection
-			return true;
+											if (t > t_min && t_max > t) // ray intersection
+												return true;
 
-		return false;
-	});
+											return false;
+										});
 }
 
-void BVHTree::set_vertices(const glm::vec4 *vertices)
+void BVHTree::set_vertices(const glm::vec4 *verts)
 {
-	vertices = vertices;
+	vertices = verts;
 	indices = nullptr;
 
 	aabb = AABB::invalid();
@@ -172,15 +382,11 @@ void BVHTree::set_vertices(const glm::vec4 *vertices)
 		const vec3 p1 = vec3(vertices[idx.y]);
 		const vec3 p2 = vec3(vertices[idx.z]);
 
-		const vec3 mi = glm::min(p0, glm::min(p1, p2));
-		const vec3 ma = glm::max(p0, glm::max(p1, p2));
-
-		for (int j = 0; j < 3; j++)
-		{
-			aabbs[i].bmin[j] = mi[j] - 1e-6f;
-			aabbs[i].bmax[j] = ma[j] + 1e-6f;
-		}
-
+		aabbs[i] = AABB::invalid();
+		aabbs[i].grow(p0);
+		aabbs[i].grow(p1);
+		aabbs[i].grow(p2);
+		aabbs[i].offset_by(1e-5f);
 		aabb.grow(aabbs[i]);
 
 		p0s[i] = p0;
@@ -189,10 +395,10 @@ void BVHTree::set_vertices(const glm::vec4 *vertices)
 	}
 }
 
-void BVHTree::set_vertices(const glm::vec4 *vertices, const glm::uvec3 *indices)
+void BVHTree::set_vertices(const glm::vec4 *verts, const glm::uvec3 *ids)
 {
-	vertices = vertices;
-	indices = indices;
+	vertices = verts;
+	indices = ids;
 
 	aabb = AABB::invalid();
 
@@ -210,14 +416,11 @@ void BVHTree::set_vertices(const glm::vec4 *vertices, const glm::uvec3 *indices)
 		const vec3 p1 = vec3(vertices[idx.y]);
 		const vec3 p2 = vec3(vertices[idx.z]);
 
-		const vec3 mi = glm::min(p0, glm::min(p1, p2));
-		const vec3 ma = glm::max(p0, glm::max(p1, p2));
-
-		for (int j = 0; j < 3; j++)
-		{
-			aabbs[i].bmin[j] = mi[j] - 1e-6f;
-			aabbs[i].bmax[j] = ma[j] + 1e-6f;
-		}
+		aabbs[i] = AABB::invalid();
+		aabbs[i].grow(p0);
+		aabbs[i].grow(p1);
+		aabbs[i].grow(p2);
+		aabbs[i].offset_by(1e-5f);
 
 		aabb.grow(aabbs[i]);
 

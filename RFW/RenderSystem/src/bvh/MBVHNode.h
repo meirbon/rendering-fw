@@ -3,7 +3,7 @@
 #include "AABB.h"
 
 #include <atomic>
-#include "../utils/ArrayProxy.h"
+#include <utils/ArrayProxy.h>
 
 namespace rfw
 {
@@ -90,7 +90,7 @@ class MBVHNode
 
 	void set_bounds(unsigned int nodeIdx, const AABB &bounds);
 
-	MBVHHit intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t, float t_min) const;
+	MBVHHit intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float t) const;
 
 	void merge_nodes(const BVHNode &node, const rfw::utils::ArrayProxy<BVHNode> bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr);
 
@@ -129,7 +129,7 @@ class MBVHNode
 				continue;
 			}
 
-			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, t, t_min);
+			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, *t);
 			for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
 			{
 				const int idx = (hit.tmini[i] & 0b11);
@@ -146,7 +146,7 @@ class MBVHNode
 	}
 
 	template <typename FUNC>
-	static bool traverse_mbvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float t, const MBVHNode *nodes, const uint *primIndices,
+	static bool traverse_mbvh_shadow(const glm::vec3 &org, const glm::vec3 &dir, float t_min, float tmax, const MBVHNode *nodes, const uint *primIndices,
 									 const FUNC &func)
 	{
 		MBVHTraversal todo[32];
@@ -174,7 +174,7 @@ class MBVHNode
 				continue;
 			}
 
-			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, &t, t_min);
+			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, tmax);
 			for (int i = 3; i >= 0; i--)
 			{ // reversed order, we want to check best nodes first
 				const int idx = (hit.tmini[i] & 0b11);

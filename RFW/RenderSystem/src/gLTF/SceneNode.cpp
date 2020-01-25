@@ -4,7 +4,6 @@
 
 #define ALLOW_INDEXED_ANIM_DATA 1
 
-
 rfw::SceneNode::SceneNode(SceneObject *obj, std::string n, rfw::utils::ArrayProxy<int> c, rfw::utils::ArrayProxy<int> meshIds,
 						  rfw::utils::ArrayProxy<int> skinIds, rfw::utils::ArrayProxy<std::vector<TmpPrim>> meshes, Transform T, glm::mat4 transform)
 	: object(obj), name(std::move(n))
@@ -54,7 +53,7 @@ bool rfw::SceneNode::update(rfw::simd::matrix4 accumulatedTransform)
 	if (transformed)
 		calculate_transform();
 
-	glm_mat4_mul(accumulatedTransform.cols, localTransform.cols, combinedTransform.cols);
+	combinedTransform = accumulatedTransform * localTransform;
 
 	for (size_t s = childIndices.size(), i = 0; i < s; i++)
 	{

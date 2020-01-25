@@ -59,7 +59,7 @@
 #include "Settings.h"
 #include "Skybox.h"
 #include "Texture.h"
-#include "utils.h"
+#include "../utils/src/utils.h"
 
 #include "Application.h"
 #include "AssimpObject.h"

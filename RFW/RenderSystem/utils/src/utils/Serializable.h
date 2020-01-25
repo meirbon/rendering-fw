@@ -9,7 +9,8 @@
 #include <cassert>
 #include <vector>
 
-#include <MathIncludes.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 
 namespace rfw::utils
 {
@@ -120,9 +121,9 @@ template <typename T, unsigned int Dimensions> class Serializable
 		return data;
 	}
 
-	const T *getData() const { return m_Data.data(); }
+	const T *get_data() const { return m_Data.data(); }
 
-	T *getData() { return m_Data.data(); }
+	T *get_data() { return m_Data.data(); }
 
   private:
 	// First bytes of buffer indicating its size

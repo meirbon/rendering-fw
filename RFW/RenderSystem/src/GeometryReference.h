@@ -4,7 +4,8 @@
 #include <tuple>
 #include <vector>
 
-#include "MathIncludes.h"
+#include <MathIncludes.h>
+
 #include "SceneTriangles.h"
 
 namespace rfw
@@ -21,16 +22,16 @@ class GeometryReference
   public:
 	GeometryReference() = default;
 	explicit operator size_t() const { return static_cast<size_t>(m_Index); }
-	[[nodiscard]] size_t getIndex() const { return m_Index; }
+	[[nodiscard]] size_t get_index() const { return m_Index; }
 
-	[[nodiscard]] bool isAnimated() const;
-	void setAnimationTime(float time) const;
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const;
-	[[nodiscard]] const std::vector<simd::matrix4> &getMeshMatrices() const;
-	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices() const;
+	[[nodiscard]] bool is_animated() const;
+	void set_animation_to(float time) const;
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const;
+	[[nodiscard]] const std::vector<simd::matrix4> &get_mesh_matrices() const;
+	[[nodiscard]] const std::vector<std::vector<int>> &get_light_indices() const;
 
   protected:
-	[[nodiscard]] SceneTriangles *getObject() const;
+	[[nodiscard]] SceneTriangles *get_object() const;
 
   private:
 	size_t m_Index; // Loaded geometry index

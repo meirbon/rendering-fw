@@ -2,7 +2,7 @@
 
 #include <MathIncludes.h>
 
-#include "../utils/ArrayProxy.h"
+#include <utils/ArrayProxy.h>
 
 #include <Structures.h>
 
@@ -32,13 +32,13 @@ struct SceneMesh
 	[[nodiscard]] const glm::vec3 *getNormals() const;
 	[[nodiscard]] rfw::simd::vector4 *getBaseNormals();
 	[[nodiscard]] const simd::vector4 *getBaseNormals() const;
-	[[nodiscard]] glm::vec4 *getVertices();
-	[[nodiscard]] const glm::vec4 *getVertices() const;
+	[[nodiscard]] glm::vec4 *get_vertices();
+	[[nodiscard]] const glm::vec4 *get_vertices() const;
 	[[nodiscard]] rfw::simd::vector4 *getBaseVertices();
 	[[nodiscard]] const simd::vector4 *getBaseVertices() const;
 
-	[[nodiscard]] rfw::Triangle *getTriangles();
-	[[nodiscard]] const rfw::Triangle *getTriangles() const;
+	[[nodiscard]] rfw::Triangle *get_triangles();
+	[[nodiscard]] const rfw::Triangle *get_triangles() const;
 
 	[[nodiscard]] glm::uvec3 *getIndices();
 	[[nodiscard]] const glm::uvec3 *getIndices() const;

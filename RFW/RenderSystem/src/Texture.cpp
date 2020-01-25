@@ -65,7 +65,7 @@ Texture::Texture(const std::string_view &file, uint mods)
 		if (mods & INVERTED) // Invert image by default, free image stores the data upside down
 			FreeImage_Invert(img);
 		// read pixels
-		texelCount = requiredNumberOfPixels(width, height, MIPLEVELCOUNT);
+		texelCount = required_pixel_count(width, height, MIPLEVELCOUNT);
 		udata = new uint[texelCount];
 		flags |= LDR;
 		for (uint y = 0; y < height; y++, bytes += pitch)
@@ -91,12 +91,12 @@ Texture::Texture(const std::string_view &file, uint mods)
 			sRGBtoLinear((unsigned char *)udata, width * height, 4);
 
 		// produce the MIP maps
-		constructMipMaps();
+		construct_mipmaps();
 	}
 	else // HDR
 	{
 		type = FLOAT4;
-		texelCount = requiredNumberOfPixels(width, height, 1);
+		texelCount = required_pixel_count(width, height, 1);
 		fdata = new glm::vec4[texelCount]; // no MIPs for HDR for now
 		flags |= HDR;
 		for (uint y = 0; y < height; y++, bytes += pitch)
@@ -130,11 +130,11 @@ rfw::Texture::Texture(const uint *data, uint w, uint h)
 	type = UNSIGNED_INT;
 	width = w;
 	height = h;
-	texelCount = requiredNumberOfPixels(w, h, MIPLEVELCOUNT);
+	texelCount = required_pixel_count(w, h, MIPLEVELCOUNT);
 	mipLevels = 1;
 	this->udata = new uint[texelCount];
 	memcpy(udata, data, width * height * sizeof(uint));
-	constructMipMaps();
+	construct_mipmaps();
 }
 
 rfw::Texture::Texture(const glm::vec4 *data, uint w, uint h)
@@ -144,9 +144,9 @@ rfw::Texture::Texture(const glm::vec4 *data, uint w, uint h)
 	height = h;
 	texelCount = width * height;
 	mipLevels = 1;
-	this->fdata = new vec4[requiredNumberOfPixels(w, h, MIPLEVELCOUNT)];
+	this->fdata = new vec4[required_pixel_count(w, h, MIPLEVELCOUNT)];
 	memcpy(udata, data, width * height * sizeof(vec4));
-	constructMipMaps();
+	construct_mipmaps();
 }
 
 uint rfw::Texture::sample(float x, float y)
@@ -160,7 +160,7 @@ uint rfw::Texture::sample(float x, float y)
 	return this->udata[u + v * width];
 }
 
-void rfw::Texture::constructMipMaps()
+void rfw::Texture::construct_mipmaps()
 {
 	uint *src = (uint *)this->udata;
 	uint *dst = src + (width * height);
@@ -208,7 +208,7 @@ void rfw::Texture::constructMipMaps()
 	mipLevels = MIPLEVELCOUNT;
 }
 
-uint rfw::Texture::requiredNumberOfPixels(const uint width, const uint height, const uint mipLevels)
+uint rfw::Texture::required_pixel_count(const uint width, const uint height, const uint mipLevels)
 {
 	auto w = width;
 	auto h = height;

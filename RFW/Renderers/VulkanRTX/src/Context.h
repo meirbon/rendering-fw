@@ -14,7 +14,7 @@
 
 #include <GL/glew.h>
 
-#include <utils.h>
+#include "../../../RenderSystem/utils/src/utils.h"
 #include <BlueNoise.h>
 #include <utils/gl/CheckGL.h>
 #include <utils/Timer.h>
@@ -133,7 +133,7 @@ class Context : public rfw::RenderContext
 	Context();
 	~Context() override;
 
-	[[nodiscard]] std::vector<rfw::RenderTarget> getSupportedTargets() const override
+	[[nodiscard]] std::vector<rfw::RenderTarget> get_supported_targets() const override
 	{
 		using namespace rfw;
 		return {OPENGL_TEXTURE, WINDOW};
@@ -145,20 +145,20 @@ class Context : public rfw::RenderContext
 	void init(GLuint *glTextureID, uint width, uint height) override;
 
 	void cleanup() override;
-	void renderFrame(const rfw::Camera &camera, rfw::RenderStatus status) override;
-	void setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
-	void setTextures(const std::vector<rfw::TextureData> &textures) override;
-	void setMesh(size_t index, const rfw::Mesh &mesh) override;
-	void setInstance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
-	void setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
-	void setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-				   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) override;
-	void getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const override;
-	[[nodiscard]] rfw::AvailableRenderSettings getAvailableSettings() const override;
-	void setSetting(const rfw::RenderSetting &setting) override;
+	void render_frame(const rfw::Camera &camera, rfw::RenderStatus status) override;
+	void set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
+	void set_textures(const std::vector<rfw::TextureData> &textures) override;
+	void set_mesh(size_t index, const rfw::Mesh &mesh) override;
+	void set_instance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
+	void set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
+	void set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+					const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) override;
+	void get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const override;
+	[[nodiscard]] rfw::AvailableRenderSettings get_settings() const override;
+	void set_setting(const rfw::RenderSetting &setting) override;
 	void update() override;
-	void setProbePos(glm::uvec2 probePos) override;
-	rfw::RenderStats getStats() const override;
+	void set_probe_index(glm::uvec2 probePos) override;
+	rfw::RenderStats get_stats() const override;
 
   private:
 	// internal methods

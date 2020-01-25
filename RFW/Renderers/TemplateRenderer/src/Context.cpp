@@ -8,7 +8,7 @@ void destroyRenderContext(rfw::RenderContext *ptr) { ptr->cleanup(), delete ptr;
 
 Context::~Context() {}
 
-std::vector<rfw::RenderTarget> Context::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
+std::vector<rfw::RenderTarget> Context::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
 void Context::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("Not supported (yet)."); }
 
@@ -30,20 +30,20 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 
 void Context::cleanup() {}
 
-void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status) {}
+void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status) {}
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
+void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
 
-void Context::setTextures(const std::vector<rfw::TextureData> &textures) {}
+void Context::set_textures(const std::vector<rfw::TextureData> &textures) {}
 
-void Context::setMesh(size_t index, const rfw::Mesh &mesh) {}
+void Context::set_mesh(size_t index, const rfw::Mesh &mesh) {}
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) {}
+void Context::set_instance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) {}
 
-void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
+void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 
-void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+						 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCount = lightCount;
 
@@ -64,14 +64,14 @@ void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *
 		memcpy(m_SpotLights.data(), spotLights, m_SpotLights.size() * sizeof(SpotLight));
 }
 
-void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
+void Context::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
 
-rfw::AvailableRenderSettings Context::getAvailableSettings() const { return {}; }
+rfw::AvailableRenderSettings Context::get_settings() const { return {}; }
 
-void Context::setSetting(const rfw::RenderSetting &setting) {}
+void Context::set_setting(const rfw::RenderSetting &setting) {}
 
 void Context::update() {}
 
-void Context::setProbePos(glm::uvec2 probePos) {}
+void Context::set_probe_index(glm::uvec2 probePos) {}
 
-rfw::RenderStats Context::getStats() const { return rfw::RenderStats(); }
+rfw::RenderStats Context::get_stats() const { return rfw::RenderStats(); }

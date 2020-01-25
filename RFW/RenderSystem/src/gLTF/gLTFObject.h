@@ -24,24 +24,24 @@ class gLTFObject : public SceneTriangles
 	explicit gLTFObject(std::string_view filename, MaterialList *matList, uint ID, const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
 	~gLTFObject() = default;
 
-	void transformTo(float timeInSeconds) override;
+	void set_time(float timeInSeconds) override;
 
-	Triangle *getTriangles() override;
-	glm::vec4 *getVertices() override;
+	Triangle *get_triangles() override;
+	glm::vec4 *get_vertices() override;
 
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
-	[[nodiscard]] const std::vector<simd::matrix4> &getMeshTransforms() const override;
-	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
-	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const override;
+	[[nodiscard]] const std::vector<simd::matrix4> &get_mesh_matrices() const override;
+	[[nodiscard]] std::vector<bool> get_changed_meshes() override;
+	[[nodiscard]] std::vector<bool> get_changed_matrices() override;
 
-	bool isAnimated() const override;
-	const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
+	bool is_animated() const override;
+	const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
 	const std::string file;
 
 	SceneObject scene;
 
   protected:
-	void prepareMeshes(RenderSystem &rs) override;
+	void prepare_meshes(RenderSystem &rs) override;
 
   private:
 	std::vector<std::vector<int>> m_LightIndices;

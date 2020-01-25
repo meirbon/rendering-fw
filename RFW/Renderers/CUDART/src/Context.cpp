@@ -52,7 +52,7 @@ rfw::CUDAContext::~CUDAContext()
 		delete primIDs;
 }
 
-std::vector<rfw::RenderTarget> rfw::CUDAContext::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
+std::vector<rfw::RenderTarget> rfw::CUDAContext::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
 void rfw::CUDAContext::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("Not supported (yet)."); }
 
@@ -102,14 +102,14 @@ void rfw::CUDAContext::init(GLuint *glTextureID, uint width, uint height)
 
 void rfw::CUDAContext::cleanup() {}
 
-void rfw::CUDAContext::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
+void rfw::CUDAContext::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 {
 	glFinish();
 	m_Stats.clear();
 	Counters *counters = m_Counters->data();
 	counters->probeIdx = m_ProbePixel.x + m_ProbePixel.y * m_Width;
 
-	const auto view = camera.getView();
+	const auto view = camera.get_view();
 	m_CameraView->copy_to_device_async(&view, 1);
 
 	if (status == Reset)
@@ -124,7 +124,6 @@ void rfw::CUDAContext::renderFrame(const rfw::Camera &camera, rfw::RenderStatus 
 	uint pathCount = m_Width * m_Height;
 
 	InitCountersForExtend(pathCount, m_SampleIndex);
-	CheckCUDA(generateRays(pathCount));
 	auto timer = utils::Timer();
 	CheckCUDA(intersectRays(Primary, pathLength, pathCount));
 	CheckCUDA(cudaDeviceSynchronize());
@@ -199,7 +198,7 @@ void rfw::CUDAContext::renderFrame(const rfw::Camera &camera, rfw::RenderStatus 
 	m_Counters->copy_to_device_async();
 }
 
-void rfw::CUDAContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void rfw::CUDAContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	std::vector<rfw::DeviceMaterial> mats(materials.size());
 	memcpy(mats.data(), materials.data(), materials.size() * sizeof(rfw::Material));
@@ -241,7 +240,7 @@ void rfw::CUDAContext::setMaterials(const std::vector<rfw::DeviceMaterial> &mate
 	::setMaterials(m_Materials->device_data());
 }
 
-void rfw::CUDAContext::setTextures(const std::vector<rfw::TextureData> &textures)
+void rfw::CUDAContext::set_textures(const std::vector<rfw::TextureData> &textures)
 {
 	m_TexDescriptors = textures;
 
@@ -315,7 +314,7 @@ void rfw::CUDAContext::setTextures(const std::vector<rfw::TextureData> &textures
 	setUintTextures(m_UintTextures->device_data());
 }
 
-void rfw::CUDAContext::setMesh(size_t index, const rfw::Mesh &mesh)
+void rfw::CUDAContext::set_mesh(size_t index, const rfw::Mesh &mesh)
 {
 	while (index >= m_Meshes.size())
 	{
@@ -359,7 +358,7 @@ void rfw::CUDAContext::setMesh(size_t index, const rfw::Mesh &mesh)
 	m_MeshBVHPrimIndices[index]->copy_to_device_async(m->bvh->prim_indices);
 }
 
-void rfw::CUDAContext::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void rfw::CUDAContext::set_instance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	if (i >= m_InstanceMeshIDs.size())
 		m_InstanceMeshIDs.push_back(0);
@@ -368,7 +367,7 @@ void rfw::CUDAContext::setInstance(size_t i, size_t meshIdx, const mat4 &transfo
 	m_InstanceMeshIDs[i] = meshIdx;
 }
 
-void rfw::CUDAContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+void rfw::CUDAContext::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	m_Skybox = new CUDABuffer<glm::vec3>(width * height, ON_DEVICE);
 	m_Skybox->copy_to_device_async(pixels.data(), width * height);
@@ -376,8 +375,8 @@ void rfw::CUDAContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t w
 	setSkyDimensions(static_cast<uint>(width), static_cast<uint>(height));
 }
 
-void rfw::CUDAContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-								 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void rfw::CUDAContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+								  const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	CheckCUDA(cudaDeviceSynchronize());
 
@@ -429,16 +428,16 @@ void rfw::CUDAContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAr
 	CheckCUDA(cudaDeviceSynchronize());
 }
 
-void rfw::CUDAContext::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
+void rfw::CUDAContext::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
 {
 	*instanceIndex = m_ProbedInstance;
 	*primitiveIndex = m_ProbedPrim;
 	*distance = m_ProbedDistance;
 }
 
-rfw::AvailableRenderSettings rfw::CUDAContext::getAvailableSettings() const { return {}; }
+rfw::AvailableRenderSettings rfw::CUDAContext::get_settings() const { return {}; }
 
-void rfw::CUDAContext::setSetting(const rfw::RenderSetting &setting) {}
+void rfw::CUDAContext::set_setting(const rfw::RenderSetting &setting) {}
 
 void rfw::CUDAContext::update()
 {
@@ -524,9 +523,9 @@ void rfw::CUDAContext::update()
 	CheckCUDA(cudaDeviceSynchronize());
 }
 
-void rfw::CUDAContext::setProbePos(glm::uvec2 probePos) { m_ProbePixel = probePos; }
+void rfw::CUDAContext::set_probe_index(glm::uvec2 probePos) { m_ProbePixel = probePos; }
 
-rfw::RenderStats rfw::CUDAContext::getStats() const { return m_Stats; }
+rfw::RenderStats rfw::CUDAContext::get_stats() const { return m_Stats; }
 
 void rfw::CUDAContext::resizeBuffers()
 {

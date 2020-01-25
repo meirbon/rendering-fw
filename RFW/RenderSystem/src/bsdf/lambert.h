@@ -17,7 +17,7 @@ INLINE_FUNC glm::vec3 SampleBSDF(const ShadingData shadingData, const glm::vec3 
 {
 	// specular and diffuse
 	const float roughness = ROUGHNESS;
-	if (roughness < 0.1f)
+	if (roughness < MIN_ROUGHNESS)
 	{
 		// pure specular
 		wi = reflect(-wo, iN);
@@ -31,16 +31,47 @@ INLINE_FUNC glm::vec3 SampleBSDF(const ShadingData shadingData, const glm::vec3 
 		pdf = 1.0f;
 		return shadingData.color * (1.0f / abs(dot(iN, wi)));
 	}
-
-	wi = normalize(tangentToWorld(DiffuseReflectionCosWeighted(RandomFloat(seed), RandomFloat(seed)), T, B, iN));
-	if (dot(N, wi) <= 0.0f)
+	else if (roughness < 1.0f)
 	{
-		pdf = 0.0f;
-		return vec3(0.0f);
-	}
+		if (RandomFloat(seed) > roughness)
+		{
+			// pure specular
+			wi = reflect(-wo, iN);
 
-	pdf = max(0.0f, dot(wi, iN)) * glm::one_over_pi<float>();
-	return shadingData.color * glm::one_over_pi<float>();
+			if (dot(N, wi) <= 0.0f)
+			{
+				pdf = 0.0f;
+				return vec3(0.0f);
+			}
+
+			pdf = 1.0f;
+			return shadingData.color * (1.0f / abs(dot(iN, wi)));
+		}
+		else
+		{
+			wi = normalize(tangentToWorld(DiffuseReflectionCosWeighted(RandomFloat(seed), RandomFloat(seed)), T, B, iN));
+			if (dot(N, wi) <= 0.0f)
+			{
+				pdf = 0.0f;
+				return vec3(0.0f);
+			}
+
+			pdf = max(0.0f, dot(wi, iN)) * glm::one_over_pi<float>();
+			return shadingData.color * glm::one_over_pi<float>();
+		}
+	}
+	else
+	{
+		wi = normalize(tangentToWorld(DiffuseReflectionCosWeighted(RandomFloat(seed), RandomFloat(seed)), T, B, iN));
+		if (dot(N, wi) <= 0.0f)
+		{
+			pdf = 0.0f;
+			return vec3(0.0f);
+		}
+
+		pdf = max(0.0f, dot(wi, iN)) * glm::one_over_pi<float>();
+		return shadingData.color * glm::one_over_pi<float>();
+	}
 }
 
 // EOF

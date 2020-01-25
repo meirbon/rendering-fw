@@ -1,5 +1,10 @@
 #pragma once
 
+#include "AABB.h"
+#include "BVHTree.h"
+
+#include <atomic>
+
 namespace rfw
 {
 namespace bvh
@@ -21,6 +26,7 @@ class MBVHTree
 	void refit(const glm::vec4 *vertices);
 	void refit(const glm::vec4 *vertices, const glm::uvec3 *indices);
 
+	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx, glm::vec2 *bary);
 	bool traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *t, int *primIdx);
 	bool traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float tmax);
 

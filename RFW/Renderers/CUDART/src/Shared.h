@@ -94,6 +94,5 @@ void InitCountersSubsequent();
 
 // Kernels
 cudaError blitBuffer(uint scrwidth, uint scrheight, const uint sampleID);
-cudaError generateRays(const uint count);
 cudaError intersectRays(IntersectionStage stage, const uint pathLength, const uint count);
 cudaError shadeRays(const uint pathLength, const uint count);

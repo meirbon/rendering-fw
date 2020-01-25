@@ -195,9 +195,9 @@ INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, cons
 	if (roughness < 0.01f) // Use purely specular BRDF for roughness below threshold
 	{
 		pdf = 1.0f;
-		return shadingData.color;
+		return shadingData.color * (1.0f / abs(dot(iN, wi)));
 	}
-	
+
 	const vec3 woLocal = worldToTangent(wo, iN, T, B);
 	const vec3 wmLocal = worldToTangent(iN, iN, T, B);
 	const vec3 wiLocal = worldToTangent(wi, iN, T, B);
@@ -211,11 +211,11 @@ INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const 
 {
 	const float roughness = ROUGHNESS;
 
-	if (roughness < 0.01f) // Use purely specular BRDF for roughness below threshold
+	if (roughness < MIN_ROUGHNESS) // Use purely specular BRDF for roughness below threshold
 	{
 		wo = reflect(-wi, iN);
 		pdf = 1.0f;
-		return shadingData.color;
+		return shadingData.color * (1.0f / abs(dot(iN, wi)));
 	}
 
 	const vec3 wiLocal = worldToTangent(wi, iN, T, B);
@@ -223,7 +223,7 @@ INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const 
 	const vec3 woLocal = reflect(-wiLocal, sample);
 	pdf = pdf_ggx(woLocal, sample, wiLocal, roughness, roughness);
 	wo = tangentToWorld(woLocal, iN, T, B);
-	
+
 	if (dot(wo, N) <= 0.0f)
 		pdf = 0.0f;
 

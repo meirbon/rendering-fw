@@ -81,15 +81,15 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 
 	// x1 = cos(bladeParam);
 	// y1 = sin(bladeParam);
-	__m128 x14, y14;
-	rfw::simd::sincos_ps(bladeParam14, &x14, &y14);
+	rfw::simd::vector4 x14, y14;
+	rfw::simd::sincos(bladeParam14, &x14, &y14);
 
 	// bladeParam = (blade + 1.0f) * piOver4point5;
 	const __m128 bladeParam24 = _mm_mul_ps(_mm_add_ps(blade4, one4), piOver4point5_4);
 	// x2 = cos(bladeParam);
 	// y2 = sin(bladeParam);
-	__m128 x24, y24;
-	rfw::simd::sincos_ps(bladeParam24, &x24, &y24);
+	rfw::simd::vector4 x24, y24;
+	rfw::simd::sincos(bladeParam24, &x24, &y24);
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128i mask = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(r24, r34), one4));
@@ -100,8 +100,8 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 
 	// const float xr = x1 * r2 + x2 * r3;
 	// const float yr = y1 * r2 + y2 * r3;
-	const __m128 xr4 = _mm_add_ps(_mm_mul_ps(x14, r24), _mm_mul_ps(x24, r34));
-	const __m128 yr4 = _mm_add_ps(_mm_mul_ps(y14, r24), _mm_mul_ps(y24, r34));
+	const __m128 xr4 = _mm_add_ps(_mm_mul_ps(x14.vec_4, r24), _mm_mul_ps(x24.vec_4, r34));
+	const __m128 yr4 = _mm_add_ps(_mm_mul_ps(y14.vec_4, r24), _mm_mul_ps(y24.vec_4, r34));
 
 	// ray.origin = vec3(camera.pos_lensSize) + camera.pos_lensSize.w * (right * xr + up * yr);
 	const __m128 lens_size4 = _mm_set1_ps(camera.pos_lensSize.w);
@@ -224,14 +224,14 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	// y1 = sin(bladeParam);
 	union {
 		__m256 x14;
-		__m128 x1_4[2];
+		rfw::simd::vector4 x1_4[2];
 	};
 	union {
 		__m256 y14;
-		__m128 y1_4[2];
+		rfw::simd::vector4 y1_4[2];
 	};
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam14, 0), &x1_4[0], &y1_4[0]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam14, 1), &x1_4[1], &y1_4[1]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam14, 0), &x1_4[0], &y1_4[0]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam14, 1), &x1_4[1], &y1_4[1]);
 
 	// bladeParam = (blade + 1.0f) * piOver4point5;
 	const __m256 bladeParam24 = _mm256_mul_ps(_mm256_add_ps(blade4, one8), piOver4point5_4);
@@ -239,14 +239,14 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	// y2 = sin(bladeParam);
 	union {
 		__m256 x24;
-		__m128 x2_4[2];
+		rfw::simd::vector4 x2_4[2];
 	};
 	union {
 		__m256 y24;
-		__m128 y2_4[2];
+		rfw::simd::vector4 y2_4[2];
 	};
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam24, 0), &x2_4[0], &y2_4[0]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam24, 1), &x2_4[1], &y2_4[1]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam24, 0), &x2_4[0], &y2_4[0]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam24, 1), &x2_4[1], &y2_4[1]);
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128 one4 = _mm_set1_ps(1.0f);
@@ -419,37 +419,37 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 
 	union {
 		__m256 x1_8[2];
-		__m128 x1_4[4];
+		rfw::simd::vector4 x1_4[4];
 	};
 	union {
 		__m256 y1_8[2];
-		__m128 y1_4[4];
+		rfw::simd::vector4 y1_4[4];
 	};
 	union {
 		__m256 x2_8[2];
-		__m128 x2_4[4];
+		rfw::simd::vector4 x2_4[4];
 	};
 	union {
 		__m256 y2_8[2];
-		__m128 y2_4[4];
+		rfw::simd::vector4 y2_4[4];
 	};
 
 	// x1 = cos(bladeParam);
 	// y1 = sin(bladeParam);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam1_0, 0), &x1_4[0], &y1_4[0]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam1_0, 1), &x1_4[1], &y1_4[1]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam1_1, 0), &x1_4[2], &y1_4[2]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam1_1, 1), &x1_4[3], &y1_4[3]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam1_0, 0), &x1_4[0], &y1_4[0]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam1_0, 1), &x1_4[1], &y1_4[1]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam1_1, 0), &x1_4[2], &y1_4[2]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam1_1, 1), &x1_4[3], &y1_4[3]);
 
 	// bladeParam = (blade + 1.0f) * piOver4point5;
 	const __m256 bladeParam2_0 = _mm256_mul_ps(_mm256_add_ps(blade0_8, one8), piOver4point5_4);
 	const __m256 bladeParam2_1 = _mm256_mul_ps(_mm256_add_ps(blade1_8, one8), piOver4point5_4);
 	// x2 = cos(bladeParam);
 	// y2 = sin(bladeParam);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam2_0, 0), &x2_4[0], &y2_4[0]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam2_0, 1), &x2_4[1], &y2_4[1]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam2_1, 0), &x2_4[2], &y2_4[2]);
-	rfw::simd::sincos_ps(_mm256_extractf128_ps(bladeParam2_1, 1), &x2_4[3], &y2_4[3]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam2_0, 0), &x2_4[0], &y2_4[0]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam2_0, 1), &x2_4[1], &y2_4[1]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam2_1, 0), &x2_4[2], &y2_4[2]);
+	rfw::simd::sincos(_mm256_extractf128_ps(bladeParam2_1, 1), &x2_4[3], &y2_4[3]);
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128 one4 = _mm_set1_ps(1.0f);

@@ -8,7 +8,7 @@
 #include <cstdarg>
 #include <cstring>
 #include <iostream>
-#include <utils/String.h>
+#include "String.h"
 #include <vector>
 
 namespace rfw::utils::logger

@@ -27,7 +27,7 @@ Context::~Context()
 	m_Device = nullptr;
 }
 
-std::vector<rfw::RenderTarget> Context::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
+std::vector<rfw::RenderTarget> Context::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
 void Context::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("Not supported (yet)."); }
 
@@ -87,7 +87,7 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 
 void Context::cleanup() {}
 
-void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
+void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 {
 	glFinish();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
@@ -95,7 +95,7 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	assert(m_Pixels);
 	CheckGL();
 
-	const auto camParams = Ray::CameraParams(camera.getView(), 0, 1e-5f, m_Width, m_Height);
+	const auto camParams = Ray::CameraParams(camera.get_view(), 0, 1e-5f, m_Width, m_Height);
 
 	m_Stats.clear();
 	m_Stats.primaryCount = m_Width * m_Height;
@@ -175,13 +175,13 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 				rtcIntersect16(valid, m_Scene, &context, &m_Packets[i]);
 #endif
 
-				const __m128 one_over_pi = _mm_set1_ps(glm::one_over_pi<float>());
-				const __m128 one4 = _mm_set1_ps(1.0f);
-				const __m128 min_one4 = _mm_set1_ps(-1.0f);
-				const __m128 half4 = _mm_set1_ps(0.5f);
-				const __m128 zero4 = _mm_setzero_ps();
-				const __m128 skybox_width = _mm_set1_ps(float(m_SkyboxWidth - 1));
-				const __m128 skybox_height = _mm_set1_ps(float(m_SkyboxHeight - 1));
+				const simd::vector4 one_over_pi = _mm_set1_ps(glm::one_over_pi<float>());
+				const simd::vector4 one4 = _mm_set1_ps(1.0f);
+				const simd::vector4 min_one4 = _mm_set1_ps(-1.0f);
+				const simd::vector4 half4 = _mm_set1_ps(0.5f);
+				const simd::vector4 zero4 = _mm_setzero_ps();
+				const simd::vector4 skybox_width = _mm_set1_ps(float(m_SkyboxWidth - 1));
+				const simd::vector4 skybox_height = _mm_set1_ps(float(m_SkyboxHeight - 1));
 				const __m128i invalid_geometry_id = _mm_set1_epi32(RTC_INVALID_GEOMETRY_ID);
 
 				for (int k = 0; k < PACKET_WIDTH; k += 4)
@@ -194,16 +194,16 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const __m128i invalid_mask = _mm_cmpeq_epi32(reinterpret_cast<const __m128i &>(*(packet.hit.geomID + k)), invalid_geometry_id);
 					if (_mm_movemask_ps(_mm_castsi128_ps(invalid_mask)) > 0)
 					{
-						const auto &dir_x = reinterpret_cast<const __m128 &>(*(packet.ray.dir_x + k));
-						const auto &dir_y = reinterpret_cast<const __m128 &>(*(packet.ray.dir_y + k));
-						const auto &dir_z = reinterpret_cast<const __m128 &>(*(packet.ray.dir_z + k));
+						const auto &dir_x = reinterpret_cast<const simd::vector4 &>(*(packet.ray.dir_x + k));
+						const auto &dir_y = reinterpret_cast<const simd::vector4 &>(*(packet.ray.dir_y + k));
+						const auto &dir_z = reinterpret_cast<const simd::vector4 &>(*(packet.ray.dir_z + k));
 
-						const __m128 u4 = _mm_mul_ps(half4, _mm_add_ps(one4, _mm_mul_ps(rfw::simd::atan2_ps(dir_x, _mm_mul_ps(min_one4, dir_z)), one_over_pi)));
-						const __m128 v4 = _mm_mul_ps(rfw::simd::acos_ps(dir_y), one_over_pi);
+						const simd::vector4 u4 = half4 * (one4 + rfw::simd::atan2(dir_x, dir_z * min_one4) * one_over_pi);
+						const simd::vector4 v4 = rfw::simd::acos(dir_y) * one_over_pi;
 
-						const auto p_u4 = _mm_round_ps(_mm_mul_ps(_mm_min_ps(one4, _mm_max_ps(zero4, u4)), skybox_width), _MM_FROUND_TO_NEAREST_INT);
-						const __m128 p_v4 = _mm_mul_ps(
-							_mm_round_ps(_mm_mul_ps(_mm_min_ps(one4, _mm_max_ps(zero4, v4)), skybox_height), _MM_FROUND_TO_NEAREST_INT), skybox_width);
+						const auto p_u4 = _mm_round_ps((min(one4, max(zero4, u4)) * skybox_width).vec_4, _MM_FROUND_TO_NEAREST_INT);
+						const simd::vector4 p_v4 =
+							simd::vector4(_mm_round_ps((min(one4, max(zero4, v4)) * skybox_height).vec_4, _MM_FROUND_TO_NEAREST_INT)) * skybox_width;
 
 						const auto *pu = reinterpret_cast<const float *>(&p_u4);
 						const auto *pv = reinterpret_cast<const float *>(&p_v4);
@@ -314,15 +314,15 @@ void Context::renderFrame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glFinish();
 }
 
-void Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	m_Materials.resize(materials.size());
 	memcpy(m_Materials.data(), materials.data(), materials.size() * sizeof(Material));
 }
 
-void Context::setTextures(const std::vector<rfw::TextureData> &textures) { m_Textures = textures; }
+void Context::set_textures(const std::vector<rfw::TextureData> &textures) { m_Textures = textures; }
 
-void Context::setMesh(size_t index, const rfw::Mesh &mesh)
+void Context::set_mesh(size_t index, const rfw::Mesh &mesh)
 {
 	if (index >= m_Meshes.size())
 	{
@@ -337,7 +337,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	m_Meshes[index].setGeometry(mesh);
 }
 
-void Context::setInstance(const size_t i, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void Context::set_instance(const size_t i, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	if (m_Instances.size() <= i)
 	{
@@ -367,15 +367,15 @@ void Context::setInstance(const size_t i, const size_t meshIdx, const mat4 &tran
 	m_InverseMatrices[i] = inverse_transform;
 }
 
-void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	m_Skybox = pixels;
 	m_SkyboxWidth = width;
 	m_SkyboxHeight = height;
 }
 
-void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+						 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCount = lightCount;
 
@@ -396,16 +396,16 @@ void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *
 		memcpy(m_SpotLights.data(), spotLights, m_SpotLights.size() * sizeof(SpotLight));
 }
 
-void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
+void Context::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
 {
 	*instanceIndex = m_ProbedInstance;
 	*primitiveIndex = m_ProbedTriangle;
 	*distance = m_ProbedDist;
 }
 
-rfw::AvailableRenderSettings Context::getAvailableSettings() const { return {}; }
+rfw::AvailableRenderSettings Context::get_settings() const { return {}; }
 
-void Context::setSetting(const rfw::RenderSetting &setting) {}
+void Context::set_setting(const rfw::RenderSetting &setting) {}
 
 void Context::update()
 {
@@ -422,6 +422,6 @@ void Context::update()
 	rtcCommitScene(m_Scene);
 }
 
-void Context::setProbePos(glm::uvec2 probePos) { m_ProbePos = probePos; }
+void Context::set_probe_index(glm::uvec2 probePos) { m_ProbePos = probePos; }
 
-rfw::RenderStats Context::getStats() const { return m_Stats; }
+rfw::RenderStats Context::get_stats() const { return m_Stats; }

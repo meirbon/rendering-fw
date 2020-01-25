@@ -35,7 +35,7 @@ class TopLevelAS
 	void rebuild(const VmaBuffer<uint8_t> &scratchBuffer);
 
 	uint64_t getHandle();
-	[[nodiscard]] uint32_t getInstanceCount() const;
+	[[nodiscard]] uint32_t get_instance_count() const;
 
 	[[nodiscard]] bool canUpdate() const { return uint(m_Flags & vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate) > 0; }
 	[[nodiscard]] vk::AccelerationStructureNV getAccelerationStructure() const { return m_Structure; }

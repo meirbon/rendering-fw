@@ -7,7 +7,7 @@
 #include "BVH/MBVHNode.h"
 
 __host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14,
-											const glm::vec4 &p24, const float epsilon = 1e-7f)
+											const glm::vec4 &p24, const float epsilon = 1e-8f)
 {
 	const vec3 p0 = p04;
 
@@ -43,7 +43,7 @@ __host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec
 }
 
 __host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p04, const glm::vec4 &p14,
-											const glm::vec4 &p24, glm::vec2 *bary, const float epsilon = 1e-7f)
+											const glm::vec4 &p24, glm::vec2 *bary, const float epsilon = 1e-8f)
 {
 	const vec3 p0 = p04;
 	const vec3 p1 = p14;
@@ -125,7 +125,7 @@ __host__ __device__ bool intersect_node(const rfw::bvh::AABB &aabb, const glm::v
 	*tmin = glm::max(*tmin, glm::min(tz1, tz2));
 	*tmax = glm::min(*tmax, glm::max(tz1, tz2));
 
-	return (*tmax) > (0.0f) && (*tmin) < (*tmax) && (*tmin) < t;
+	return (*tmax) > (*tmin) && (*tmin) < t;
 }
 
 template <typename T> __host__ __device__ void swap(T &a, T &b)
@@ -135,7 +135,7 @@ template <typename T> __host__ __device__ void swap(T &a, T &b)
 	b = temp;
 }
 
-__host__ __device__ rfw::bvh::MBVHHit intersect_quad_node(const rfw::bvh::MBVHNode &node, const glm::vec3 &org, const glm::vec3 &dirInverse, float *t)
+__host__ __device__ rfw::bvh::MBVHHit intersect_quad_node(const rfw::bvh::MBVHNode &node, const glm::vec3 &org, const glm::vec3 &dirInverse, float t)
 {
 	rfw::bvh::MBVHHit hit;
 
@@ -157,7 +157,7 @@ __host__ __device__ rfw::bvh::MBVHHit intersect_quad_node(const rfw::bvh::MBVHNo
 	hit.tminv = glm::max(hit.tminv, glm::min(t1, t2));
 	tmax = glm::min(tmax, glm::max(t1, t2));
 
-	hit.result = glm::greaterThan(tmax, glm::vec4(0)) && glm::lessThan(hit.tminv, tmax) && glm::lessThan(hit.tminv, glm::vec4(*t));
+	hit.result = glm::greaterThanEqual(tmax, hit.tminv) && glm::lessThan(hit.tminv, glm::vec4(t));
 
 	hit.tmini[0] = ((hit.tmini[0] & 0xFFFFFFFCu) | 0b00u);
 	hit.tmini[1] = ((hit.tmini[1] & 0xFFFFFFFCu) | 0b01u);
@@ -279,7 +279,7 @@ __host__ __device__ bool intersect_mbvh(const glm::vec3 &org, const glm::vec3 &d
 			continue;
 		}
 
-		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, t);
+		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, *t);
 		for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
 		{
 			const int idx = (hit.tmini[i] & 0b11);
@@ -388,7 +388,7 @@ __host__ __device__ bool intersect_mbvh_shadow(const glm::vec3 &org, const glm::
 			continue;
 		}
 
-		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, &t_max);
+		const rfw::bvh::MBVHHit hit = intersect_quad_node(nodes[leftFirst], org, dirInverse, t_max);
 		for (int i = 3; i >= 0; i--)
 		{ // reversed order, we want to check best nodes first
 			const int idx = (hit.tmini[i] & 0b11);

@@ -24,20 +24,20 @@ class SceneTriangles
 	SceneTriangles() = default;
 	virtual ~SceneTriangles() = default;
 
-	virtual void transformTo(float timeInSeconds = 0.0f){};
+	virtual void set_time(float timeInSeconds = 0.0f){};
 
-	virtual const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const = 0;
-	virtual const std::vector<simd::matrix4> &getMeshTransforms() const = 0;
-	virtual const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize = false) = 0;
+	virtual const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const = 0;
+	virtual const std::vector<simd::matrix4> &get_mesh_matrices() const = 0;
+	virtual const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize = false) = 0;
 
-	virtual std::vector<bool> getChangedMeshes() = 0;
-	virtual std::vector<bool> getChangedMeshMatrices() = 0;
+	virtual std::vector<bool> get_changed_meshes() = 0;
+	virtual std::vector<bool> get_changed_matrices() = 0;
 
-	virtual Triangle *getTriangles() = 0;
-	virtual glm::vec4 *getVertices() = 0;
-	virtual bool isAnimated() const { return false; }
+	virtual Triangle *get_triangles() = 0;
+	virtual glm::vec4 *get_vertices() = 0;
+	virtual bool is_animated() const { return false; }
 
   protected:
-	virtual void prepareMeshes(RenderSystem &rs) = 0;
+	virtual void prepare_meshes(RenderSystem &rs) = 0;
 };
 } // namespace rfw

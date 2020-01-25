@@ -20,7 +20,6 @@
 
 #include "BVH/AABB.h"
 
-#include "Mesh.h"
 #include "Triangle.h"
 
 #include "BVH/BVHNode.h"
@@ -31,3 +30,4 @@
 #include "BVH/TopLevelBVH.h"
 
 #include "Context.h"
+#include "Traversal.h"

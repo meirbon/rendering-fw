@@ -1,4 +1,6 @@
-#include "../rfw.h"
+#include "BVH.h"
+
+#include <immintrin.h>
 
 namespace rfw
 {
@@ -7,19 +9,11 @@ namespace bvh
 
 AABB::AABB()
 {
-	memset(&this->bmin4, 0, sizeof(glm::vec4));
-	memset(&this->bmax4, 0, sizeof(glm::vec4));
-
-	this->bmin[0] = 1e34f;
-	this->bmin[1] = 1e34f;
-	this->bmin[2] = 1e34f;
-
-	this->bmax[0] = -1e34f;
-	this->bmax[1] = -1e34f;
-	this->bmax[2] = -1e34f;
+	bmin4 = simd::vector4(1e34f, 1e34f, 1e34f, 0);
+	bmax4 = simd::vector4(-1e34f, -1e34f, -1e34f, 0);
 };
 
-AABB::AABB(__m128 mi, __m128 ma)
+AABB::AABB(simd::vector4 mi, simd::vector4 ma)
 {
 	bmin4 = mi;
 	bmax4 = ma;
@@ -50,53 +44,91 @@ AABB AABB::invalid()
 	return aabb;
 }
 
-bool AABB::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const
+bool AABB::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *tmin, float *tmax, float t) const
 {
-	const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
-	const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+#if 0 // Reference implementation
+	const float tx1 = (bmin[0] - org.x) * dirInverse.x;
+	const float tx2 = (bmax[0] - org.x) * dirInverse.x;
+
+	*tmin = glm::min(tx1, tx2);
+	*tmax = glm::max(tx1, tx2);
+
+	const float ty1 = (bmin[1] - org.y) * dirInverse.y;
+	const float ty2 = (bmax[1] - org.y) * dirInverse.y;
+
+	*tmin = glm::max(*tmin, glm::min(ty1, ty2));
+	*tmax = glm::min(*tmax, glm::max(ty1, ty2));
+
+	const float tz1 = (bmin[2] - org.z) * dirInverse.z;
+	const float tz2 = (bmax[2] - org.z) * dirInverse.z;
+
+	*tmin = glm::max(*tmin, glm::min(tz1, tz2));
+	*tmax = glm::min(*tmax, glm::max(tz1, tz2));
+#else
+	const simd::vector4 origin = simd::vector4(org.x, org.y, org.z, 0);
+	const simd::vector4 dir_inv = simd::vector4(dirInverse.x, dirInverse.y, dirInverse.z, 0);
+
+	const simd::vector4 t1 = (bmin4 - origin) * dir_inv;
+	const simd::vector4 t2 = (bmax4 - origin) * dir_inv;
+
+	const simd::vector4 tmin4 = min(t1, t2);
+	const simd::vector4 tmax4 = max(t1, t2);
+	*tmin = max(tmin4[0], max(tmin4[1], tmin4[2]));
+	*tmax = min(tmax4[0], min(tmax4[1], tmax4[2]));
+#endif
+
+	// tmin must be less than tmax && t must be between tmin and tmax
+	return (*tmax) > (*tmin) && (*tmin) < t;
+}
+
+int AABB::intersect4(const float origin_x[4], const float origin_y[4], const float origin_z[4], const float dir_x[4],
+					 const float dir_y[4], const float dir_z[4], float t[4], simd::vector4 *tmin,
+					 simd::vector4 *tmax) const
+{
+	using namespace simd;
+
+	// const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+	// const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+	const vector4 inv_direction_x4 = ONE4 / vector4(dir_x);
+	const vector4 inv_direction_y4 = ONE4 / vector4(dir_y);
+	const vector4 inv_direction_z4 = ONE4 / vector4(dir_z);
 
 	// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+	const vector4 t1_4_x = (vector4(bmin[0]) - vector4(origin_x)) * inv_direction_x4;
+	const vector4 t1_4_y = (vector4(bmin[1]) - vector4(origin_y)) * inv_direction_y4;
+	const vector4 t1_4_z = (vector4(bmin[2]) - vector4(origin_z)) * inv_direction_z4;
+
 	// const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
-	const __m128 t1 = _mm_mul_ps(_mm_sub_ps(bmin4, origin), dirInv);
-	const __m128 t2 = _mm_mul_ps(_mm_sub_ps(bmax4, origin), dirInv);
-
-	union {
-		__m128 tmin4;
-		float tmin[4];
-	};
-
-	union {
-		__m128 tmax4;
-		float tmax[4];
-	};
+	const vector4 t2_4_x = (vector4(bmax[0]) - vector4(origin_x)) * inv_direction_x4;
+	const vector4 t2_4_y = (vector4(bmax[1]) - vector4(origin_y)) * inv_direction_y4;
+	const vector4 t2_4_z = (vector4(bmax[2]) - vector4(origin_z)) * inv_direction_z4;
 
 	// const glm::vec3 min = glm::min(t1, t2);
+	const vector4 tmin_x4 = min(t1_4_x, t2_4_x);
+	const vector4 tmin_y4 = min(t1_4_y, t2_4_y);
+	const vector4 tmin_z4 = min(t1_4_z, t2_4_z);
+
 	// const glm::vec3 max = glm::max(t1, t2);
-	tmin4 = _mm_min_ps(t1, t2);
-	tmax4 = _mm_max_ps(t1, t2);
+	const vector4 tmax_x4 = max(t1_4_x, t2_4_x);
+	const vector4 tmax_y4 = max(t1_4_y, t2_4_y);
+	const vector4 tmax_z4 = max(t1_4_z, t2_4_z);
 
 	//*t_min = glm::max(min.x, glm::max(min.y, min.z));
+	*tmin = max(tmin_x4, max(tmin_y4, tmin_z4));
 	//*t_max = glm::min(max.x, glm::min(max.y, max.z));
-	*t_min = glm::max(tmin[0], glm::max(tmin[1], tmin[2]));
-	*t_max = glm::min(tmax[0], glm::min(tmax[1], tmax[2]));
+	*tmax = min(tmax_x4, min(tmax_y4, tmax_z4));
 
-	// return *t_max >= min_t && *t_min < *t_max;
-	return *t_max >= min_t && *t_min < *t_max;
+	// return (*tmax) > (*tmin) && (*tmin) < t;
+	const vector4 mask = (*tmax > *tmin) & (*tmin < vector4(t));
+	return mask.move_mask();
 }
 
 void AABB::reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }
 
-bool AABB::contains(const __m128 &p) const
+bool AABB::contains(const simd::vector4 &p) const
 {
-	union {
-		__m128 va4;
-		float va[4];
-	};
-	union {
-		__m128 vb4;
-		float vb[4];
-	};
-	va4 = _mm_sub_ps(p, bmin4), vb4 = _mm_sub_ps(bmax4, p);
+	simd::vector4 va = p - bmin4;
+	simd::vector4 vb = bmax4 - p;
 	return ((va[0] >= 0) && (va[1] >= 0) && (va[2] >= 0) && (vb[0] >= 0) && (vb[1] >= 0) && (vb[2] >= 0));
 }
 
@@ -131,88 +163,69 @@ void AABB::offset_by(const float mi, const float ma)
 
 void AABB::grow(const AABB &bb)
 {
-	bmin4 = _mm_min_ps(bmin4, bb.bmin4);
-	bmax4 = _mm_max_ps(bmax4, bb.bmax4);
+	bmin4 = bmin4.min(bb.bmin4);
+	bmax4 = bmax4.max(bb.bmax4);
 }
 
-void AABB::grow(const __m128 &p)
+void AABB::grow(const simd::vector4 &p)
 {
-	bmin4 = _mm_min_ps(bmin4, p);
-	bmax4 = _mm_max_ps(bmax4, p);
+	bmin4 = bmin4.min(p);
+	bmax4 = bmax4.max(p);
 }
 
-void AABB::grow(const __m128 min4, const __m128 max4)
+void AABB::grow(const simd::vector4 min4, const simd::vector4 max4)
 {
-	bmin4 = _mm_min_ps(bmin4, min4);
-	bmax4 = _mm_max_ps(bmax4, max4);
+	bmin4 = bmin4.min(min4);
+	bmax4 = bmax4.max(max4);
 }
-void AABB::grow(const glm::vec3 &p)
-{
-	__m128 p4 = _mm_setr_ps(p.x, p.y, p.z, 0);
-	grow(p4);
-}
+
+void AABB::grow(const glm::vec3 &p) { grow(simd::vector4(p.x, p.y, p.z, 0)); }
 
 AABB AABB::union_of(const AABB &bb) const
 {
 	AABB r;
-	r.bmin4 = _mm_min_ps(bmin4, bb.bmin4);
-	r.bmax4 = _mm_max_ps(bmax4, bb.bmax4);
+	r.bmin4 = bmin4.min(bb.bmin4);
+	r.bmax4 = bmax4.max(bb.bmax4);
 	return r;
 }
 
 AABB AABB::union_of(const AABB &a, const AABB &b)
 {
 	AABB r;
-	r.bmin4 = _mm_min_ps(a.bmin4, b.bmin4);
-	r.bmax4 = _mm_max_ps(a.bmax4, b.bmax4);
+	r.bmin4 = a.bmin4.min(b.bmin4);
+	r.bmax4 = a.bmax4.max(b.bmax4);
 	return r;
 }
 
 AABB AABB::intersection(const AABB &bb) const
 {
 	AABB r;
-	r.bmin4 = _mm_max_ps(bmin4, bb.bmin4);
-	r.bmax4 = _mm_min_ps(bmax4, bb.bmax4);
+	r.bmin4 = bmin4.max(bb.bmin4);
+	r.bmax4 = bmax4.min(bb.bmax4);
 	return r;
 }
 
 float AABB::volume() const
 {
-	union {
-		__m128 length4;
-		float length[4];
-	};
-	length4 = _mm_sub_ps(this->bmax4, this->bmin4);
+	const simd::vector4 length = bmax4 - bmin4;
 	return length[0] * length[1] * length[2];
 }
 
 glm::vec3 AABB::centroid() const
 {
-	union {
-		__m128 c;
-		float c4[4];
-	};
-	c = center();
-	return glm::vec3(c4[0], c4[1], c4[2]);
+	simd::vector4 c = center();
+	return glm::vec3(c[0], c[1], c[2]);
 }
 
 float AABB::area() const
 {
-	union {
-		__m128 e4;
-		float e[4];
-	};
-	e4 = _mm_sub_ps(bmax4, bmin4);
+	simd::vector4 e = bmax4 - bmin4;
 	return fmax(0.0f, e[0] * e[1] + e[0] * e[2] + e[1] * e[2]);
 }
 
 glm::vec3 AABB::lengths() const
 {
-	union {
-		__m128 length4;
-		float length[4];
-	};
-	length4 = _mm_sub_ps(this->bmax4, this->bmin4);
+	simd::vector4 length = bmax4 - bmin4;
 	return glm::vec3(length[0], length[1], length[2]);
 }
 
@@ -237,13 +250,13 @@ void AABB::set_bounds(const AABB &other)
 	bmax[2] = other.bmax[2];
 }
 
-void AABB::set_bounds(const __m128 min4, const __m128 max4)
+void AABB::set_bounds(const simd::vector4 min4, const simd::vector4 max4)
 {
 	bmin4 = min4;
 	bmax4 = max4;
 }
 
-__m128 AABB::center() const { return _mm_mul_ps(_mm_add_ps(bmin4, bmax4), _mm_set_ps1(0.5f)); }
+simd::vector4 AABB::center() const { return (bmin4 + bmax4) * 0.5f; }
 
 float AABB::center(unsigned int axis) const { return (bmin[axis] + bmax[axis]) * 0.5f; }
 

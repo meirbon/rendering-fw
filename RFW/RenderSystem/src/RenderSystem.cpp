@@ -31,7 +31,9 @@ extern "C"
 using namespace rfw;
 using namespace utils;
 
-rfw::RenderSystem::RenderSystem() : m_ThreadPool(std::thread::hardware_concurrency()), m_ToneMapShader("shaders/draw-tex.vert", "shaders/tone-map.frag")
+rfw::RenderSystem::RenderSystem()
+	: m_ThreadPool(std::thread::hardware_concurrency()),
+	  m_ToneMapShader("shaders/draw-tex.vert", "shaders/tone-map.frag")
 {
 	m_Materials = new MaterialList();
 	glGenFramebuffers(1, &m_FrameBufferID);
@@ -48,7 +50,7 @@ rfw::RenderSystem::~RenderSystem()
 	m_ThreadPool.stop(true);
 
 	if (m_Context)
-		unloadRenderAPI();
+		unload_render_api();
 
 	for (auto *object : m_Models)
 		delete object;
@@ -99,9 +101,10 @@ static_assert(sizeof(Triangle) == sizeof(DeviceTriangle), "Triangle structs are 
 static_assert(sizeof(AreaLight) == sizeof(DeviceAreaLight), "Area light structs are not same size.");
 static_assert(sizeof(PointLight) == sizeof(DevicePointLight), "Point light structs are not same size.");
 static_assert(sizeof(SpotLight) == sizeof(DeviceSpotLight), "Spot light structs are not same size.");
-static_assert(sizeof(DirectionalLight) == sizeof(DeviceDirectionalLight), "Directional light structs are not same size.");
+static_assert(sizeof(DirectionalLight) == sizeof(DeviceDirectionalLight),
+			  "Directional light structs are not same size.");
 
-void rfw::RenderSystem::loadRenderAPI(std::string name)
+void rfw::RenderSystem::load_render_api(std::string name)
 {
 #ifdef WIN32
 	const std::string_view extension = ".dll"; // Windows shared library
@@ -119,7 +122,8 @@ void rfw::RenderSystem::loadRenderAPI(std::string name)
 
 	if (m_Context)
 	{
-		throw std::runtime_error("A RenderContext was already loaded, unload current context before loading a new context.");
+		throw std::runtime_error(
+			"A RenderContext was already loaded, unload current context before loading a new context.");
 	}
 
 	if (!utils::file::exists(libPath))
@@ -153,7 +157,7 @@ void rfw::RenderSystem::loadRenderAPI(std::string name)
 	m_Context = m_CreateContextFunction();
 }
 
-void rfw::RenderSystem::unloadRenderAPI()
+void rfw::RenderSystem::unload_render_api()
 {
 	if (m_Context)
 	{
@@ -173,7 +177,7 @@ void rfw::RenderSystem::unloadRenderAPI()
 	m_ContextModule = nullptr;
 }
 
-void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
+void RenderSystem::set_target(GLuint *textureID, uint width, uint height)
 {
 	assert(textureID != nullptr && *textureID != 0);
 
@@ -191,17 +195,17 @@ void RenderSystem::setTarget(GLuint *textureID, uint width, uint height)
 	CheckGL();
 }
 
-void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
+void RenderSystem::set_target(rfw::utils::GLTexture *texture)
 {
 	assert(texture != nullptr);
 
 	if (texture == nullptr)
 		throw std::runtime_error("Invalid texture.");
-	m_Context->init(&texture->m_ID, texture->getWidth(), texture->getHeight());
+	m_Context->init(&texture->m_ID, texture->get_width(), texture->get_height());
 
 	m_TargetID = texture->m_ID;
-	m_TargetWidth = texture->getWidth();
-	m_TargetHeight = texture->getHeight();
+	m_TargetWidth = texture->get_width();
+	m_TargetHeight = texture->get_height();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, m_FrameBufferID);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_TargetID, 0);
@@ -211,10 +215,10 @@ void RenderSystem::setTarget(rfw::utils::GLTexture *texture)
 	CheckGL();
 }
 
-void RenderSystem::setSkybox(std::string filename)
+void RenderSystem::set_skybox(std::string filename)
 {
 
-	if (m_Skybox.getSource() == std::string(filename))
+	if (m_Skybox.get_source() == std::string(filename))
 		return;
 
 	if (!file::exists(filename))
@@ -227,13 +231,19 @@ void RenderSystem::setSkybox(std::string filename)
 	m_Changed[SKYBOX] = true;
 }
 
+void RenderSystem::set_skybox(rfw::utils::ArrayProxy<vec3> data, int width, int height)
+{
+	m_Skybox.set(data, width, height);
+	m_Changed[SKYBOX] = true;
+}
+
 void RenderSystem::synchronize()
 {
 	if (m_AnimationsThread.valid())
 		m_AnimationsThread.get();
 
 	if (m_Changed[SKYBOX])
-		m_Context->setSkyDome(m_Skybox.getBuffer(), m_Skybox.getWidth(), m_Skybox.getHeight());
+		m_Context->set_sky(m_Skybox.get_buffer(), m_Skybox.get_width(), m_Skybox.get_height());
 
 	if (m_Materials->isDirty())
 		m_Materials->generateDeviceMaterials();
@@ -243,16 +253,16 @@ void RenderSystem::synchronize()
 	{
 		const std::vector<TextureData> &textures = m_Materials->getTextureDescriptors();
 		if (!textures.empty())
-			m_Context->setTextures(textures);
+			m_Context->set_textures(textures);
 
-		m_Context->setMaterials(m_Materials->getDeviceMaterials(), m_Materials->getMaterialTexIds());
+		m_Context->set_materials(m_Materials->getDeviceMaterials(), m_Materials->getMaterialTexIds());
 	}
 
 	// First update area lights as these might update models in the process.
 	// Updating area lights first prevents us from having to update models twice
 	if (m_Changed[AREA_LIGHTS] && !m_UninitializedMeshes)
 	{
-		updateAreaLights();
+		update_area_lights();
 		m_Changed[LIGHTS] = true;
 		m_Changed[AREA_LIGHTS] = false;
 	}
@@ -261,18 +271,18 @@ void RenderSystem::synchronize()
 	{
 		for (SceneTriangles *object : m_Models)
 		{
-			if (!object->isAnimated())
+			if (!object->is_animated())
 				continue;
 
-			const auto changedMeshes = object->getChangedMeshes();
-			auto meshes = object->getMeshes();
+			const auto changedMeshes = object->get_changed_meshes();
+			auto meshes = object->get_meshes();
 
 			for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 			{
 				if (!changedMeshes[i])
 					continue;
 				const auto &[index, mesh] = meshes[i];
-				m_Context->setMesh(index, mesh);
+				m_Context->set_mesh(index, mesh);
 			}
 		}
 	}
@@ -286,7 +296,7 @@ void RenderSystem::synchronize()
 			if (!m_ModelChanged[i])
 				continue;
 
-			for (const auto &[meshSlot, mesh] : m_Models[i]->getMeshes())
+			for (const auto &[meshSlot, mesh] : m_Models[i]->get_meshes())
 			{
 				assert(mesh.vertexCount > 0);
 				assert(mesh.triangleCount > 0);
@@ -294,7 +304,7 @@ void RenderSystem::synchronize()
 				assert(mesh.normals);
 				assert(mesh.triangles);
 
-				m_Context->setMesh(meshSlot, mesh);
+				m_Context->set_mesh(meshSlot, mesh);
 			}
 
 			// Reset state
@@ -304,7 +314,7 @@ void RenderSystem::synchronize()
 
 	if (m_Changed[AREA_LIGHTS])
 	{
-		updateAreaLights();
+		update_area_lights();
 		m_Changed[LIGHTS] = true;
 	}
 
@@ -316,11 +326,11 @@ void RenderSystem::synchronize()
 		{
 			// Update instance
 			const auto &matrix = m_InstanceMatrices[i];
-			const auto geometry = instRef.getGeometryReference();
+			const auto geometry = instRef.get_geometry_ref();
 
 			const auto &instanceMapping = instRef.getIndices();
-			const auto &meshes = geometry.getMeshes();
-			const auto &matrices = geometry.getMeshMatrices();
+			const auto &meshes = geometry.get_meshes();
+			const auto &matrices = geometry.get_mesh_matrices();
 
 			for (int j = 0, sj = static_cast<int>(meshes.size()); j < sj; j++)
 			{
@@ -328,26 +338,26 @@ void RenderSystem::synchronize()
 				const auto instanceID = instanceMapping[j];
 				const simd::matrix4 transform = matrix * matrices[j];
 				const mat3 inverse_transform = transform.inversed().transposed().matrix;
-				m_Context->setInstance(instanceID, meshID, transform.matrix, inverse_transform);
+				m_Context->set_instance(instanceID, meshID, transform.matrix, inverse_transform);
 			}
 
 			m_InstanceChanged[i] = false;
 		}
 		else
 		{
-			const auto geometry = instRef.getGeometryReference();
-			if (!geometry.isAnimated())
+			const auto geometry = instRef.get_geometry_ref();
+			if (!geometry.is_animated())
 				continue;
 
-			const auto object = instRef.getGeometryReference().getObject();
-			const auto changedTransforms = object->getChangedMeshMatrices();
+			const auto object = instRef.get_geometry_ref().get_object();
+			const auto changedTransforms = object->get_changed_matrices();
 
 			// Update instance
 			const auto &matrix = m_InstanceMatrices[i];
 
 			const auto &instanceMapping = instRef.getIndices();
-			const auto &meshes = geometry.getMeshes();
-			const auto &matrices = geometry.getMeshMatrices();
+			const auto &meshes = geometry.get_meshes();
+			const auto &matrices = geometry.get_mesh_matrices();
 
 			for (int j = 0, sj = static_cast<int>(meshes.size()); j < sj; j++)
 			{
@@ -358,7 +368,7 @@ void RenderSystem::synchronize()
 				const auto instanceID = instanceMapping[j];
 				const simd::matrix4 transform = matrix * matrices[j];
 				const mat3 inverse_transform = mat3(transform.inversed().transposed().matrix);
-				m_Context->setInstance(instanceID, meshID, transform.matrix, inverse_transform);
+				m_Context->set_instance(instanceID, meshID, transform.matrix, inverse_transform);
 			}
 		}
 	}
@@ -377,8 +387,8 @@ void RenderSystem::synchronize()
 			const auto &matrix = m_InstanceMatrices[i];
 
 			const auto &instanceMapping = ref.getIndices();
-			const auto &meshes = ref.getGeometryReference().getMeshes();
-			const auto &matrices = ref.getGeometryReference().getMeshMatrices();
+			const auto &meshes = ref.get_geometry_ref().get_meshes();
+			const auto &matrices = ref.get_geometry_ref().get_mesh_matrices();
 
 			for (int j = 0, sj = static_cast<int>(meshes.size()); j < sj; j++)
 			{
@@ -386,7 +396,7 @@ void RenderSystem::synchronize()
 				const auto instanceID = instanceMapping[j];
 				const simd::matrix4 transform = matrix * matrices[j];
 				const mat3 inverse_transform = mat3(transform.inversed().transposed().matrix);
-				m_Context->setInstance(instanceID, meshID, transform.matrix, inverse_transform);
+				m_Context->set_instance(instanceID, meshID, transform.matrix, inverse_transform);
 			}
 		}
 	}
@@ -398,9 +408,10 @@ void RenderSystem::synchronize()
 		count.pointLightCount = static_cast<uint>(m_PointLights.size());
 		count.spotLightCount = static_cast<uint>(m_SpotLights.size());
 		count.directionalLightCount = static_cast<uint>(m_DirectionalLights.size());
-		m_Context->setLights(count, reinterpret_cast<const DeviceAreaLight *>(m_AreaLights.data()),
-							 reinterpret_cast<const DevicePointLight *>(m_PointLights.data()), reinterpret_cast<const DeviceSpotLight *>(m_SpotLights.data()),
-							 reinterpret_cast<const DeviceDirectionalLight *>(m_DirectionalLights.data()));
+		m_Context->set_lights(count, reinterpret_cast<const DeviceAreaLight *>(m_AreaLights.data()),
+							  reinterpret_cast<const DevicePointLight *>(m_PointLights.data()),
+							  reinterpret_cast<const DeviceSpotLight *>(m_SpotLights.data()),
+							  reinterpret_cast<const DeviceDirectionalLight *>(m_DirectionalLights.data()));
 	}
 
 	if (m_Changed.any())
@@ -414,7 +425,7 @@ void RenderSystem::synchronize()
 	}
 }
 
-void RenderSystem::updateAnimationsTo(const float timeInSeconds)
+void RenderSystem::set_animations_to(const float timeInSeconds)
 {
 	Timer t = {};
 #if ENABLE_THREADING
@@ -423,8 +434,8 @@ void RenderSystem::updateAnimationsTo(const float timeInSeconds)
 
 	for (SceneTriangles *object : m_Models)
 	{
-		if (object->isAnimated())
-			updates.push_back(m_ThreadPool.push([object, timeInSeconds](int) { object->transformTo(timeInSeconds); }));
+		if (object->is_animated())
+			updates.push_back(m_ThreadPool.push([object, timeInSeconds](int) { object->set_time(timeInSeconds); }));
 	}
 
 	if (!updates.empty())
@@ -441,18 +452,18 @@ void RenderSystem::updateAnimationsTo(const float timeInSeconds)
 #else
 	for (auto object : m_Models)
 	{
-		if (object->isAnimated())
+		if (object->is_animated())
 		{
 			m_Changed[ANIMATED] = true;
 			m_ShouldReset = true;
-			object->transformTo(timeInSeconds);
+			object->set_time(timeInSeconds);
 		}
 	}
 #endif
 	m_AnimationStat.addSample(t.elapsed());
 }
 
-GeometryReference RenderSystem::getGeometryReference(size_t index)
+GeometryReference RenderSystem::get_geometry_ref(size_t index)
 {
 	if (index >= m_Models.size())
 		throw std::runtime_error("Geometry at given index does not exist.");
@@ -460,7 +471,7 @@ GeometryReference RenderSystem::getGeometryReference(size_t index)
 	return rfw::GeometryReference(index, *this);
 }
 
-InstanceReference RenderSystem::getInstanceReference(size_t index)
+InstanceReference RenderSystem::get_instance_ref(size_t index)
 {
 	if (index >= m_Instances.size())
 		throw std::runtime_error("Instance at given index does not exist.");
@@ -468,14 +479,18 @@ InstanceReference RenderSystem::getInstanceReference(size_t index)
 	return m_Instances[index];
 }
 
-GeometryReference RenderSystem::addObject(std::string fileName, int material) { return addObject(std::move(fileName), false, glm::mat4(1.0f), material); }
-
-GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, int material)
+GeometryReference RenderSystem::add_object(std::string fileName, int material)
 {
-	return addObject(std::move(fileName), normalize, glm::mat4(1.0f), material);
+	return add_object(std::move(fileName), false, glm::mat4(1.0f), material);
 }
 
-GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material)
+GeometryReference RenderSystem::add_object(std::string fileName, bool normalize, int material)
+{
+	return add_object(std::move(fileName), normalize, glm::mat4(1.0f), material);
+}
+
+GeometryReference RenderSystem::add_object(std::string fileName, bool normalize, const glm::mat4 &preTransform,
+										   int material)
 {
 	if (!utils::file::exists(fileName))
 		throw LoadException(fileName);
@@ -493,16 +508,16 @@ GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, 
 #endif
 		triangles = new AssimpObject(fileName, m_Materials, static_cast<uint>(idx), preTransform, normalize, material);
 
-	triangles->prepareMeshes(*this);
-	assert(!triangles->getMeshes().empty());
+	triangles->prepare_meshes(*this);
+	assert(!triangles->get_meshes().empty());
 
 	m_Models.push_back(triangles);
 	m_ModelChanged.push_back(true);
 
 	const auto lightFlags = m_Materials->getMaterialLightFlags();
 
-	const auto lightIndices = m_Models[idx]->getLightIndices(lightFlags, true);
-	assert(lightIndices.size() == m_Models[idx]->getMeshes().size());
+	const auto lightIndices = m_Models[idx]->get_light_indices(lightFlags, true);
+	assert(lightIndices.size() == m_Models[idx]->get_meshes().size());
 
 	for (const auto &mlIndices : lightIndices)
 	{
@@ -515,7 +530,8 @@ GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, 
 
 	m_ObjectLightIndices.push_back(lightIndices);
 	if (material != 0)
-		m_ObjectMaterialRange.emplace_back(static_cast<uint>(matFirst), static_cast<uint>(m_Materials->getMaterials().size()));
+		m_ObjectMaterialRange.emplace_back(static_cast<uint>(matFirst),
+										   static_cast<uint>(m_Materials->getMaterials().size()));
 	else
 		m_ObjectMaterialRange.emplace_back(static_cast<uint>(material), static_cast<uint>(material + 1));
 
@@ -529,7 +545,8 @@ GeometryReference RenderSystem::addObject(std::string fileName, bool normalize, 
 	return GeometryReference(idx, *this);
 }
 
-rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, const uint material)
+rfw::GeometryReference RenderSystem::add_quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height,
+											  const uint material)
 {
 	const size_t idx = m_Models.size();
 	if (m_Materials->getMaterials().size() <= material)
@@ -538,16 +555,16 @@ rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3
 	// Add model to list
 	SceneTriangles *triangles = new Quad(N, pos, width, height, material);
 
-	triangles->prepareMeshes(*this);
-	assert(!triangles->getMeshes().empty());
+	triangles->prepare_meshes(*this);
+	assert(!triangles->get_meshes().empty());
 
 	m_Models.push_back(triangles);
 	m_ModelChanged.push_back(true);
 
 	const auto lightFlags = m_Materials->getMaterialLightFlags();
 
-	const auto lightIndices = m_Models[idx]->getLightIndices(lightFlags, true);
-	assert(lightIndices.size() == m_Models[idx]->getMeshes().size());
+	const auto lightIndices = m_Models[idx]->get_light_indices(lightFlags, true);
+	assert(lightIndices.size() == m_Models[idx]->get_meshes().size());
 
 	for (const auto &mlIndices : lightIndices)
 	{
@@ -571,21 +588,22 @@ rfw::GeometryReference RenderSystem::addQuad(const glm::vec3 &N, const glm::vec3
 	return GeometryReference(idx, *this);
 }
 
-InstanceReference RenderSystem::addInstance(const GeometryReference &geometry, glm::vec3 scaling, glm::vec3 translation, float degrees, glm::vec3 axes)
+InstanceReference RenderSystem::add_instance(const GeometryReference &geometry, glm::vec3 scaling,
+											 glm::vec3 translation, float degrees, glm::vec3 axes)
 {
 	m_Changed[INSTANCES] = true;
 	const size_t idx = m_Instances.size();
 	m_InstanceChanged.push_back(true);
 
 	InstanceReference ref = InstanceReference(idx, geometry, *this);
-	ref.setScaling(scaling);
-	ref.setRotation(degrees, axes);
-	ref.setTranslation(translation);
+	ref.set_scaling(scaling);
+	ref.set_rotation(degrees, axes);
+	ref.set_translation(translation);
 
 	m_Instances.push_back(ref);
-	m_InstanceMatrices.push_back(ref.getMatrix());
+	m_InstanceMatrices.push_back(ref.get_matrix());
 
-	if (!m_ObjectLightIndices[geometry.getIndex()].empty())
+	if (!m_ObjectLightIndices[geometry.get_index()].empty())
 	{
 		m_Changed[LIGHTS] = true;
 		m_Changed[AREA_LIGHTS] = true;
@@ -593,25 +611,25 @@ InstanceReference RenderSystem::addInstance(const GeometryReference &geometry, g
 	return ref;
 }
 
-void RenderSystem::updateInstance(const InstanceReference &instanceRef, const mat4 &transform)
+void RenderSystem::update_instance(const InstanceReference &instanceRef, const mat4 &transform)
 {
 	m_Changed[INSTANCES] = true;
 	assert(m_Instances.size() > (size_t)instanceRef);
 
-	m_InstanceMatrices[instanceRef.getIndex()] = transform;
-	m_InstanceChanged[instanceRef.getIndex()] = true;
+	m_InstanceMatrices[instanceRef.get_index()] = transform;
+	m_InstanceChanged[instanceRef.get_index()] = true;
 
-	if (!m_ObjectLightIndices[instanceRef.getGeometryReference().getIndex()].empty())
+	if (!m_ObjectLightIndices[instanceRef.get_geometry_ref().get_index()].empty())
 		m_Changed[LIGHTS] = m_Changed[AREA_LIGHTS] = true;
 }
 
-void RenderSystem::setAnimationTime(const rfw::GeometryReference &instanceRef, float timeInSeconds)
+void RenderSystem::set_animation_to(const rfw::GeometryReference &instanceRef, float timeInSeconds)
 {
 #if ANIMATION_ENABLED
-	const auto index = instanceRef.getIndex();
+	const auto index = instanceRef.get_index();
 
 	assert(m_Instances.size() > (size_t)instanceRef);
-	m_Models[index]->transformTo(timeInSeconds);
+	m_Models[index]->set_time(timeInSeconds);
 	m_ModelChanged[index] = true;
 
 	if (!m_ObjectLightIndices[index].empty())
@@ -619,9 +637,9 @@ void RenderSystem::setAnimationTime(const rfw::GeometryReference &instanceRef, f
 #endif
 }
 
-rfw::HostMaterial rfw::RenderSystem::getMaterial(size_t index) const { return m_Materials->get(uint(index)); }
+rfw::HostMaterial rfw::RenderSystem::get_material(size_t index) const { return m_Materials->get(uint(index)); }
 
-void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
+void rfw::RenderSystem::set_material(size_t index, const rfw::HostMaterial &mat)
 {
 	const bool wasEmissive = m_Materials->getMaterialLightFlags()[index];
 	m_Changed[MATERIALS] = true;
@@ -635,7 +653,7 @@ void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
 			const auto &[first, last] = m_ObjectMaterialRange[i];
 			if (index >= first && index < last)
 			{
-				m_ObjectLightIndices[i] = m_Models[i]->getLightIndices(m_Materials->getMaterialLightFlags(), true);
+				m_ObjectLightIndices[i] = m_Models[i]->get_light_indices(m_Materials->getMaterialLightFlags(), true);
 				m_Changed[LIGHTS] = true;
 				m_Changed[AREA_LIGHTS] = true;
 			}
@@ -643,7 +661,7 @@ void rfw::RenderSystem::setMaterial(size_t index, const rfw::HostMaterial &mat)
 	}
 }
 
-int RenderSystem::addMaterial(const glm::vec3 &color, float roughness)
+int RenderSystem::add_material(const glm::vec3 &color, float roughness)
 {
 	HostMaterial mat{};
 	mat.color = color;
@@ -653,7 +671,7 @@ int RenderSystem::addMaterial(const glm::vec3 &color, float roughness)
 	return index;
 }
 
-void rfw::RenderSystem::renderFrame(const Camera &camera, RenderStatus status, bool toneMap)
+void rfw::RenderSystem::render_frame(const Camera &camera, RenderStatus status, bool toneMap)
 {
 	assert(m_TargetID > 0);
 	if (m_UpdateThread.valid())
@@ -663,7 +681,7 @@ void rfw::RenderSystem::renderFrame(const Camera &camera, RenderStatus status, b
 		status = Reset;
 
 	Timer t = {};
-	m_Context->renderFrame(camera, status);
+	m_Context->render_frame(camera, status);
 
 	if (toneMap)
 	{
@@ -691,7 +709,7 @@ void rfw::RenderSystem::renderFrame(const Camera &camera, RenderStatus status, b
 	m_RenderStat.addSample(t.elapsed());
 }
 
-LightReference RenderSystem::addPointLight(const glm::vec3 &position, const glm::vec3 &radiance)
+LightReference RenderSystem::add_point_light(const glm::vec3 &position, const glm::vec3 &radiance)
 {
 	size_t index = m_PointLights.size();
 	PointLight pl{};
@@ -703,7 +721,8 @@ LightReference RenderSystem::addPointLight(const glm::vec3 &position, const glm:
 	return LightReference(index, LightReference::POINT, *this);
 }
 
-LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance, float outer_deg, const glm::vec3 &direction)
+LightReference RenderSystem::add_spot_light(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance,
+											float outer_deg, const glm::vec3 &direction)
 {
 	size_t index = m_SpotLights.size();
 	SpotLight sl{};
@@ -718,7 +737,7 @@ LightReference RenderSystem::addSpotLight(const glm::vec3 &position, float inner
 	return LightReference(index, LightReference::SPOT, *this);
 }
 
-LightReference RenderSystem::addDirectionalLight(const glm::vec3 &direction, const glm::vec3 &radiance)
+LightReference RenderSystem::add_directional_light(const glm::vec3 &direction, const glm::vec3 &radiance)
 {
 	size_t index = m_DirectionalLights.size();
 	DirectionalLight dl{};
@@ -730,7 +749,7 @@ LightReference RenderSystem::addDirectionalLight(const glm::vec3 &direction, con
 	return LightReference(index, LightReference::DIRECTIONAL, *this);
 }
 
-LightReference RenderSystem::getAreaLightReference(size_t index)
+LightReference RenderSystem::get_area_light_ref(size_t index)
 {
 	assert(index < m_AreaLights.size());
 	if (index >= m_AreaLights.size())
@@ -739,7 +758,7 @@ LightReference RenderSystem::getAreaLightReference(size_t index)
 	return rfw::LightReference(index, LightReference::AREA, *this);
 }
 
-LightReference RenderSystem::getPointLightReference(size_t index)
+LightReference RenderSystem::get_point_light_ref(size_t index)
 {
 	assert(index < m_PointLights.size());
 	if (index >= m_PointLights.size())
@@ -747,7 +766,7 @@ LightReference RenderSystem::getPointLightReference(size_t index)
 
 	return rfw::LightReference(index, LightReference::POINT, *this);
 }
-LightReference RenderSystem::getSpotLightReference(size_t index)
+LightReference RenderSystem::get_spot_light_ref(size_t index)
 {
 	assert(index < m_SpotLights.size());
 	if (index >= m_SpotLights.size())
@@ -756,7 +775,7 @@ LightReference RenderSystem::getSpotLightReference(size_t index)
 	return rfw::LightReference(index, LightReference::SPOT, *this);
 }
 
-LightReference RenderSystem::getDirectionalLightReference(size_t index)
+LightReference RenderSystem::get_directional_light_ref(size_t index)
 {
 	assert(index < m_DirectionalLights.size());
 	if (index >= m_DirectionalLights.size())
@@ -765,7 +784,7 @@ LightReference RenderSystem::getDirectionalLightReference(size_t index)
 	return rfw::LightReference(index, LightReference::DIRECTIONAL, *this);
 }
 
-void RenderSystem::setPosition(const LightReference &ref, const glm::vec3 &position)
+void RenderSystem::set_light_position(const LightReference &ref, const glm::vec3 &position)
 {
 	switch (ref.type)
 	{
@@ -783,7 +802,7 @@ void RenderSystem::setPosition(const LightReference &ref, const glm::vec3 &posit
 	m_Changed[LIGHTS] = true;
 }
 
-void RenderSystem::setRadiance(const LightReference &ref, const glm::vec3 &radiance)
+void RenderSystem::set_light_radiance(const LightReference &ref, const glm::vec3 &radiance)
 {
 	switch (ref.type)
 	{
@@ -802,29 +821,10 @@ void RenderSystem::setRadiance(const LightReference &ref, const glm::vec3 &radia
 	m_Changed[LIGHTS] = true;
 }
 
-void RenderSystem::setEnergy(const LightReference &ref, float energy)
-{
-	switch (ref.type)
-	{
-	case (LightReference::POINT):
-		m_PointLights[ref.index].energy = energy;
-		break;
-	case (LightReference::DIRECTIONAL):
-		m_DirectionalLights[ref.index].energy = energy;
-		return;
-	case (LightReference::SPOT):
-		m_SpotLights[ref.index].energy = energy;
-		break;
-	default:
-		return;
-	}
-	m_Changed[LIGHTS] = true;
-}
-
-rfw::AvailableRenderSettings RenderSystem::getAvailableSettings() const
+rfw::AvailableRenderSettings RenderSystem::get_available_settings() const
 {
 	if (m_Context)
-		return m_Context->getAvailableSettings();
+		return m_Context->get_settings();
 	else
 	{
 		WARNING("Available settings requested while no context was loaded yet.");
@@ -832,10 +832,10 @@ rfw::AvailableRenderSettings RenderSystem::getAvailableSettings() const
 	}
 }
 
-void RenderSystem::setSetting(const rfw::RenderSetting &setting) const
+void RenderSystem::set_setting(const rfw::RenderSetting &setting) const
 {
 	if (m_Context)
-		m_Context->setSetting(setting);
+		m_Context->set_setting(setting);
 	else
 		WARNING("Setting was set while no context was loaded yet.");
 }
@@ -849,9 +849,9 @@ AABB rfw::RenderSystem::calculateSceneBounds() const
 	{
 		const auto &instance = m_Instances.at(i);
 		const auto &matrix = m_InstanceMatrices.at(i);
-		const auto meshIdx = instance.getGeometryReference().getIndex();
+		const auto meshIdx = instance.get_geometry_ref().get_index();
 
-		for (const auto &[index, mesh] : m_Models.at(meshIdx)->getMeshes())
+		for (const auto &[index, mesh] : m_Models.at(meshIdx)->get_meshes())
 		{
 			for (uint v = 0; v < mesh.vertexCount; v++)
 			{
@@ -865,30 +865,35 @@ AABB rfw::RenderSystem::calculateSceneBounds() const
 }
 #endif
 
-void RenderSystem::setProbeIndex(glm::uvec2 pixelIdx) { m_Context->setProbePos((m_ProbeIndex = pixelIdx)); }
+void RenderSystem::set_probe_index(glm::uvec2 pixelIdx) { m_Context->set_probe_index((m_ProbeIndex = pixelIdx)); }
 
-glm::uvec2 rfw::RenderSystem::getProbeIndex() const { return m_ProbeIndex; }
+glm::uvec2 rfw::RenderSystem::get_probe_index() const { return m_ProbeIndex; }
 
-RenderSystem::ProbeResult RenderSystem::getProbeResult()
+RenderSystem::ProbeResult RenderSystem::get_probe_result()
 {
-	m_Context->getProbeResults(&m_ProbedInstance, &m_ProbedPrimitive, &m_ProbeDistance);
+	m_Context->get_probe_results(&m_ProbedInstance, &m_ProbedPrimitive, &m_ProbeDistance);
 	const std::tuple<int, int, int> result = m_InverseInstanceMapping.at(m_ProbedInstance);
 	const int instanceID = std::get<0>(result);
 	const int objectID = std::get<1>(result);
 	const int meshID = std::get<2>(result);
 	const rfw::InstanceReference &reference = m_Instances.at(instanceID);
 	const SceneTriangles *object = m_Models[objectID];
-	const auto &mesh = object->getMeshes()[meshID].second;
+	const auto &mesh = object->get_meshes()[meshID].second;
 	auto *triangle = const_cast<Triangle *>(&mesh.triangles[m_ProbedPrimitive]);
 	const auto materialID = triangle->material;
 	return ProbeResult(reference, meshID, static_cast<int>(m_ProbedPrimitive), triangle, materialID, m_ProbeDistance);
 }
 
-rfw::InstanceReference *RenderSystem::getMutableInstances() { return m_Instances.data(); }
+rfw::InstanceReference *RenderSystem::get_mutable_instances(size_t *size)
+{
+	if (size)
+		*size = m_Instances.size();
+	return m_Instances.data();
+}
 
-size_t RenderSystem::getInstanceCount() const { return m_Instances.size(); }
+size_t RenderSystem::get_instance_count() const { return m_Instances.size(); }
 
-std::vector<rfw::GeometryReference> RenderSystem::getGeometry()
+std::vector<rfw::GeometryReference> RenderSystem::get_geometry()
 {
 	std::vector<rfw::GeometryReference> geometry(m_Models.size(), rfw::GeometryReference(0, *this));
 	for (size_t i = 0, s = m_Models.size(); i < s; i++)
@@ -896,17 +901,17 @@ std::vector<rfw::GeometryReference> RenderSystem::getGeometry()
 	return geometry;
 }
 
-size_t RenderSystem::getGeometryCount() const { return m_Models.size(); }
+size_t RenderSystem::get_geometry_count() const { return m_Models.size(); }
 
-rfw::RenderStats rfw::RenderSystem::getRenderStats() const
+rfw::RenderStats rfw::RenderSystem::get_statistics() const
 {
-	auto stats = m_Context->getStats();
+	auto stats = m_Context->get_stats();
 	stats.animationTime = m_AnimationStat.getAverage();
 	stats.renderTime = m_RenderStat.getAverage();
 	return stats;
 }
 
-size_t rfw::RenderSystem::requestMeshIndex()
+size_t rfw::RenderSystem::request_mesh_index()
 {
 	if (m_EmptyMeshSlots > 0)
 	{
@@ -928,7 +933,7 @@ size_t rfw::RenderSystem::requestMeshIndex()
 	return index;
 }
 
-size_t rfw::RenderSystem::requestInstanceIndex()
+size_t rfw::RenderSystem::request_instance_index()
 {
 	if (m_EmptyInstanceSlots > 0)
 	{
@@ -951,7 +956,7 @@ size_t rfw::RenderSystem::requestInstanceIndex()
 	return index;
 }
 
-void RenderSystem::updateAreaLights()
+void RenderSystem::update_area_lights()
 {
 	m_AreaLights.clear();
 
@@ -959,14 +964,14 @@ void RenderSystem::updateAreaLights()
 	{
 		const auto &reference = m_Instances[i];
 		const auto &matrix = m_InstanceMatrices[i];
-		const auto &geometry = reference.getGeometryReference();
+		const auto &geometry = reference.get_geometry_ref();
 
-		const auto &lightIndices = geometry.getLightIndices();
+		const auto &lightIndices = geometry.get_light_indices();
 		if (lightIndices.empty())
 			continue;
 
-		const auto &meshes = geometry.getMeshes();
-		const auto &meshTransforms = geometry.getMeshMatrices();
+		const auto &meshes = geometry.get_meshes();
+		const auto &meshTransforms = geometry.get_mesh_matrices();
 
 		for (int i = 0, s = static_cast<int>(meshes.size()); i < s; i++)
 		{
@@ -1012,9 +1017,10 @@ void RenderSystem::updateAreaLights()
 				m_AreaLights.push_back(light);
 			}
 
-			m_ModelChanged.at(reference.getGeometryReference().getIndex()) = false;
-			m_Context->setMesh(meshSlot, mesh);
+			m_ModelChanged.at(reference.get_geometry_ref().get_index()) = false;
+			m_Context->set_mesh(meshSlot, mesh);
 		}
 	}
 }
-const std::vector<rfw::InstanceReference> &RenderSystem::getInstances() const { return m_Instances; }
+
+utils::ArrayProxy<rfw::InstanceReference> RenderSystem::get_instances() const { return m_Instances; }

@@ -14,17 +14,21 @@ class Skybox
   public:
 	Skybox() = default;
 	Skybox(std::string_view file);
+	Skybox(rfw::utils::ArrayProxy<vec3> pixels, int width, int height);
+	Skybox(rfw::utils::ArrayProxy<vec4> pixels, int width, int height);
 
-	static Skybox generateTestSky();
+	static Skybox generate_test_sky();
 
-	[[nodiscard]] const std::vector<glm::vec3> &getBuffer() const;
-	[[nodiscard]] const glm::vec3 *getData() const;
-	[[nodiscard]] unsigned int getWidth() const;
-	[[nodiscard]] unsigned int getHeight() const;
+	[[nodiscard]] const std::vector<glm::vec3> &get_buffer() const;
+	[[nodiscard]] const glm::vec3 *get_data() const;
+	[[nodiscard]] unsigned int get_width() const;
+	[[nodiscard]] unsigned int get_height() const;
 
 	void load(std::string_view file);
+	void set(rfw::utils::ArrayProxy<vec3> pixels, int width, int height);
+	void set(rfw::utils::ArrayProxy<vec4> pixels, int width, int height);
 
-	[[nodiscard]] const std::string &getSource() const { return m_File; }
+	[[nodiscard]] const std::string &get_source() const { return m_File; }
 
   private:
 	std::string m_File = "";

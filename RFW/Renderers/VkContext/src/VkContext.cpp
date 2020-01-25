@@ -111,7 +111,7 @@ void VkContext::init(std::shared_ptr<utils::Window> &window)
 	setupDebugMessenger();
 
 	m_SwapChain = new SwapChain(m_Device, m_Surface);
-	m_SwapChain->create(m_Window->getWidth(), m_Window->getHeight());
+	m_SwapChain->create(m_Window->get_width(), m_Window->get_height());
 
 	createRenderPass();
 	createFrameBuffers();
@@ -121,9 +121,7 @@ void VkContext::init(std::shared_ptr<utils::Window> &window)
 	createSemaphores();
 }
 
-void VkContext::init(GLuint *glTextureID, uint width, uint height)
-{
-}
+void VkContext::init(GLuint *glTextureID, uint width, uint height) {}
 
 void VkContext::cleanup()
 {
@@ -177,13 +175,13 @@ void VkContext::cleanup()
 	}
 }
 
-void VkContext::renderFrame(const rfw::Camera &camera, RenderStatus status)
+void VkContext::render_frame(const rfw::Camera &camera, RenderStatus status)
 {
 	uint32_t imageIndex;
 	vk::Result error = m_SwapChain->acquireNextImage(m_ImageAvailableSemaphores.at(m_CurrentFrame), &imageIndex);
 	if (error == vk::Result::eErrorOutOfDateKHR)
 	{
-		m_SwapChain->create(m_Window->getWidth(), m_Window->getHeight());
+		m_SwapChain->create(m_Window->get_width(), m_Window->get_height());
 		createCommandBuffers();
 		return;
 	}
@@ -205,7 +203,7 @@ void VkContext::renderFrame(const rfw::Camera &camera, RenderStatus status)
 	error = m_SwapChain->queuePresent(m_Device.getPresentQueue(), imageIndex, m_RenderFinishedSemaphores.at(m_CurrentFrame));
 	if (error == vk::Result::eErrorOutOfDateKHR)
 	{
-		m_SwapChain->create(m_Window->getWidth(), m_Window->getHeight());
+		m_SwapChain->create(m_Window->get_width(), m_Window->get_height());
 		createCommandBuffers();
 		return;
 	}
@@ -541,11 +539,11 @@ void VkContext::createSemaphores()
 	}
 }
 
-void vkc::VkContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
+void vkc::VkContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) {}
 
-void vkc::VkContext::setTextures(const std::vector<rfw::TextureData> &materials) {}
+void vkc::VkContext::set_textures(const std::vector<rfw::TextureData> &materials) {}
 
-void vkc::VkContext::setMesh(size_t index, const Mesh &mesh)
+void vkc::VkContext::set_mesh(size_t index, const Mesh &mesh)
 {
 	return;
 	if (m_Meshes.size() >= index)
@@ -557,20 +555,20 @@ void vkc::VkContext::setMesh(size_t index, const Mesh &mesh)
 	m_Meshes.at(index)->setGeometry(mesh);
 }
 
-void vkc::VkContext::setInstance(size_t instanceIdx, size_t mesh, const mat4 &transform, const mat3 &inverse_transform) {}
+void vkc::VkContext::set_instance(size_t instanceIdx, size_t mesh, const mat4 &transform, const mat3 &inverse_transform) {}
 
-void vkc::VkContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
+void vkc::VkContext::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) {}
 
-void vkc::VkContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-							   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void vkc::VkContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+								const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 }
 
-void VkContext::getProbeResults(unsigned *instanceIndex, unsigned *primitiveIndex, float *distance) const {}
+void VkContext::get_probe_results(unsigned *instanceIndex, unsigned *primitiveIndex, float *distance) const {}
 
-rfw::AvailableRenderSettings VkContext::getAvailableSettings() const { return rfw::AvailableRenderSettings(); }
+rfw::AvailableRenderSettings VkContext::get_settings() const { return rfw::AvailableRenderSettings(); }
 
-void VkContext::setSetting(const rfw::RenderSetting &setting) {}
+void VkContext::set_setting(const rfw::RenderSetting &setting) {}
 
 void vkc::VkContext::update()
 {
@@ -602,9 +600,9 @@ void vkc::VkContext::update()
 	}
 }
 
-void vkc::VkContext::setProbePos(glm::uvec2 probePos) {}
+void vkc::VkContext::set_probe_index(glm::uvec2 probePos) {}
 
-rfw::RenderStats vkc::VkContext::getStats() const { return rfw::RenderStats(); }
+rfw::RenderStats vkc::VkContext::get_stats() const { return rfw::RenderStats(); }
 
 rfw::RenderContext *createRenderContext() { return new vkc::VkContext(); }
 void destroyRenderContext(rfw::RenderContext *ptr) { ptr->cleanup(), delete ptr; }

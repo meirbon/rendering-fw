@@ -126,4 +126,4 @@ uint64_t TopLevelAS::getHandle()
 	return handle;
 }
 
-uint32_t TopLevelAS::getInstanceCount() const { return m_InstanceCnt; }
+uint32_t TopLevelAS::get_instance_count() const { return m_InstanceCnt; }

@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "../utils/ArrayProxy.h"
+#include <utils/ArrayProxy.h>
 
 #include <MathIncludes.h>
 #include <Structures.h>
@@ -52,7 +52,7 @@ class SceneObject
 
 	bool dirty = true;
 
-	bool transformTo(float timeInSeconds = 0.0f);
+	bool set_time(float timeInSeconds = 0.0f);
 
 	void updateTriangles(uint offset = 0, uint last = 0);
 

@@ -15,7 +15,9 @@
 #include <bitset>
 
 #include <GLFW/glfw3.h>
-#include <MathIncludes.h>
+
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 
 #include "Logger.h"
 
@@ -297,13 +299,13 @@ class Window
 		return mouseKeys.at(k);
 	}
 
-	[[nodiscard]] int getWidth() const
+	[[nodiscard]] int get_width() const
 	{
 		int width, height;
 		glfwGetWindowSize(m_Instance, &width, &height);
 		return width;
 	}
-	[[nodiscard]] int getHeight() const
+	[[nodiscard]] int get_height() const
 	{
 		int width, height;
 		glfwGetWindowSize(m_Instance, &width, &height);

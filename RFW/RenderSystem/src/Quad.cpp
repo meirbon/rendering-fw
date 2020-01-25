@@ -38,9 +38,9 @@ rfw::Quad::Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float hei
 	m_MeshTransforms.resize(1, glm::mat4(1.0f));
 }
 
-void rfw::Quad::transformTo(float timeInSeconds) {}
+void rfw::Quad::set_time(float timeInSeconds) {}
 
-const std::vector<std::vector<int>> &rfw::Quad::getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize)
+const std::vector<std::vector<int>> &rfw::Quad::get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize)
 {
 	if (reinitialize)
 	{
@@ -54,11 +54,11 @@ const std::vector<std::vector<int>> &rfw::Quad::getLightIndices(const std::vecto
 	return m_LightIndices;
 }
 
-const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::Quad::getMeshes() const { return m_Meshes; }
+const std::vector<std::pair<size_t, rfw::Mesh>> &rfw::Quad::get_meshes() const { return m_Meshes; }
 
-const std::vector<rfw::simd::matrix4> &rfw::Quad::getMeshTransforms() const { return m_MeshTransforms; }
+const std::vector<rfw::simd::matrix4> &rfw::Quad::get_mesh_matrices() const { return m_MeshTransforms; }
 
-void rfw::Quad::prepareMeshes(RenderSystem &rs)
+void rfw::Quad::prepare_meshes(RenderSystem &rs)
 {
 	rfw::Mesh mesh;
 	mesh.vertexCount = m_Vertices.size();
@@ -66,5 +66,5 @@ void rfw::Quad::prepareMeshes(RenderSystem &rs)
 	mesh.normals = m_Normals.data();
 	mesh.triangles = m_Triangles.data();
 	mesh.triangleCount = m_Triangles.size();
-	m_Meshes.emplace_back(rs.requestMeshIndex(), mesh);
+	m_Meshes.emplace_back(rs.request_mesh_index(), mesh);
 }

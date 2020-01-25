@@ -19,7 +19,7 @@ Context::~Context()
 	delete m_NormalShader;
 }
 
-std::vector<RenderTarget> Context::getSupportedTargets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
+std::vector<RenderTarget> Context::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
 void Context::init(std::shared_ptr<Window> &window) { throw std::runtime_error("Not supported (yet)."); }
 
@@ -89,7 +89,7 @@ void Context::cleanup()
 	m_Materials.clear();
 }
 
-void Context::renderFrame(const Camera &camera, RenderStatus status)
+void Context::render_frame(const Camera &camera, RenderStatus status)
 {
 	m_RenderStats.clear();
 
@@ -107,7 +107,7 @@ void Context::renderFrame(const Camera &camera, RenderStatus status)
 	glViewport(0, 0, m_Width, m_Height);
 
 	m_CurrentShader->bind();
-	auto matrix = camera.getMatrix(0.01f, 1e16f);
+	auto matrix = camera.get_matrix(0.01f, 1e16f);
 	const auto matrix3x3 = mat3(matrix);
 	m_CurrentShader->setUniform("CamMatrix", matrix);
 	m_CurrentShader->setUniform("CamMatrix3x3", matrix3x3);
@@ -162,9 +162,9 @@ void Context::renderFrame(const Camera &camera, RenderStatus status)
 	glDisable(GL_DEPTH_TEST);
 }
 
-void Context::setMaterials(const std::vector<DeviceMaterial> &materials, const std::vector<MaterialTexIds> &texDescriptors) { m_Materials = materials; }
+void Context::set_materials(const std::vector<DeviceMaterial> &materials, const std::vector<MaterialTexIds> &texDescriptors) { m_Materials = materials; }
 
-void Context::setTextures(const std::vector<TextureData> &textures)
+void Context::set_textures(const std::vector<TextureData> &textures)
 {
 	CheckGL();
 
@@ -209,7 +209,7 @@ void Context::setTextures(const std::vector<TextureData> &textures)
 	CheckGL();
 }
 
-void Context::setMesh(size_t index, const rfw::Mesh &mesh)
+void Context::set_mesh(size_t index, const rfw::Mesh &mesh)
 {
 	if (m_Meshes.size() <= index)
 	{
@@ -221,7 +221,7 @@ void Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	CheckGL();
 }
 
-void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void Context::set_instance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	if (m_InstanceGeometry.size() <= i)
 	{
@@ -237,7 +237,7 @@ void Context::setInstance(size_t i, size_t meshIdx, const mat4 &transform, const
 	}
 }
 
-void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	CheckGL();
 	std::vector<glm::vec4> skybox(width * height);
@@ -248,8 +248,8 @@ void Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, siz
 	CheckGL();
 }
 
-void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-						const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+						 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCount = lightCount;
 
@@ -272,9 +272,9 @@ void Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *
 	setLights(m_SimpleShader);
 }
 
-void Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
+void Context::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const {}
 
-rfw::AvailableRenderSettings Context::getAvailableSettings() const
+rfw::AvailableRenderSettings Context::get_settings() const
 {
 	auto settings = rfw::AvailableRenderSettings();
 
@@ -284,7 +284,7 @@ rfw::AvailableRenderSettings Context::getAvailableSettings() const
 	return settings;
 }
 
-void Context::setSetting(const rfw::RenderSetting &setting)
+void Context::set_setting(const rfw::RenderSetting &setting)
 {
 	if (setting.name == "VIEW")
 	{
@@ -318,9 +318,9 @@ void Context::update()
 	}
 }
 
-void Context::setProbePos(glm::uvec2 probePos) {}
+void Context::set_probe_index(glm::uvec2 probePos) {}
 
-rfw::RenderStats Context::getStats() const { return m_RenderStats; }
+rfw::RenderStats Context::get_stats() const { return m_RenderStats; }
 
 void Context::setLights(utils::GLShader *shader)
 {

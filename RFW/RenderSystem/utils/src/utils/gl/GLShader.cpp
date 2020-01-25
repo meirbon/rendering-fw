@@ -1,4 +1,4 @@
-#include "../../rfw.h"
+#include "GLShader.h"
 
 using namespace rfw;
 using namespace utils;
@@ -41,7 +41,7 @@ GLuint GLShader::load()
 	return program;
 }
 
-void GLShader::checkCompileErrors(const char *file, GLuint shader, std::string type) const
+void GLShader::checkCompileErrors(const char *file, GLuint shader, const std::string& type) const
 {
 	GLint success;
 	std::vector<GLchar> infoLog(2048);

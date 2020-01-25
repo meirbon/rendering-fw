@@ -3,7 +3,7 @@
 void rfw::Application::run(Application *app)
 {
 	app->init(app->m_RS);
-	app->load_instances(app->m_RS->getGeometry(), app->m_RS);
+	app->load_instances(app->m_RS->get_geometry(), app->m_RS);
 
 	auto &rs = app->m_RS;
 
@@ -13,7 +13,7 @@ void rfw::Application::run(Application *app)
 		app->window.pollEvents();
 
 		rs->synchronize();
-		rs->renderFrame(app->camera, app->status, true);
+		rs->render_frame(app->camera, app->status, true);
 		app->m_ImGuiContext.newFrame();
 		app->post_render(rs);
 		app->draw();
@@ -42,7 +42,7 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string tit
 	window.addResizeCallback([this](int width, int height) {
 		auto oldID = m_Target->getID();
 		m_Target = new rfw::utils::GLTexture(rfw::utils::GLTexture::VEC4, window.get_render_width(), window.get_render_height(), true);
-		m_RS->setTarget(m_Target);
+		m_RS->set_target(m_Target);
 		m_Shader->bind();
 		m_Target->bind(0);
 		m_Shader->setUniform("tex", 0);
@@ -58,8 +58,8 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string tit
 	try
 	{
 		DEBUG("Loading render API: %s", renderAPI.c_str());
-		m_RS->loadRenderAPI(renderAPI);
-		m_RS->setTarget(m_Target);
+		m_RS->load_render_api(renderAPI);
+		m_RS->set_target(m_Target);
 		camera.resize(scrWidth, scrHeight);
 	}
 	catch (const std::exception &e)
@@ -68,7 +68,7 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string tit
 	}
 
 	// Preparse renderer settings to be used with ImGui
-	renderSettings = m_RS->getAvailableSettings();
+	renderSettings = m_RS->get_available_settings();
 	settingKeys.resize(renderSettings.settingKeys.size());
 	settingsCurrentValues.resize(renderSettings.settingKeys.size(), 0);
 	settingAvailableValues.resize(settingKeys.size());

@@ -1,12 +1,15 @@
 ﻿#pragma once
 #include <GL/glew.h>
 
-#include <MathIncludes.h>
+#include <glm/glm.hpp>
+#include <glm/matrix.hpp>
 
 #include <iostream>
 #include <string>
 #include <vector>
 #include "CheckGL.h"
+
+#include <utils/File.h>
 
 namespace rfw::utils
 {
@@ -94,7 +97,7 @@ class GLShader
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const uint *value, GLsizei count)
+	void setUniform(const char *name, const unsigned int *value, GLsizei count)
 	{
 		const auto location = getUniformLocation(name);
 		glUniform1uiv(location, count, value);
@@ -122,21 +125,21 @@ class GLShader
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const mat2 *value, GLsizei count, const bool transpose = false)
+	void setUniform(const char *name, const glm::mat2 *value, GLsizei count, const bool transpose = false)
 	{
 		const auto location = getUniformLocation(name);
 		glUniformMatrix2fv(location, count, transpose, (GLfloat *)value);
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const mat3 *value, GLsizei count, const bool transpose = false)
+	void setUniform(const char *name, const glm::mat3 *value, GLsizei count, const bool transpose = false)
 	{
 		const auto location = getUniformLocation(name);
 		glUniformMatrix3fv(location, count, transpose, (GLfloat *)value);
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const mat4 *value, GLsizei count, const bool transpose = false)
+	void setUniform(const char *name, const glm::mat4 *value, GLsizei count, const bool transpose = false)
 	{
 		const auto location = getUniformLocation(name);
 		glUniformMatrix4fv(location, count, transpose, (GLfloat *)value);
@@ -199,7 +202,7 @@ class GLShader
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const uint &value)
+	void setUniform(const char *name, const unsigned int &value)
 	{
 		const auto location = getUniformLocation(name);
 		glUniform1uiv(location, 1, &value);
@@ -227,21 +230,21 @@ class GLShader
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const mat2 &value, const bool transpose = false)
+	void setUniform(const char *name, const glm::mat2 &value, const bool transpose = false)
 	{
 		const auto location = getUniformLocation(name);
 		glUniformMatrix2fv(location, 1, transpose, &value[0][0]);
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const mat3 &value, const bool transpose = false)
+	void setUniform(const char *name, const glm::mat3 &value, const bool transpose = false)
 	{
 		const auto location = getUniformLocation(name);
 		glUniformMatrix3fv(location, 1, transpose, &value[0][0]);
 		CheckGL();
 	}
 
-	void setUniform(const char *name, const mat4 &value, const bool transpose = false)
+	void setUniform(const char *name, const glm::mat4 &value, const bool transpose = false)
 	{
 		const auto location = getUniformLocation(name);
 		glUniformMatrix4fv(location, 1, transpose, &value[0][0]);
@@ -297,6 +300,6 @@ class GLShader
 	std::string m_FragPath;
 
 	GLuint load();
-	void checkCompileErrors(const char *file, GLuint shader, std::string type) const;
+	void checkCompileErrors(const char *file, GLuint shader, const std::string &type) const;
 };
 } // namespace rfw::utils

@@ -1,4 +1,8 @@
-#include "../../rfw.h"
+#include "GLTexture.h"
+
+#include "CheckGL.h"
+
+using uint = unsigned int;
 
 namespace rfw::utils
 {

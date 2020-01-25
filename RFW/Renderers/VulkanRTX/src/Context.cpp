@@ -199,15 +199,15 @@ void vkrtx::Context::cleanup()
 	// Vulkan device & Vulkan instance automatically get freed when this class gets destroyed
 }
 
-void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus status)
+void vkrtx::Context::render_frame(const rfw::Camera &cam, rfw::RenderStatus status)
 {
 	// Ensure OpenGL finished
 	glFinish();
 
 	using namespace rfw;
-	const auto view = cam.getView();
+	const auto view = cam.get_view();
 
-	auto &camera = m_UniformCamera->getData()[0];
+	auto &camera = m_UniformCamera->get_data()[0];
 	Counters &c = m_HostCounters;
 
 	auto queue = m_Device.getGraphicsQueue();
@@ -367,7 +367,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 	}
 
 	// Initialize params for finalize stage
-	m_UniformFinalizeParams->getData()[0] = FinalizeParams(m_ScrWidth, m_ScrHeight, m_SamplesTaken, cam.brightness, cam.contrast);
+	m_UniformFinalizeParams->get_data()[0] = FinalizeParams(m_ScrWidth, m_ScrHeight, m_SamplesTaken, cam.brightness, cam.contrast);
 	m_UniformFinalizeParams->copyToDevice();
 
 	t.reset();
@@ -377,7 +377,7 @@ void vkrtx::Context::renderFrame(const rfw::Camera &cam, rfw::RenderStatus statu
 	cmdBuffer.begin();
 }
 
-void vkrtx::Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void vkrtx::Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	delete m_Materials;
 	std::vector<rfw::DeviceMaterial> materialData(materials.size());
@@ -423,7 +423,7 @@ void vkrtx::Context::setMaterials(const std::vector<rfw::DeviceMaterial> &materi
 	m_Materials->copyToHost(mats.data());
 }
 
-void vkrtx::Context::setTextures(const std::vector<rfw::TextureData> &textures)
+void vkrtx::Context::set_textures(const std::vector<rfw::TextureData> &textures)
 {
 	m_TexDescriptors = textures;
 
@@ -507,7 +507,7 @@ void vkrtx::Context::setTextures(const std::vector<rfw::TextureData> &textures)
 	shadeDescriptorSet->bind(cTEXTURE_RGBA128, {m_RGBA128Buffer->getDescriptorBufferInfo()});
 }
 
-void vkrtx::Context::setMesh(size_t index, const rfw::Mesh &mesh)
+void vkrtx::Context::set_mesh(size_t index, const rfw::Mesh &mesh)
 {
 	if (index >= m_Meshes.size())
 	{
@@ -522,7 +522,7 @@ void vkrtx::Context::setMesh(size_t index, const rfw::Mesh &mesh)
 	m_MeshChanged[index] = true;
 }
 
-void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void vkrtx::Context::set_instance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	if (index >= m_Instances.size())
 	{
@@ -556,7 +556,7 @@ void vkrtx::Context::setInstance(size_t index, size_t meshIdx, const mat4 &trans
 	curInstance.accelerationStructureHandle = m_Meshes.at(meshIdx)->accelerationStructure->getHandle();
 }
 
-void vkrtx::Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+void vkrtx::Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	std::vector<glm::vec4> data(size_t(width * height));
 	for (uint i = 0; i < (width * height); i++)
@@ -588,8 +588,8 @@ void vkrtx::Context::setSkyDome(const std::vector<glm::vec3> &pixels, size_t wid
 	shadeDescriptorSet->bind(cSKYBOX, {m_SkyboxImage->getDescriptorImageInfo()});
 }
 
-void vkrtx::Context::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-							   const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void vkrtx::Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+								const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCounts = lightCount;
 
@@ -639,16 +639,16 @@ void vkrtx::Context::setLights(rfw::LightCount lightCount, const rfw::DeviceArea
 	shadeDescriptorSet->bind(cDIRECTIONALLIGHT_BUFFER, {m_DirectionalLightBuffer->getDescriptorBufferInfo()});
 }
 
-void vkrtx::Context::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
+void vkrtx::Context::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
 {
 	(*instanceIndex) = m_ProbedInstance;
 	(*primitiveIndex) = m_ProbedTriangle;
 	(*distance) = m_ProbedDist;
 }
 
-rfw::AvailableRenderSettings vkrtx::Context::getAvailableSettings() const { return rfw::AvailableRenderSettings(); }
+rfw::AvailableRenderSettings vkrtx::Context::get_settings() const { return rfw::AvailableRenderSettings(); }
 
-void vkrtx::Context::setSetting(const rfw::RenderSetting &setting) {}
+void vkrtx::Context::set_setting(const rfw::RenderSetting &setting) {}
 
 void vkrtx::Context::update()
 {
@@ -705,7 +705,7 @@ void vkrtx::Context::update()
 										m_InvTransforms.size() * sizeof(mat4)); // Update inverse transforms
 	shadeDescriptorSet->bind(cINVERSE_TRANSFORMS, {m_InvTransformsBuffer->getDescriptorBufferInfo()});
 
-	if (m_TopLevelAS->getInstanceCount() != m_Instances.size()) // Recreate top level AS in case our number of instances changed
+	if (m_TopLevelAS->get_instance_count() != m_Instances.size()) // Recreate top level AS in case our number of instances changed
 	{
 		delete m_TopLevelAS;
 		m_TopLevelAS = new TopLevelAS(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
@@ -734,9 +734,9 @@ void vkrtx::Context::update()
 	}
 }
 
-void vkrtx::Context::setProbePos(glm::uvec2 probePos) { m_ProbePos = probePos; }
+void vkrtx::Context::set_probe_index(glm::uvec2 probePos) { m_ProbePos = probePos; }
 
-rfw::RenderStats vkrtx::Context::getStats() const { return m_Stats; }
+rfw::RenderStats vkrtx::Context::get_stats() const { return m_Stats; }
 
 void vkrtx::Context::initRenderer()
 {
@@ -754,7 +754,7 @@ void vkrtx::Context::initRenderer()
 
 	// Set initial sky box, Vulkan does not like having unbound buffers
 	auto dummy = glm::vec3(0.0f);
-	setSkyDome({dummy}, 1, 1);
+	set_sky({dummy}, 1, 1);
 
 	m_Initialized = true;
 }

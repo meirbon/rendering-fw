@@ -44,8 +44,8 @@ void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 		FAILURE("Could not init GLEW in OptiX context (%i): %s", error, glewGetErrorString(error));
 
 	m_Window = window;
-	m_ScrWidth = m_Window->getWidth();
-	m_ScrHeight = m_Window->getHeight();
+	m_ScrWidth = m_Window->get_width();
+	m_ScrHeight = m_Window->get_height();
 	m_SampleIndex = 0;
 
 	// Create shader to render texture to screen
@@ -289,7 +289,7 @@ void OptiXContext::cleanup()
 	m_BlueNoise = nullptr;
 }
 
-void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
+void OptiXContext::render_frame(const Camera &camera, RenderStatus status)
 {
 	Counters *counters = m_Counters->getHostPointer();
 	if (status == Reset || m_ResetFrame)
@@ -299,7 +299,7 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 		m_Accumulator->clear_async();
 		m_SampleIndex = 0;
 
-		const auto view = camera.getView();
+		const auto view = camera.get_view();
 		*m_CameraView->getHostPointer() = view;
 		m_CameraView->copyToDeviceAsync();
 		const vec3 right = view.p2 - view.p1;
@@ -352,7 +352,7 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 		throw std::runtime_error(e.what());
 	}
 
-	glm::mat3 toEyeMatrix = transpose(inverse(camera.getMatrix()));
+	glm::mat3 toEyeMatrix = transpose(inverse(camera.get_matrix()));
 	uint pathLength = 0;
 
 	const auto pixelCount = static_cast<uint>(m_ScrWidth * m_ScrHeight);
@@ -452,7 +452,7 @@ void OptiXContext::renderFrame(const Camera &camera, RenderStatus status)
 	m_Counters->copyToDeviceAsync();
 }
 
-void OptiXContext::setMaterials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void OptiXContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	std::vector<rfw::DeviceMaterial> mats(materials.size());
 	memcpy(mats.data(), materials.data(), materials.size() * sizeof(rfw::Material));
@@ -494,7 +494,7 @@ void OptiXContext::setMaterials(const std::vector<rfw::DeviceMaterial> &material
 	::setMaterials(m_Materials->getDevicePointer());
 }
 
-void OptiXContext::setTextures(const std::vector<rfw::TextureData> &textures)
+void OptiXContext::set_textures(const std::vector<rfw::TextureData> &textures)
 {
 	m_TexDescriptors = textures;
 
@@ -568,7 +568,7 @@ void OptiXContext::setTextures(const std::vector<rfw::TextureData> &textures)
 	setUintTextures(m_UintTextures->getDevicePointer());
 }
 
-void OptiXContext::setMesh(const size_t index, const rfw::Mesh &mesh)
+void OptiXContext::set_mesh(const size_t index, const rfw::Mesh &mesh)
 {
 	m_AnyMeshChanged = true;
 
@@ -585,7 +585,7 @@ void OptiXContext::setMesh(const size_t index, const rfw::Mesh &mesh)
 	m_Meshes[index]->setData(mesh);
 }
 
-void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void OptiXContext::set_instance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
 {
 	try
 	{
@@ -645,7 +645,7 @@ void OptiXContext::setInstance(const size_t instanceIdx, const size_t meshIdx, c
 	}
 }
 
-void OptiXContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
+void OptiXContext::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	m_Skybox = new CUDABuffer<glm::vec3>(width * height, ON_DEVICE);
 	m_Skybox->copyToDeviceAsync(pixels.data(), width * height);
@@ -653,8 +653,8 @@ void OptiXContext::setSkyDome(const std::vector<glm::vec3> &pixels, size_t width
 	setSkyDimensions(static_cast<uint>(width), static_cast<uint>(height));
 }
 
-void OptiXContext::setLights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-							 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void OptiXContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
+							  const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
 {
 	CheckCUDA(cudaDeviceSynchronize());
 
@@ -742,22 +742,22 @@ void OptiXContext::update()
 	}
 }
 
-void OptiXContext::setProbePos(glm::uvec2 probePos)
+void OptiXContext::set_probe_index(glm::uvec2 probePos)
 {
 	Counters *counters = m_Counters->getHostPointer();
 	counters->probeIdx = probePos.x + probePos.y * m_ScrWidth;
 }
 
-rfw::RenderStats OptiXContext::getStats() const { return rfw::RenderStats(); }
+rfw::RenderStats OptiXContext::get_stats() const { return rfw::RenderStats(); }
 
-void OptiXContext::getProbeResults(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
+void OptiXContext::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
 {
 	*instanceIndex = m_ProbedInstance;
 	*primitiveIndex = m_ProbedPrim;
 	*distance = m_ProbedDistance;
 }
 
-rfw::AvailableRenderSettings OptiXContext::getAvailableSettings() const
+rfw::AvailableRenderSettings OptiXContext::get_settings() const
 {
 	AvailableRenderSettings settings;
 #if ALLOW_DENOISER
@@ -767,7 +767,7 @@ rfw::AvailableRenderSettings OptiXContext::getAvailableSettings() const
 	return settings;
 }
 
-void OptiXContext::setSetting(const rfw::RenderSetting &setting)
+void OptiXContext::set_setting(const rfw::RenderSetting &setting)
 {
 	if (setting.name == "DENOISE")
 		m_Denoise = (setting.value == "1");

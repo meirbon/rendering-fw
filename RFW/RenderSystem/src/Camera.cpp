@@ -15,24 +15,24 @@ void rfw::Camera::reset()
 	direction = DEFAULT_DIRECTION;
 }
 
-void Camera::lookAt(const glm::vec3 &O, const glm::vec3 &T)
+void Camera::look_at(const glm::vec3 &O, const glm::vec3 &T)
 {
 	position = O;
 	direction = normalize(T - O);
 }
 
-void Camera::translateRelative(const glm::vec3 &T)
+void Camera::translate_relative(const glm::vec3 &T)
 {
 	glm::vec3 right, up, forward;
-	calculateMatrix(right, up, forward);
+	calculate_matrix(right, up, forward);
 	glm::vec3 delta = T.x * right + T.y * up + T.z * forward;
 	position += delta;
 }
 
-void Camera::translateTarget(const glm::vec3 &T)
+void Camera::translate_target(const glm::vec3 &T)
 {
 	glm::vec3 right, up, forward;
-	calculateMatrix(right, up, forward);
+	calculate_matrix(right, up, forward);
 	direction = normalize(direction + T.x * right + T.y * up + T.z * forward);
 }
 
@@ -56,7 +56,7 @@ rfw::Camera rfw::Camera::deserialize(std::string_view file)
 	try
 	{
 		const auto data = rfw::utils::Serializable<rfw::Camera, 1>::deserialize(rfw::utils::file::read_binary(file));
-		return *data.getData();
+		return *data.get_data();
 	}
 	catch (const std::exception &e)
 	{
@@ -65,11 +65,11 @@ rfw::Camera rfw::Camera::deserialize(std::string_view file)
 	}
 }
 
-rfw::CameraView Camera::getView() const
+rfw::CameraView Camera::get_view() const
 {
 	rfw::CameraView view;
 	glm::vec3 right, up, forward;
-	calculateMatrix(right, up, forward);
+	calculate_matrix(right, up, forward);
 	view.pos = position;
 	view.spreadAngle = (FOV * glm::pi<float>() / 180) / float(pixelCount.y);
 	const float screenSize = tan(FOV / 2.0f / (180.0f / glm::pi<float>()));
@@ -81,7 +81,7 @@ rfw::CameraView Camera::getView() const
 	return view;
 }
 
-mat4 Camera::getMatrix(const float nearPlane, const float farPlane) const
+mat4 Camera::get_matrix(const float nearPlane, const float farPlane) const
 {
 	const vec3 up = vec3(0, 1, 0);
 	const vec3 forward = -direction;
@@ -100,7 +100,7 @@ void Camera::resize(int w, int h)
 	pixelCount = ivec2(w, h);
 }
 
-void Camera::calculateMatrix(glm::vec3 &x, glm::vec3 &y, glm::vec3 &z) const
+void Camera::calculate_matrix(glm::vec3 &x, glm::vec3 &y, glm::vec3 &z) const
 {
 	y = glm::vec3(0.0f, 1.0f, 0.0f);
 	z = direction; // assumed to be normalized at all times

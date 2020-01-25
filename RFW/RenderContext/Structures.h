@@ -1,6 +1,8 @@
 #pragma once
 
-#include <MathIncludes.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+using namespace glm;
 #include <Settings.h>
 
 #ifndef __CUDACC__

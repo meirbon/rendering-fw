@@ -41,29 +41,29 @@ App::App() : Application(512, 512, "RenderingFW", VULKANRTX)
 	camera.brightness = 0.0f;
 	camera.contrast = 0.5f;
 	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
-		mouseX = static_cast<uint>(x * double(window.getWidth()));
-		mouseY = static_cast<uint>(y * double(window.getHeight()));
+		mouseX = static_cast<uint>(x * double(window.get_width()));
+		mouseY = static_cast<uint>(y * double(window.get_height()));
 	});
 }
 
 void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 {
-	rs->setSkybox("Envmaps/sky_15.hdr");
-	cesiumMan = rs->addObject("Models/CesiumMan/CesiumMan.gltf", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
-	pica = rs->addObject("Models/pica/scene.gltf");
+	rs->set_skybox("Envmaps/sky_15.hdr");
+	cesiumMan = rs->add_object("Models/CesiumMan/CesiumMan.gltf", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+	pica = rs->add_object("Models/pica/scene.gltf");
 
-	auto lightMaterial = rs->addMaterial(vec3(50), 1);
+	auto lightMaterial = rs->add_material(vec3(50), 1);
 
-	lightQuad = rs->addQuad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
-	lightQuadInstance = rs->addInstance(lightQuad);
-	pointLight = rs->addPointLight(vec3(-15, 10, -5), vec3(10));
-	spotLight = rs->addSpotLight(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
+	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
+	lightQuadInstance = rs->add_instance(lightQuad);
+	pointLight = rs->add_point_light(vec3(-15, 10, -5), vec3(10));
+	spotLight = rs->add_spot_light(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
 }
 
 void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
 {
-	cesiumManInstance = rs->addInstance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
-	picaInstance = rs->addInstance(pica);
+	cesiumManInstance = rs->add_instance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
+	picaInstance = rs->add_instance(pica);
 
 	picaInstance.rotate(180.0f, vec3(0, 1, 0));
 	picaInstance.update();
@@ -132,16 +132,16 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 	if (any(notEqual(translation, vec3(0.0f))))
 	{
 		camChanged = true;
-		camera.translateRelative(translation);
+		camera.translate_relative(translation);
 	}
 	if (any(notEqual(target, vec3(0.0f))))
 	{
 		camChanged = true;
-		camera.translateTarget(target);
+		camera.translate_target(target);
 	}
 
 	if (window.mousePressed(Mousekey::BUTTON_RIGHT))
-		rs->setProbeIndex(uvec2(mouseX, mouseY));
+		rs->set_probe_index(uvec2(mouseX, mouseY));
 
 	if (camChanged)
 		status = Reset;

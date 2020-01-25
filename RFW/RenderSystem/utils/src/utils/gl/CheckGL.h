@@ -1,7 +1,7 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <utils/Logger.h>
+#include "../Logger.h"
 
 namespace rfw::utils
 {

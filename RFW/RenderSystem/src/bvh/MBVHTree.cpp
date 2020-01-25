@@ -1,4 +1,7 @@
-#include "../rfw.h"
+#include "BVH.h"
+
+#include <utils/Timer.h>
+#include <utils/Logger.h>
 
 using namespace glm;
 using namespace rfw;
@@ -34,7 +37,7 @@ void MBVHTree::construct_bvh(bool printBuildTime)
 
 	mbvh_nodes.resize(pool_ptr);
 	if (printBuildTime)
-		std::cout << "Building MBVH took: " << t.elapsed() << " ms. Poolptr: " << pool_ptr.load() << std::endl;
+		utils::logger::log("Building MBVH took: %f ms. Poolptr: %i", t.elapsed(), pool_ptr.load());
 
 #ifndef NDEBUG
 	mbvh_nodes[0].validate(mbvh_nodes, bvh->prim_indices, pool_ptr, bvh->face_count);
@@ -51,6 +54,51 @@ void MBVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
 	bvh->refit(vertices, indices);
 	construct_bvh();
+}
+
+bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx, glm::vec2 *bary)
+{
+	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx, mbvh_nodes.data(), bvh->prim_indices.data(), [&](uint primID) {
+		const vec3 &p0 = bvh->p0s[primID];
+		const vec3 &e1 = bvh->edge1s[primID];
+		const vec3 &e2 = bvh->edge2s[primID];
+		const vec3 h = cross(dir, e2);
+
+		const float a = dot(e1, h);
+		if (a > -1e-6f && a < 1e-6f)
+			return false;
+
+		const float f = 1.f / a;
+		const vec3 s = origin - p0;
+		const float u = f * dot(s, h);
+		if (u < 0.0f || u > 1.0f)
+			return false;
+
+		const vec3 q = cross(s, e1);
+		const float v = f * dot(dir, q);
+		if (v < 0.0f || u + v > 1.0f)
+			return false;
+
+		const float t = f * dot(e2, q);
+
+		if (t > t_min && *ray_t > t) // ray intersection
+		{
+			// Barycentrics
+			const vec3 p1 = e1 + p0;
+			const vec3 p2 = e2 + p0;
+
+			const vec3 p = origin + t * dir;
+			const vec3 N = normalize(cross(e1, e2));
+			const float areaABC = glm::dot(N, cross(e1, e2));
+			const float areaPBC = glm::dot(N, cross(p1 - p, p2 - p));
+			const float areaPCA = glm::dot(N, cross(p2 - p, p0 - p));
+			*bary = glm::vec2(areaPBC / areaABC, areaPCA / areaABC);
+			*ray_t = t;
+			return true;
+		}
+
+		return false;
+	});
 }
 
 bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx)

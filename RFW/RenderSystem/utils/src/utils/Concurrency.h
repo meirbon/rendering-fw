@@ -2,7 +2,7 @@
 
 #include "ThreadPool.h"
 
-#include <utils/Logger.h>
+#include "Logger.h"
 
 #ifdef _WIN32
 #include <ppl.h>

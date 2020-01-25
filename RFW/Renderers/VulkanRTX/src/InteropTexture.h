@@ -19,8 +19,8 @@ class InteropTexture
 	[[nodiscard]] vk::Image getImage() const { return m_Image; }
 	[[nodiscard]] vk::DeviceMemory getMemory() const { return m_Memory; }
 	[[nodiscard]] vk::DeviceSize getBufferSize() const { return m_Width * m_Height * 4 * sizeof(float); }
-	[[nodiscard]] uint32_t getWidth() const { return m_Width; }
-	[[nodiscard]] uint32_t getHeight() const { return m_Height; }
+	[[nodiscard]] uint32_t get_width() const { return m_Width; }
+	[[nodiscard]] uint32_t get_height() const { return m_Height; }
 	[[nodiscard]] uint32_t getID() const { return m_TexID; }
 	static std::vector<const char *> getRequiredExtensions();
 	void resize(uint32_t width, uint32_t height, bool deleteOldGLTexture = false);

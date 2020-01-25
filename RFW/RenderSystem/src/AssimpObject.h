@@ -199,25 +199,25 @@ class AssimpObject : public SceneTriangles
 				 int material = -1);
 	~AssimpObject() override = default;
 
-	void transformTo(float timeInSeconds) override;
+	void set_time(float timeInSeconds) override;
 	void updateTriangles();
 	void updateTriangles(const std::vector<glm::vec2> &uvs);
 
 	size_t traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::map<std::string, uint> *nodeNameMapping);
 
-	Triangle *getTriangles() override { return m_Triangles.data(); }
-	glm::vec4 *getVertices() override { return m_CurrentVertices.data(); }
+	Triangle *get_triangles() override { return m_Triangles.data(); }
+	glm::vec4 *get_vertices() override { return m_CurrentVertices.data(); }
 
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &getMeshes() const override;
-	[[nodiscard]] const std::vector<rfw::simd::matrix4> &getMeshTransforms() const override;
-	[[nodiscard]] std::vector<bool> getChangedMeshes() override;
-	[[nodiscard]] std::vector<bool> getChangedMeshMatrices() override;
+	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const override;
+	[[nodiscard]] const std::vector<rfw::simd::matrix4> &get_mesh_matrices() const override;
+	[[nodiscard]] std::vector<bool> get_changed_meshes() override;
+	[[nodiscard]] std::vector<bool> get_changed_matrices() override;
 
-	[[nodiscard]] bool isAnimated() const override { return !m_Animations.empty(); }
-	[[nodiscard]] const std::vector<std::vector<int>> &getLightIndices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
+	[[nodiscard]] bool is_animated() const override { return !m_Animations.empty(); }
+	[[nodiscard]] const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
 
   protected:
-	void prepareMeshes(RenderSystem &rs) override;
+	void prepare_meshes(RenderSystem &rs) override;
 
   private:
 	std::vector<std::vector<int>> m_LightIndices;

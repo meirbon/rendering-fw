@@ -20,6 +20,9 @@ class AABB
 	int intersect4(const float origin_x[4], const float origin_y[4], const float origin_z[4], const float dir_x[4],
 				   const float dir_y[4], const float dir_z[4], float t[4], simd::vector4 *t_min,
 				   simd::vector4 *t_max) const;
+	int intersect8(const float origin_x[8], const float origin_y[8], const float origin_z[8], const float dir_x[8],
+				   const float dir_y[8], const float dir_z[8], float t[8], simd::vector8 *t_min,
+				   simd::vector8 *t_max) const;
 
 	void reset();
 	[[nodiscard]] bool contains(const simd::vector4 &p) const;

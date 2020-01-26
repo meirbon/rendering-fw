@@ -48,43 +48,43 @@ _PI32_CONST(2, 2);
 _PI32_CONST(4, 4);
 _PI32_CONST(0x7f, 0x7f);
 
-_PS_CONST(cephes_SQRTHF, 0.707106781186547524);
-_PS_CONST(cephes_log_p0, 7.0376836292E-2);
-_PS_CONST(cephes_log_p1, -1.1514610310E-1);
-_PS_CONST(cephes_log_p2, 1.1676998740E-1);
-_PS_CONST(cephes_log_p3, -1.2420140846E-1);
-_PS_CONST(cephes_log_p4, +1.4249322787E-1);
-_PS_CONST(cephes_log_p5, -1.6668057665E-1);
-_PS_CONST(cephes_log_p6, +2.0000714765E-1);
-_PS_CONST(cephes_log_p7, -2.4999993993E-1);
-_PS_CONST(cephes_log_p8, +3.3333331174E-1);
-_PS_CONST(cephes_log_q1, -2.12194440e-4);
-_PS_CONST(cephes_log_q2, 0.693359375);
+_PS_CONST(cephes_SQRTHF, 0.707106781186547524f);
+_PS_CONST(cephes_log_p0, 7.0376836292E-2f);
+_PS_CONST(cephes_log_p1, -1.1514610310E-1f);
+_PS_CONST(cephes_log_p2, 1.1676998740E-1f);
+_PS_CONST(cephes_log_p3, -1.2420140846E-1f);
+_PS_CONST(cephes_log_p4, +1.4249322787E-1f);
+_PS_CONST(cephes_log_p5, -1.6668057665E-1f);
+_PS_CONST(cephes_log_p6, +2.0000714765E-1f);
+_PS_CONST(cephes_log_p7, -2.4999993993E-1f);
+_PS_CONST(cephes_log_p8, +3.3333331174E-1f);
+_PS_CONST(cephes_log_q1, -2.12194440e-4f);
+_PS_CONST(cephes_log_q2, 0.693359375f);
 
 _PS_CONST(exp_hi, 88.3762626647949f);
 _PS_CONST(exp_lo, -88.3762626647949f);
 
-_PS_CONST(cephes_LOG2EF, 1.44269504088896341);
-_PS_CONST(cephes_exp_C1, 0.693359375);
-_PS_CONST(cephes_exp_C2, -2.12194440e-4);
+_PS_CONST(cephes_LOG2EF, 1.44269504088896341f);
+_PS_CONST(cephes_exp_C1, 0.693359375f);
+_PS_CONST(cephes_exp_C2, -2.12194440e-4f);
 
-_PS_CONST(cephes_exp_p0, 1.9875691500E-4);
-_PS_CONST(cephes_exp_p1, 1.3981999507E-3);
-_PS_CONST(cephes_exp_p2, 8.3334519073E-3);
-_PS_CONST(cephes_exp_p3, 4.1665795894E-2);
-_PS_CONST(cephes_exp_p4, 1.6666665459E-1);
-_PS_CONST(cephes_exp_p5, 5.0000001201E-1);
+_PS_CONST(cephes_exp_p0, 1.9875691500E-4f);
+_PS_CONST(cephes_exp_p1, 1.3981999507E-3f);
+_PS_CONST(cephes_exp_p2, 8.3334519073E-3f);
+_PS_CONST(cephes_exp_p3, 4.1665795894E-2f);
+_PS_CONST(cephes_exp_p4, 1.6666665459E-1f);
+_PS_CONST(cephes_exp_p5, 5.0000001201E-1f);
 
-_PS_CONST(minus_cephes_DP1, -0.78515625);
-_PS_CONST(minus_cephes_DP2, -2.4187564849853515625e-4);
-_PS_CONST(minus_cephes_DP3, -3.77489497744594108e-8);
-_PS_CONST(sincof_p0, -1.9515295891E-4);
-_PS_CONST(sincof_p1, 8.3321608736E-3);
-_PS_CONST(sincof_p2, -1.6666654611E-1);
-_PS_CONST(coscof_p0, 2.443315711809948E-005);
-_PS_CONST(coscof_p1, -1.388731625493765E-003);
-_PS_CONST(coscof_p2, 4.166664568298827E-002);
-_PS_CONST(cephes_FOPI, 1.27323954473516); // 4 / M_PI
+_PS_CONST(minus_cephes_DP1, -0.78515625f);
+_PS_CONST(minus_cephes_DP2, -2.4187564849853515625e-4f);
+_PS_CONST(minus_cephes_DP3, -3.77489497744594108e-8f);
+_PS_CONST(sincof_p0, -1.9515295891E-4f);
+_PS_CONST(sincof_p1, 8.3321608736E-3f);
+_PS_CONST(sincof_p2, -1.6666654611E-1f);
+_PS_CONST(coscof_p0, 2.443315711809948E-005f);
+_PS_CONST(coscof_p1, -1.388731625493765E-003f);
+_PS_CONST(coscof_p2, 4.166664568298827E-002f);
+_PS_CONST(cephes_FOPI, 1.27323954473516f); // 4 / M_PI
 
 struct matrix4
 {
@@ -1090,6 +1090,399 @@ inline vector4 operator!=(const __m128 &op1, const vector4 &op2) { return _mm_cm
 inline vector4 operator&(const __m128 &op1, const vector4 &op2) { return _mm_and_ps(op1, op2.vec_4); }
 inline vector4 operator|(const __m128 &op1, const vector4 &op2) { return _mm_or_ps(op1, op2.vec_4); }
 
+struct vector8
+{
+	union {
+		glm::vec4 vec[2];
+		__m128 vec_4[2];
+		vector4 vec4[2];
+		__m256 vec_8;
+	};
+
+	inline vector8(const vector4 &a, const vector4 &b)
+	{
+		vec4[0] = a;
+		vec4[1] = b;
+	}
+	inline vector8(const __m256 &a) : vec_8(a) {}
+	inline vector8(const __m128 &a4, const __m128 &b4) : vec_8(_mm256_set_m128(b4, a4)) {}
+	inline vector8(const __m128i &a4, const __m128i &b4) : vector8(_mm_castsi128_ps(a4), _mm_castsi128_ps(b4)) {}
+	inline explicit operator __m256() const { return vec_8; }
+
+	inline static vector8 zero() { return vector8(_mm256_setzero_ps()); }
+
+	inline vector8() = default;
+	inline vector8(const float *a) : vec_8(_mm256_load_ps(a)) {}
+	inline vector8(const float a) : vec_8(_mm256_set1_ps(a)) {}
+	inline vector8(const float a, const float b, const float c, const float d, const float e, const float f,
+				   const float g, const float h)
+		: vec_8(_mm256_set_ps(h, g, f, e, d, c, b, a))
+	{
+	}
+	inline vector8(const glm::vec2 &v1, const glm::vec2 &v2, const glm::vec2 &v3, const glm::vec2 &v4)
+	{
+		vec_8 = _mm256_set_ps(v4.y, v4.x, v3.y, v3.x, v2.y, v2.x, v1.y, v1.x);
+	}
+	inline vector8(const glm::vec3 &v, const float w, const glm::vec3 &v2, const float w2)
+	{
+		vec_8 = _mm256_set_ps(w2, v2.z, v2.y, v2.x, w, v.z, v.y, v.x);
+	}
+	inline vector8(const glm::vec4 &v, const glm::vec4 &v2)
+	{
+		vec_8 = _mm256_set_ps(v2.w, v2.z, v2.y, v2.x, v.w, v.z, v.y, v.x);
+	}
+
+	inline const float &x1() const { return vec[0].x; }
+	inline const float &y1() const { return vec[0].y; }
+	inline const float &z1() const { return vec[0].z; }
+	inline const float &w1() const { return vec[0].w; }
+
+	inline const float &x2() const { return vec[1].x; }
+	inline const float &y2() const { return vec[1].y; }
+	inline const float &z2() const { return vec[1].z; }
+	inline const float &w2() const { return vec[1].w; }
+
+	inline const vector4 &vector4(int idx) const { return vec4[idx]; }
+
+	inline float &x1() { return vec[0].x; }
+	inline float &y1() { return vec[0].y; }
+	inline float &z1() { return vec[0].z; }
+	inline float &w1() { return vec[0].w; }
+
+	inline float &x2() { return vec[1].x; }
+	inline float &y2() { return vec[1].y; }
+	inline float &z2() { return vec[1].z; }
+	inline float &w2() { return vec[1].w; }
+
+	inline vector8 min(const vector8 &op) const { return _mm256_min_ps(vec_8, op.vec_8); }
+	inline vector8 max(const vector8 &op) const { return _mm256_max_ps(vec_8, op.vec_8); }
+
+	inline vector8 operator*(const vector8 &op) const { return _mm256_mul_ps(vec_8, op.vec_8); }
+	inline vector8 operator/(const vector8 &op) const { return _mm256_div_ps(vec_8, op.vec_8); }
+	inline vector8 operator+(const vector8 &op) const { return _mm256_add_ps(vec_8, op.vec_8); }
+	inline vector8 operator-(const vector8 &op) const { return _mm256_sub_ps(vec_8, op.vec_8); }
+	inline vector8 operator>(const vector8 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpgt_ps(vec_4[0], op.vec_4[0]);
+		result.vec_4[1] = _mm_cmpgt_ps(vec_4[1], op.vec_4[1]);
+		return result;
+	}
+	inline vector8 operator<(const vector8 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmplt_ps(vec_4[0], op.vec_4[0]);
+		result.vec_4[1] = _mm_cmplt_ps(vec_4[1], op.vec_4[1]);
+		return result;
+	}
+	inline vector8 operator>=(const vector8 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpge_ps(vec_4[0], op.vec_4[0]);
+		result.vec_4[1] = _mm_cmpge_ps(vec_4[1], op.vec_4[1]);
+		return result;
+	}
+	inline vector8 operator<=(const vector8 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmple_ps(vec_4[0], op.vec_4[0]);
+		result.vec_4[1] = _mm_cmple_ps(vec_4[1], op.vec_4[1]);
+		return result;
+	}
+	inline vector8 operator==(const vector8 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpeq_ps(vec_4[0], op.vec_4[0]);
+		result.vec_4[1] = _mm_cmpeq_ps(vec_4[1], op.vec_4[1]);
+		return result;
+	}
+	inline vector8 operator!=(const vector8 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpneq_ps(vec_4[0], op.vec_4[0]);
+		result.vec_4[1] = _mm_cmpneq_ps(vec_4[1], op.vec_4[1]);
+		return result;
+	}
+	inline vector8 operator&(const vector8 &op) const { return _mm256_and_ps(vec_8, op.vec_8); }
+	inline vector8 operator|(const vector8 &op) const { return _mm256_or_ps(vec_8, op.vec_8); }
+
+	inline vector8 operator*(const __m256 &op) const { return _mm256_mul_ps(vec_8, op); }
+	inline vector8 operator/(const __m256 &op) const { return _mm256_div_ps(vec_8, op); }
+	inline vector8 operator+(const __m256 &op) const { return _mm256_add_ps(vec_8, op); }
+	inline vector8 operator-(const __m256 &op) const { return _mm256_sub_ps(vec_8, op); }
+	inline vector8 operator>(const __m256 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpgt_ps(vec_4[0], _mm256_extractf128_ps(op, 0));
+		result.vec_4[1] = _mm_cmpgt_ps(vec_4[1], _mm256_extractf128_ps(op, 1));
+		return result;
+	}
+	inline vector8 operator<(const __m256 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmplt_ps(vec_4[0], _mm256_extractf128_ps(op, 0));
+		result.vec_4[1] = _mm_cmplt_ps(vec_4[1], _mm256_extractf128_ps(op, 1));
+		return result;
+	}
+	inline vector8 operator>=(const __m256 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpge_ps(vec_4[0], _mm256_extractf128_ps(op, 0));
+		result.vec_4[1] = _mm_cmpge_ps(vec_4[1], _mm256_extractf128_ps(op, 1));
+		return result;
+	}
+	inline vector8 operator<=(const __m256 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmple_ps(vec_4[0], _mm256_extractf128_ps(op, 0));
+		result.vec_4[1] = _mm_cmple_ps(vec_4[1], _mm256_extractf128_ps(op, 1));
+		return result;
+	}
+	inline vector8 operator==(const __m256 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpeq_ps(vec_4[0], _mm256_extractf128_ps(op, 0));
+		result.vec_4[1] = _mm_cmpeq_ps(vec_4[1], _mm256_extractf128_ps(op, 1));
+		return result;
+	}
+	inline vector8 operator!=(const __m256 &op) const
+	{
+		vector8 result;
+		result.vec_4[0] = _mm_cmpneq_ps(vec_4[0], _mm256_extractf128_ps(op, 0));
+		result.vec_4[1] = _mm_cmpneq_ps(vec_4[1], _mm256_extractf128_ps(op, 1));
+		return result;
+	}
+	inline vector8 operator&(const __m256 &op) const { return _mm256_and_ps(vec_8, op); }
+	inline vector8 operator|(const __m256 &op) const { return _mm256_or_ps(vec_8, op); }
+
+	inline void operator*=(const vector8 &op) { vec_8 = _mm256_mul_ps(vec_8, op.vec_8); }
+	inline void operator/=(const vector8 &op) { vec_8 = _mm256_div_ps(vec_8, op.vec_8); }
+	inline void operator+=(const vector8 &op) { vec_8 = _mm256_add_ps(vec_8, op.vec_8); }
+	inline void operator-=(const vector8 &op) { vec_8 = _mm256_sub_ps(vec_8, op.vec_8); }
+	inline void operator&=(const vector8 &op) { vec_8 = _mm256_and_ps(vec_8, op.vec_8); }
+	inline void operator|=(const vector8 &op) { vec_8 = _mm256_or_ps(vec_8, op.vec_8); }
+
+	inline void operator*=(const __m256 &op) { vec_8 = _mm256_mul_ps(vec_8, op); }
+	inline void operator/=(const __m256 &op) { vec_8 = _mm256_div_ps(vec_8, op); }
+	inline void operator+=(const __m256 &op) { vec_8 = _mm256_add_ps(vec_8, op); }
+	inline void operator-=(const __m256 &op) { vec_8 = _mm256_sub_ps(vec_8, op); }
+	inline void operator&=(const __m256 &op) { vec_8 = _mm256_and_ps(vec_8, op); }
+	inline void operator|=(const __m256 &op) { vec_8 = _mm256_or_ps(vec_8, op); }
+
+	inline int move_mask() const { return _mm256_movemask_ps(vec_8); }
+
+	inline void write_to(float *loc) const { _mm256_store_ps(loc, vec_8); }
+	inline void write_to(float *loc, const vector8 &mask) const
+	{
+		_mm256_maskstore_ps(loc, _mm256_castps_si256(mask.vec_8), vec_8);
+	}
+	inline void store(const vector8 &result, const vector8 &mask)
+	{
+		_mm_maskstore_ps(value_ptr(vec[0]), _mm_castps_si128(mask.vec_4[0]), result.vec_4[0]);
+		_mm_maskstore_ps(value_ptr(vec[1]), _mm_castps_si128(mask.vec_4[1]), result.vec_4[1]);
+	}
+};
+
+inline vector8 operator*(const vector8 &op1, const float op2) { return _mm256_mul_ps(op1.vec_8, _mm256_set1_ps(op2)); }
+inline vector8 operator/(const vector8 &op1, const float op2) { return _mm256_div_ps(op1.vec_8, _mm256_set1_ps(op2)); }
+inline vector8 operator+(const vector8 &op1, const float op2) { return _mm256_add_ps(op1.vec_8, _mm256_set1_ps(op2)); }
+inline vector8 operator-(const vector8 &op1, const float op2) { return _mm256_sub_ps(op1.vec_8, _mm256_set1_ps(op2)); }
+inline vector8 operator>(const vector8 &op1, const float op2)
+{
+
+	vector8 result;
+	result.vec_4[0] = _mm_cmpgt_ps(op1.vec_4[0], _mm_set1_ps(op2));
+	result.vec_4[1] = _mm_cmpgt_ps(op1.vec_4[1], _mm_set1_ps(op2));
+	return result;
+}
+inline vector8 operator<(const vector8 &op1, const float op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmplt_ps(op1.vec_4[0], _mm_set1_ps(op2));
+	result.vec_4[1] = _mm_cmplt_ps(op1.vec_4[1], _mm_set1_ps(op2));
+	return result;
+}
+inline vector8 operator>=(const vector8 &op1, const float op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpge_ps(op1.vec_4[0], _mm_set1_ps(op2));
+	result.vec_4[1] = _mm_cmpge_ps(op1.vec_4[1], _mm_set1_ps(op2));
+	return result;
+}
+inline vector8 operator<=(const vector8 &op1, const float op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmplt_ps(op1.vec_4[0], _mm_set1_ps(op2));
+	result.vec_4[1] = _mm_cmplt_ps(op1.vec_4[1], _mm_set1_ps(op2));
+	return result;
+}
+inline vector8 operator==(const vector8 &op1, const float op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpeq_ps(op1.vec_4[0], _mm_set1_ps(op2));
+	result.vec_4[1] = _mm_cmpeq_ps(op1.vec_4[1], _mm_set1_ps(op2));
+	return result;
+}
+inline vector8 operator!=(const vector8 &op1, const float op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpneq_ps(op1.vec_4[0], _mm_set1_ps(op2));
+	result.vec_4[1] = _mm_cmpneq_ps(op1.vec_4[1], _mm_set1_ps(op2));
+	return result;
+}
+inline vector8 operator&(const vector8 &op1, const float op2) { return _mm256_and_ps(op1.vec_8, _mm256_set1_ps(op2)); }
+inline vector8 operator|(const vector8 &op1, const float op2) { return _mm256_or_ps(op1.vec_8, _mm256_set1_ps(op2)); }
+
+inline vector8 operator*(const float op1, const vector8 &op2) { return _mm256_mul_ps(_mm256_set1_ps(op1), op2.vec_8); }
+inline vector8 operator/(const float op1, const vector8 &op2) { return _mm256_div_ps(_mm256_set1_ps(op1), op2.vec_8); }
+inline vector8 operator+(const float op1, const vector8 &op2) { return _mm256_add_ps(_mm256_set1_ps(op1), op2.vec_8); }
+inline vector8 operator-(const float op1, const vector8 &op2) { return _mm256_sub_ps(_mm256_set1_ps(op1), op2.vec_8); }
+inline vector8 operator>(const float op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpgt_ps(_mm_set1_ps(op1), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpgt_ps(_mm_set1_ps(op1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator<(const float op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmplt_ps(_mm_set1_ps(op1), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmplt_ps(_mm_set1_ps(op1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator>=(const float op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpge_ps(_mm_set1_ps(op1), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpge_ps(_mm_set1_ps(op1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator<=(const float op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmple_ps(_mm_set1_ps(op1), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmple_ps(_mm_set1_ps(op1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator==(const float op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpeq_ps(_mm_set1_ps(op1), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpeq_ps(_mm_set1_ps(op1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator!=(const float op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpneq_ps(_mm_set1_ps(op1), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpneq_ps(_mm_set1_ps(op1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator&(const float op1, const vector8 &op2) { return _mm256_and_ps(_mm256_set1_ps(op1), op2.vec_8); }
+inline vector8 operator|(const float op1, const vector8 &op2) { return _mm256_or_ps(_mm256_set1_ps(op1), op2.vec_8); }
+
+inline vector8 operator*(const vector8 &op1, const __m256 &op2) { return _mm256_mul_ps(op1.vec_8, op2); }
+inline vector8 operator/(const vector8 &op1, const __m256 &op2) { return _mm256_div_ps(op1.vec_8, op2); }
+inline vector8 operator+(const vector8 &op1, const __m256 &op2) { return _mm256_add_ps(op1.vec_8, op2); }
+inline vector8 operator-(const vector8 &op1, const __m256 &op2) { return _mm256_sub_ps(op1.vec_8, op2); }
+inline vector8 operator>(const vector8 &op1, const __m256 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpgt_ps(_mm256_extractf128_ps(op2, 0), op1.vec_4[0]);
+	result.vec_4[1] = _mm_cmpgt_ps(_mm256_extractf128_ps(op2, 1), op1.vec_4[1]);
+	return result;
+}
+inline vector8 operator<(const vector8 &op1, const __m256 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmplt_ps(_mm256_extractf128_ps(op2, 0), op1.vec_4[0]);
+	result.vec_4[1] = _mm_cmplt_ps(_mm256_extractf128_ps(op2, 1), op1.vec_4[1]);
+	return result;
+}
+inline vector8 operator>=(const vector8 &op1, const __m256 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpge_ps(_mm256_extractf128_ps(op2, 0), op1.vec_4[0]);
+	result.vec_4[1] = _mm_cmpge_ps(_mm256_extractf128_ps(op2, 1), op1.vec_4[1]);
+	return result;
+}
+inline vector8 operator<=(const vector8 &op1, const __m256 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmple_ps(_mm256_extractf128_ps(op2, 0), op1.vec_4[0]);
+	result.vec_4[1] = _mm_cmple_ps(_mm256_extractf128_ps(op2, 1), op1.vec_4[1]);
+	return result;
+}
+inline vector8 operator==(const vector8 &op1, const __m256 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpeq_ps(_mm256_extractf128_ps(op2, 0), op1.vec_4[0]);
+	result.vec_4[1] = _mm_cmpeq_ps(_mm256_extractf128_ps(op2, 1), op1.vec_4[1]);
+	return result;
+}
+inline vector8 operator!=(const vector8 &op1, const __m256 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpneq_ps(_mm256_extractf128_ps(op2, 0), op1.vec_4[0]);
+	result.vec_4[1] = _mm_cmpneq_ps(_mm256_extractf128_ps(op2, 1), op1.vec_4[1]);
+	return result;
+}
+inline vector8 operator&(const vector8 &op1, const __m256 &op2) { return _mm256_and_ps(op1.vec_8, op2); }
+inline vector8 operator|(const vector8 &op1, const __m256 &op2) { return _mm256_or_ps(op1.vec_8, op2); }
+
+inline vector8 operator*(const __m256 &op1, const vector8 &op2) { return _mm256_mul_ps(op1, op2.vec_8); }
+inline vector8 operator/(const __m256 &op1, const vector8 &op2) { return _mm256_div_ps(op1, op2.vec_8); }
+inline vector8 operator+(const __m256 &op1, const vector8 &op2) { return _mm256_add_ps(op1, op2.vec_8); }
+inline vector8 operator-(const __m256 &op1, const vector8 &op2) { return _mm256_sub_ps(op1, op2.vec_8); }
+inline vector8 operator>(const __m256 &op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpgt_ps(_mm256_extractf128_ps(op1, 0), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpgt_ps(_mm256_extractf128_ps(op1, 1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator<(const __m256 &op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmplt_ps(_mm256_extractf128_ps(op1, 0), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmplt_ps(_mm256_extractf128_ps(op1, 1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator>=(const __m256 &op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpge_ps(_mm256_extractf128_ps(op1, 0), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpge_ps(_mm256_extractf128_ps(op1, 1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator<=(const __m256 &op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmple_ps(_mm256_extractf128_ps(op1, 0), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmple_ps(_mm256_extractf128_ps(op1, 1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator==(const __m256 &op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpeq_ps(_mm256_extractf128_ps(op1, 0), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpeq_ps(_mm256_extractf128_ps(op1, 1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator!=(const __m256 &op1, const vector8 &op2)
+{
+	vector8 result;
+	result.vec_4[0] = _mm_cmpneq_ps(_mm256_extractf128_ps(op1, 0), op2.vec_4[0]);
+	result.vec_4[1] = _mm_cmpneq_ps(_mm256_extractf128_ps(op1, 1), op2.vec_4[1]);
+	return result;
+}
+inline vector8 operator&(const __m256 &op1, const vector8 &op2) { return _mm256_and_ps(op1, op2.vec_8); }
+inline vector8 operator|(const __m256 &op1, const vector8 &op2) { return _mm256_or_ps(op1, op2.vec_8); }
+
+inline vector8 min(const vector8 &a, const vector8 &b) { return _mm256_min_ps(a.vec_8, b.vec_8); }
+inline vector8 max(const vector8 &a, const vector8 &b) { return _mm256_max_ps(a.vec_8, b.vec_8); }
+
 inline vector4 log(const vector4 &op)
 {
 	__m128 x = op.vec_4;
@@ -1490,5 +1883,6 @@ inline vector4 acos(const vector4 &op)
 
 static const vector4 ZERO4 = _mm_setzero_ps();
 static const vector4 ONE4 = _mm_set1_ps(1.0f);
+static const vector8 ONE8 = _mm256_set1_ps(1.0f);
 } // namespace simd
 } // namespace rfw

@@ -81,17 +81,14 @@ bool AABB::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t
 	return (*tmax) > (*tmin) && (*tmin) < t;
 }
 
-int AABB::intersect4(const float origin_x[4], const float origin_y[4], const float origin_z[4], const float dir_x[4],
-					 const float dir_y[4], const float dir_z[4], float t[4], simd::vector4 *tmin,
-					 simd::vector4 *tmax) const
+int AABB::intersect4(const float origin_x[4], const float origin_y[4], const float origin_z[4],
+					 const float inv_direction_x4[4], const float inv_direction_y4[4], const float inv_direction_z4[4],
+					 float t[4], simd::vector4 *tmin, simd::vector4 *tmax) const
 {
 	using namespace simd;
 
 	// const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
 	// const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
-	const vector4 inv_direction_x4 = ONE4 / vector4(dir_x);
-	const vector4 inv_direction_y4 = ONE4 / vector4(dir_y);
-	const vector4 inv_direction_z4 = ONE4 / vector4(dir_z);
 
 	// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
 	const vector4 t1_4_x = (vector4(bmin[0]) - vector4(origin_x)) * inv_direction_x4;
@@ -120,6 +117,45 @@ int AABB::intersect4(const float origin_x[4], const float origin_y[4], const flo
 
 	// return (*tmax) > (*tmin) && (*tmin) < t;
 	const vector4 mask = (*tmax > *tmin) & (*tmin < vector4(t));
+	return mask.move_mask();
+}
+
+int AABB::intersect8(const float origin_x[8], const float origin_y[8], const float origin_z[8],
+					 const float inv_direction_x8[8], const float inv_direction_y8[8], const float inv_direction_z8[8],
+					 float t[8], simd::vector8 *t_min, simd::vector8 *t_max) const
+{
+	using namespace simd;
+
+	// const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
+	// const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
+
+	// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
+	const vector8 t1_8_x = (vector8(vector4(bmin[0]), vector4(bmin[0])) - vector8(origin_x)) * inv_direction_x8;
+	const vector8 t1_8_y = (vector8(vector4(bmin[1]), vector4(bmin[1])) - vector8(origin_y)) * inv_direction_y8;
+	const vector8 t1_8_z = (vector8(vector4(bmin[2]), vector4(bmin[2])) - vector8(origin_z)) * inv_direction_z8;
+
+	// const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
+	const vector8 t2_8_x = (vector8(vector4(bmax[0]), vector4(bmax[0])) - vector8(origin_x)) * inv_direction_x8;
+	const vector8 t2_8_y = (vector8(vector4(bmax[1]), vector4(bmax[1])) - vector8(origin_y)) * inv_direction_y8;
+	const vector8 t2_8_z = (vector8(vector4(bmax[2]), vector4(bmax[2])) - vector8(origin_z)) * inv_direction_z8;
+
+	// const glm::vec3 min = glm::min(t1, t2);
+	const vector8 tmin_x4 = min(t1_8_x, t2_8_x);
+	const vector8 tmin_y4 = min(t1_8_y, t2_8_y);
+	const vector8 tmin_z4 = min(t1_8_z, t2_8_z);
+
+	// const glm::vec3 max = glm::max(t1, t2);
+	const vector8 tmax_x4 = max(t1_8_x, t2_8_x);
+	const vector8 tmax_y4 = max(t1_8_y, t2_8_y);
+	const vector8 tmax_z4 = max(t1_8_z, t2_8_z);
+
+	//*t_min = glm::max(min.x, glm::max(min.y, min.z));
+	*t_min = max(tmin_x4, max(tmin_y4, tmin_z4));
+	//*t_max = glm::min(max.x, glm::min(max.y, max.z));
+	*t_max = min(tmax_x4, min(tmax_y4, tmax_z4));
+
+	// return (*tmax) > (*tmin) && (*tmin) < t;
+	const vector8 mask = (*t_max > *t_min) & (*t_min < vector8(t));
 	return mask.move_mask();
 }
 

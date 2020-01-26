@@ -238,11 +238,17 @@ struct BVHNode
 							 int primID[4], const BVHNode *nodes, const unsigned int *primIndices, __m128 *hit_mask,
 							 const FUNC &intersection)
 	{
+		using namespace simd;
+
 		BVHTraversal todo[32];
 		int stackPtr = 0;
 		int hitMask = 0;
 		simd::vector4 tNear1 = _mm_setzero_ps(), tFar1 = _mm_setzero_ps();
 		simd::vector4 tNear2 = _mm_setzero_ps(), tFar2 = _mm_setzero_ps();
+
+		const simd::vector4 inv_dir_x = ONE4 / vector4(dir_x);
+		const simd::vector4 inv_dir_y = ONE4 / vector4(dir_y);
+		const simd::vector4 inv_dir_z = ONE4 / vector4(dir_z);
 
 		todo[stackPtr].nodeIdx = 0;
 		while (stackPtr >= 0)
@@ -264,10 +270,14 @@ struct BVHNode
 			}
 			else
 			{
-				const int hitLeft = nodes[node.get_left_first()].bounds.intersect4(origin_x, origin_y, origin_z, dir_x,
-																				   dir_y, dir_z, t, &tNear2, &tFar2);
+				const int hitLeft = nodes[node.get_left_first()].bounds.intersect4(
+					origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
+					reinterpret_cast<const float *>(&inv_dir_y), reinterpret_cast<const float *>(&inv_dir_z), t,
+					&tNear1, &tFar1);
 				const int hitRight = nodes[node.get_left_first() + 1].bounds.intersect4(
-					origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, &tNear2, &tFar2);
+					origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
+					reinterpret_cast<const float *>(&inv_dir_y), reinterpret_cast<const float *>(&inv_dir_z), t,
+					&tNear2, &tFar2);
 
 				if (hitLeft > 0 && hitRight > 0)
 				{

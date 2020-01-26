@@ -14,7 +14,7 @@ class Xor128 : public rfw::utils::RandomGenerator
 	Xor128(unsigned int seed)
 	{
 		std::random_device mt_rd;
-		x = mt_rd() * seed;
+		x = mt_rd() * (seed + 1);
 	}
 
 	unsigned int RandomUint() override final

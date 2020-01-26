@@ -29,44 +29,43 @@ void MBVHNode::set_bounds(unsigned int nodeIdx, const AABB &bounds)
 	this->bmaxz[nodeIdx] = bounds.zMax;
 }
 
-MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float t) const
+MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float rayt) const
 {
+	using namespace simd;
 	MBVHHit hit;
 
 #if 1
 	static const __m128i mask = _mm_set1_epi32(0xFFFFFFFCu);
 	static const __m128i or_mask = _mm_set_epi32(0b11, 0b10, 0b01, 0b00);
 
-	__m128 orgComponent = _mm_set1_ps(org.x);
-	__m128 dirComponent = _mm_set1_ps(dirInverse.x);
+	__m256 org_component = _mm256_set1_ps(org.x);
+	__m256 dir_component = _mm256_set1_ps(dirInverse.x);
+	union {
+		__m256 t1_2;
+		__m128 t[2];
+	};
 
-	__m128 t1 = _mm_mul_ps(_mm_sub_ps(bminx_4, orgComponent), dirComponent);
-	__m128 t2 = _mm_mul_ps(_mm_sub_ps(bmaxx_4, orgComponent), dirComponent);
+	t1_2 = _mm256_mul_ps(_mm256_sub_ps(_mm256_set_m128(bmaxx_4, bminx_4), org_component), dir_component);
+	hit.tmin4 = _mm_min_ps(t[0], t[1]);
+	__m128 t_max = _mm_max_ps(t[0], t[1]);
 
-	hit.tmin4 = _mm_min_ps(t1, t2);
-	__m128 t_max = _mm_max_ps(t1, t2);
+	org_component = _mm256_set1_ps(org.y);
+	dir_component = _mm256_set1_ps(dirInverse.y);
 
-	orgComponent = _mm_set1_ps(org.y);
-	dirComponent = _mm_set1_ps(dirInverse.y);
+	t1_2 = _mm256_mul_ps(_mm256_sub_ps(_mm256_set_m128(bmaxy_4, bminy_4), org_component), dir_component);
+	hit.tmin4 = _mm_max_ps(hit.tmin4, _mm_min_ps(t[0], t[1]));
+	t_max = _mm_min_ps(t_max, _mm_max_ps(t[0], t[1]));
 
-	t1 = _mm_mul_ps(_mm_sub_ps(bminy_4, orgComponent), dirComponent);
-	t2 = _mm_mul_ps(_mm_sub_ps(bmaxy_4, orgComponent), dirComponent);
+	org_component = _mm256_set1_ps(org.z);
+	dir_component = _mm256_set1_ps(dirInverse.z);
 
-	hit.tmin4 = _mm_max_ps(hit.tmin4, _mm_min_ps(t1, t2));
-	t_max = _mm_min_ps(t_max, _mm_max_ps(t1, t2));
-
-	orgComponent = _mm_set1_ps(org.z);
-	dirComponent = _mm_set1_ps(dirInverse.z);
-
-	t1 = _mm_mul_ps(_mm_sub_ps(bminz_4, orgComponent), dirComponent);
-	t2 = _mm_mul_ps(_mm_sub_ps(bmaxz_4, orgComponent), dirComponent);
-
-	hit.tmin4 = _mm_max_ps(hit.tmin4, _mm_min_ps(t1, t2));
-	t_max = _mm_min_ps(t_max, _mm_max_ps(t1, t2));
+	t1_2 = _mm256_mul_ps(_mm256_sub_ps(_mm256_set_m128(bmaxz_4, bminz_4), org_component), dir_component);
+	hit.tmin4 = _mm_max_ps(hit.tmin4, _mm_min_ps(t[0], t[1]));
+	t_max = _mm_min_ps(t_max, _mm_max_ps(t[0], t[1]));
 
 	// return (*tmax) > (*tmin) && (*tmin) < t;
 	const __m128 greaterThanMin = _mm_cmpge_ps(t_max, hit.tmin4);
-	const __m128 lessThanT = _mm_cmplt_ps(hit.tmin4, _mm_set1_ps(t));
+	const __m128 lessThanT = _mm_cmplt_ps(hit.tmin4, _mm_set1_ps(rayt));
 	const __m128 result = _mm_and_ps(greaterThanMin, lessThanT);
 	const int resultMask = _mm_movemask_ps(result);
 
@@ -94,7 +93,7 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 	hit.tminv = glm::max(hit.tminv, glm::min(t1, t2));
 	tmax = glm::min(tmax, glm::max(t1, t2));
 
-	hit.result = glm::greaterThanEqual(tmax, hit.tminv) && glm::lessThan(hit.tminv, glm::vec4(t));
+	hit.result = glm::greaterThanEqual(tmax, hit.tminv) && glm::lessThan(hit.tminv, glm::vec4(rayt));
 
 	hit.tmini[0] = ((hit.tmini[0] & 0xFFFFFFFCu) | 0b00u);
 	hit.tmini[1] = ((hit.tmini[1] & 0xFFFFFFFCu) | 0b01u);
@@ -116,7 +115,82 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 	return hit;
 }
 
-void MBVHNode::merge_nodes(const BVHNode &node, const rfw::utils::ArrayProxy<BVHNode> bvhPool, MBVHNode *bvhTree, std::atomic_int &poolPtr)
+MBVHHit MBVHNode::intersect4(const float origin_x[4], const float origin_y[4], const float origin_z[4],
+							 const float inv_direction_x[4], const float inv_direction_y[4],
+							 const float inv_direction_z[4], const float rayt[4]) const
+{
+	using namespace simd;
+
+	static const __m128i mask = _mm_set1_epi32(0xFFFFFFFCu);
+	static const __m128i or_mask = _mm_set_epi32(0b11, 0b10, 0b01, 0b00);
+	__m128 result = _mm_setzero_ps();
+
+	const __m256 x_side = _mm256_set_m128(bmaxx_4, bminx_4);
+	const __m256 y_side = _mm256_set_m128(bmaxy_4, bminy_4);
+	const __m256 z_side = _mm256_set_m128(bmaxz_4, bminz_4);
+
+	MBVHHit hit = {};
+	__m128 tmax = _mm_setzero_ps();
+
+	for (int i = 0; i < 4; i++)
+	{
+		__m256 org_component = _mm256_set1_ps(origin_x[i]);
+		__m256 dir_component = _mm256_set1_ps(inv_direction_x[i]);
+
+		union {
+			__m256 t1_2;
+			__m128 t[2];
+		};
+
+		t1_2 = _mm256_mul_ps(_mm256_sub_ps(x_side, org_component), dir_component);
+		__m128 tmin4 = _mm_min_ps(t[0], t[1]);
+		__m128 tmax4 = _mm_max_ps(t[0], t[1]);
+
+		org_component = _mm256_set1_ps(origin_y[i]);
+		dir_component = _mm256_set1_ps(inv_direction_y[i]);
+
+		t1_2 = _mm256_mul_ps(_mm256_sub_ps(y_side, org_component), dir_component);
+		tmin4 = _mm_max_ps(tmin4, _mm_min_ps(t[0], t[1]));
+		tmax4 = _mm_min_ps(tmax4, _mm_max_ps(t[0], t[1]));
+
+		org_component = _mm256_set1_ps(origin_z[i]);
+		dir_component = _mm256_set1_ps(inv_direction_z[i]);
+
+		t1_2 = _mm256_mul_ps(_mm256_sub_ps(z_side, org_component), dir_component);
+		tmin4 = _mm_max_ps(tmin4, _mm_min_ps(t[0], t[1]));
+		tmax4 = _mm_min_ps(tmax4, _mm_max_ps(t[0], t[1]));
+
+		// return (*tmax) > (*tmin) && (*tmin) < t;
+		const __m128 greaterThanMin = _mm_cmpge_ps(tmax4, tmin4);
+		const __m128 lessThanT = _mm_cmplt_ps(tmin4, _mm_set1_ps(rayt[i]));
+		result = _mm_or_ps(result, _mm_and_ps(greaterThanMin, lessThanT));
+
+		hit.tmin4 = _mm_min_ps(hit.tmin4, tmin4);
+		tmax = _mm_max_ps(tmax, tmax4);
+	}
+
+	const int resultMask = _mm_movemask_ps(result);
+
+	hit.tmini4 = _mm_and_si128(hit.tmini4, mask);
+	hit.tmini4 = _mm_or_si128(hit.tmini4, or_mask);
+	hit.result = bvec4(resultMask & 1, resultMask & 2, resultMask & 4, resultMask & 8);
+
+	if (hit.tmin[0] > hit.tmin[1])
+		std::swap(hit.tmin[0], hit.tmin[1]);
+	if (hit.tmin[2] > hit.tmin[3])
+		std::swap(hit.tmin[2], hit.tmin[3]);
+	if (hit.tmin[0] > hit.tmin[2])
+		std::swap(hit.tmin[0], hit.tmin[2]);
+	if (hit.tmin[1] > hit.tmin[3])
+		std::swap(hit.tmin[1], hit.tmin[3]);
+	if (hit.tmin[2] > hit.tmin[3])
+		std::swap(hit.tmin[2], hit.tmin[3]);
+
+	return hit;
+}
+
+void MBVHNode::merge_nodes(const BVHNode &node, const rfw::utils::ArrayProxy<BVHNode> bvhPool, MBVHNode *bvhTree,
+						   std::atomic_int &poolPtr)
 {
 	if (node.is_leaf())
 		throw std::runtime_error("Leaf nodes should not be attempted to be split");
@@ -311,8 +385,8 @@ void MBVHNode::sort_results(const float *tmin, int &a, int &b, int &c, int &d) c
 		std::swap(b, c);
 }
 
-void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw::utils::ArrayProxy<uint> primIDs, const uint maxPoolPtr,
-						const uint maxPrimIndex) const
+void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw::utils::ArrayProxy<uint> primIDs,
+						const uint maxPoolPtr, const uint maxPrimIndex) const
 {
 	for (int i = 0; i < 4; i++)
 	{
@@ -331,7 +405,8 @@ void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw:
 				}
 				else if (primIDs[prim_index] >= maxPrimIndex)
 				{
-					WARNING("Invalid node: PrimID points to object larger than maximum: %i >= %i", primIDs[prim_index] >= maxPrimIndex);
+					WARNING("Invalid node: PrimID points to object larger than maximum: %i >= %i",
+							primIDs[prim_index] >= maxPrimIndex);
 					throw std::runtime_error("Invalid node: PrimID points to object larger than maximum");
 				}
 			}

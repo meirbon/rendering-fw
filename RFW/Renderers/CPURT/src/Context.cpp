@@ -1,6 +1,6 @@
 #include "PCH.h"
 
-#define PACKET_TRAVERSAL 0
+#define PACKET_TRAVERSAL 1
 
 using namespace rfw;
 
@@ -39,7 +39,8 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	CheckGL();
 	std::vector<glm::vec4> dummyData(m_Width * m_Height, glm::vec4(0));
-	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_Width * m_Height * sizeof(glm::vec4), dummyData.data(), GL_STREAM_DRAW_ARB);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_Width * m_Height * sizeof(glm::vec4), dummyData.data(),
+				 GL_STREAM_DRAW_ARB);
 	CheckGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	CheckGL();
@@ -111,17 +112,20 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 				packet = Ray::GenerateRay8(camParams, x8, y8, &m_RNGs[t_id]);
 #endif
 
-#if !PACKET_TRAVERSAL
-				if (topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x, packet.direction_y, packet.direction_z,
-										   packet.t, packet.primID, packet.instID, 1e-5f) == 0)
+#if PACKET_TRAVERSAL
+				if (topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x,
+										   packet.direction_y, packet.direction_z, packet.t, packet.primID,
+										   packet.instID, 1e-5f) == 0)
 				{
 					for (int i = 0; i < 4; i++)
 					{
 						if (packet.pixelID[i] >= maxPixelID)
 							continue;
-						const vec2 uv = vec2(0.5f * (1.0f + atan(packet.direction_x[i], -packet.direction_z[i]) * glm::one_over_pi<float>()),
+						const vec2 uv = vec2(0.5f * (1.0f + atan(packet.direction_x[i], -packet.direction_z[i]) *
+																glm::one_over_pi<float>()),
 											 acos(packet.direction_y[i]) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
+						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
+												uv.y * static_cast<float>(m_SkyboxHeight - 1));
 						m_Pixels[packet.pixelID[i]] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 					}
 
@@ -151,14 +155,18 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					}
 
 					const float t = packet.t[packet_id];
-					const vec3 origin = vec3(packet.origin_x[packet_id], packet.origin_y[packet_id], packet.origin_z[packet_id]);
-					const vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id], packet.direction_z[packet_id]);
+					const vec3 origin =
+						vec3(packet.origin_x[packet_id], packet.origin_y[packet_id], packet.origin_z[packet_id]);
+					const vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id],
+												packet.direction_z[packet_id]);
 
 					if (packet.instID[packet_id] < 0 && packet.instID[packet_id] < 0)
 					{
 						const vec2 uv =
-							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()), acos(direction.y) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1), uv.y * static_cast<float>(m_SkyboxHeight - 1));
+							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
+								 acos(direction.y) * glm::one_over_pi<float>());
+						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
+												uv.y * static_cast<float>(m_SkyboxHeight - 1));
 						m_Pixels[pixelID] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 						continue;
 					}
@@ -174,9 +182,12 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(packet.instID[packet_id]);
 					vec3 N = normalize(vec3((normal_matrix * simd::vector4(tri.Nx, tri.Ny, tri.Nz, 0.0f)).vec));
 
-					const simd::vector4 vertex0_4 = matrix * simd::vector4(tri.vertex0.x, tri.vertex0.y, tri.vertex0.z, 1.0f);
-					const simd::vector4 vertex1_4 = matrix * simd::vector4(tri.vertex1.x, tri.vertex1.y, tri.vertex1.z, 1.0f);
-					const simd::vector4 vertex2_4 = matrix * simd::vector4(tri.vertex2.x, tri.vertex2.y, tri.vertex2.z, 1.0f);
+					const simd::vector4 vertex0_4 =
+						matrix * simd::vector4(tri.vertex0.x, tri.vertex0.y, tri.vertex0.z, 1.0f);
+					const simd::vector4 vertex1_4 =
+						matrix * simd::vector4(tri.vertex1.x, tri.vertex1.y, tri.vertex1.z, 1.0f);
+					const simd::vector4 vertex2_4 =
+						matrix * simd::vector4(tri.vertex2.x, tri.vertex2.y, tri.vertex2.z, 1.0f);
 
 					const vec3 vertex0 = vec3(vertex0_4.vec);
 					const vec3 vertex1 = vec3(vertex1_4.vec);
@@ -192,8 +203,9 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					auto color = material.getColor();
 
 					float tu, tv;
-					if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) || material.hasFlag(HasRoughnessMap) ||
-						material.hasFlag(HasAlphaMap) || material.hasFlag(HasSpecularityMap))
+					if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) ||
+						material.hasFlag(HasRoughnessMap) || material.hasFlag(HasAlphaMap) ||
+						material.hasFlag(HasSpecularityMap))
 					{
 						tu = bary.x * tri.u0 + bary.y * tri.u1 + bary.z * tri.u2;
 						tv = bary.x * tri.v0 + bary.y * tri.v1 + bary.z * tri.v2;
@@ -256,7 +268,8 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	CheckGL();
 }
 
-void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials,
+							const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	m_Materials.resize(materials.size());
 	memcpy(m_Materials.data(), materials.data(), materials.size() * sizeof(Material));
@@ -287,8 +300,9 @@ void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t
 	m_SkyboxHeight = height;
 }
 
-void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-						 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
+						 const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
+						 const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCount = lightCount;
 

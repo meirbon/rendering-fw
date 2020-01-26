@@ -2,6 +2,8 @@
 
 #define USE_TOP_MBVH 1
 #define USE_MBVH 1
+#define TOP_PACKET_MBVH 1
+#define PACKET_MBVH 1
 #define REFIT 1
 
 namespace rfw::bvh
@@ -280,11 +282,10 @@ int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z
 	const auto intersection = [&](const int instance, __m128 *inst_mask) {
 		const auto &matrix = this->inverse_matrices[instance];
 
-#if 1 // Not actually faster, TODO: rewrite
 		const simd::vector4 org_x = simd::vector4(origin_x);
 		const simd::vector4 org_y = simd::vector4(origin_y);
 		const simd::vector4 org_z = simd::vector4(origin_z);
-		const simd::vector4 org_w = simd::vector4(1.0f);
+		const simd::vector4 org_w = simd::ONE4;
 
 		const simd::vector4 dir_x = simd::vector4(direction_x);
 		const simd::vector4 dir_y = simd::vector4(direction_y);
@@ -352,33 +353,22 @@ int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z
 		const float *dx = reinterpret_cast<float *>(&new_direction_x);
 		const float *dy = reinterpret_cast<float *>(&new_direction_y);
 		const float *dz = reinterpret_cast<float *>(&new_direction_z);
+
+#if TOP_PACKET_MBVH
+		return instance_meshes[instance]->mbvh->traverse4(ox, oy, oz, dx, dy, dz, t, primID, t_min, inst_mask);
 #else
-		float ox[4], oy[4], oz[4];
-		float dx[4], dy[4], dz[4];
-
-		for (int i = 0; i < 4; i++)
-		{
-			simd::vector4 org4 = vec4(origin_x[i], origin_y[i], origin_z[i], 1.0f);
-			simd::vector4 dir4 = vec4(direction_x[i], direction_y[i], direction_z[i], 0.0f);
-
-			org4 = (matrix * org4);
-			dir4 = (matrix * dir4);
-
-			ox[i] = org4.x();
-			oy[i] = org4.y();
-			oz[i] = org4.z();
-
-			dx[i] = dir4.x();
-			dy[i] = dir4.y();
-			dz[i] = dir4.z();
-		}
-#endif
 		return instance_meshes[instance]->bvh->traverse4(ox, oy, oz, dx, dy, dz, t, primID, t_min, inst_mask);
+#endif
 	};
 
 	__m128 mask = _mm_setzero_ps();
+#if PACKET_MBVH
+	return MBVHNode::traverse_mbvh4(origin_x, origin_y, origin_z, direction_x, direction_y, direction_z, t, instID,
+									mbvh_nodes.data(), prim_indices.data(), &mask, intersection);
+#else
 	return BVHNode::traverse_bvh4(origin_x, origin_y, origin_z, direction_x, direction_y, direction_z, t, instID,
 								  bvh_nodes.data(), prim_indices.data(), &mask, intersection);
+#endif
 }
 
 void TopLevelBVH::set_instance(size_t idx, glm::mat4 transform, rfwMesh *tree, AABB boundingBox)

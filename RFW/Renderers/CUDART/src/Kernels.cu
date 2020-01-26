@@ -37,7 +37,11 @@ template <typename T, typename B> T atomicAdd(T *, B) { return T; }
 template <typename T, int x> struct surface
 {
 };
-template <typename T> void surf2Dwrite(T value, surface<void, cudaSurfaceType2D> output, size_t stride, size_t y, cudaSurfaceBoundaryMode mode) {}
+template <typename T>
+void surf2Dwrite(T value, surface<void, cudaSurfaceType2D> output, size_t stride, size_t y,
+				 cudaSurfaceBoundaryMode mode)
+{
+}
 #endif
 
 surface<void, cudaSurfaceType2D> output;
@@ -114,7 +118,10 @@ __host__ void setPathStates(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathStates, &pt
 __host__ void setPathOrigins(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathOrigins, &ptr, sizeof(void *)); }
 __host__ void setPathDirections(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathDirections, &ptr, sizeof(void *)); }
 __host__ void setPathThroughputs(glm::vec4 *ptr) { cudaMemcpyToSymbol(pathThroughputs, &ptr, sizeof(void *)); }
-__host__ void setPotentialContributions(PotentialContribution *ptr) { cudaMemcpyToSymbol(connectData, &ptr, sizeof(void *)); }
+__host__ void setPotentialContributions(PotentialContribution *ptr)
+{
+	cudaMemcpyToSymbol(connectData, &ptr, sizeof(void *));
+}
 __host__ void setMaterials(DeviceMaterial *ptr) { cudaMemcpyToSymbol(materials, &ptr, sizeof(void *)); }
 __host__ void setFloatTextures(glm::vec4 *ptr) { cudaMemcpyToSymbol(floatTextures, &ptr, sizeof(void *)); }
 __host__ void setUintTextures(uint *ptr) { cudaMemcpyToSymbol(uintTextures, &ptr, sizeof(void *)); }
@@ -124,7 +131,10 @@ __host__ void setSkyDimensions(uint width, uint height)
 	cudaMemcpyToSymbol(skyboxWidth, &width, sizeof(uint));
 	cudaMemcpyToSymbol(skyboxHeight, &height, sizeof(uint));
 }
-__host__ void setInstanceDescriptors(DeviceInstanceDescriptor *ptr) { cudaMemcpyToSymbol(instances, &ptr, sizeof(void *)); }
+__host__ void setInstanceDescriptors(DeviceInstanceDescriptor *ptr)
+{
+	cudaMemcpyToSymbol(instances, &ptr, sizeof(void *));
+}
 __host__ void setGeometryEpsilon(float value) { cudaMemcpyToSymbol(geometryEpsilon, &value, sizeof(float)); }
 __host__ void setBlueNoiseBuffer(uint *ptr) { cudaMemcpyToSymbol(blueNoise, &ptr, sizeof(void *)); }
 __host__ void setScreenDimensions(uint width, uint height)
@@ -132,12 +142,18 @@ __host__ void setScreenDimensions(uint width, uint height)
 	cudaMemcpyToSymbol(scrWidth, &width, sizeof(uint));
 	cudaMemcpyToSymbol(scrHeight, &height, sizeof(uint));
 }
-__host__ void setLightCount(rfw::LightCount lightCount) { cudaMemcpyToSymbol(lightCounts, &lightCount, sizeof(rfw::LightCount)); }
+__host__ void setLightCount(rfw::LightCount lightCount)
+{
+	cudaMemcpyToSymbol(lightCounts, &lightCount, sizeof(rfw::LightCount));
+}
 
 __host__ void setAreaLights(rfw::DeviceAreaLight *als) { cudaMemcpyToSymbol(areaLights, &als, sizeof(void *)); }
 __host__ void setPointLights(rfw::DevicePointLight *pls) { cudaMemcpyToSymbol(pointLights, &pls, sizeof(void *)); }
 __host__ void setSpotLights(rfw::DeviceSpotLight *sls) { cudaMemcpyToSymbol(spotLights, &sls, sizeof(void *)); }
-__host__ void setDirectionalLights(rfw::DeviceDirectionalLight *dls) { cudaMemcpyToSymbol(directionalLights, &dls, sizeof(void *)); }
+__host__ void setDirectionalLights(rfw::DeviceDirectionalLight *dls)
+{
+	cudaMemcpyToSymbol(directionalLights, &dls, sizeof(void *));
+}
 __host__ void setClampValue(float value) { cudaMemcpyToSymbol(clampValue, &value, sizeof(float)); }
 
 __host__ const surfaceReference *getOutputSurfaceReference()
@@ -171,7 +187,10 @@ __global__ void initCountersSubsequent()
 	counters->shadowRays = 0;
 }
 
-__host__ void InitCountersForExtend(unsigned int pathCount, uint sampleIndex) { initCountersExtent<<<1, 32>>>(pathCount, sampleIndex); }
+__host__ void InitCountersForExtend(unsigned int pathCount, uint sampleIndex)
+{
+	initCountersExtent<<<1, 32>>>(pathCount, sampleIndex);
+}
 __host__ void InitCountersSubsequent() { initCountersSubsequent<<<1, 32>>>(); }
 
 __global__ void blit_buffer(const uint scrwidth, const uint scrheight, const float scale)
@@ -219,7 +238,8 @@ __device__ inline float blueNoiseSampler(int x, int y, int sampleIdx, int sample
 	return (0.5f + value) * (1.0f / 256.0f);
 }
 
-__device__ bool intersect_scene(const vec3 origin, const vec3 direction, int *instID, int *primID, float *t, vec2 *barycentrics, float t_min = 1e-5f)
+inline __device__ bool intersect_scene(const vec3 origin, const vec3 direction, int *instID, int *primID, float *t,
+									   vec2 *barycentrics, float t_min = 1e-5f) inline
 {
 #if !USE_TOP_MBVH
 	return intersect_bvh(origin, direction, t_min, t, instID, topLevelBVH, topPrimIndices, [&](uint instance) {
@@ -233,24 +253,28 @@ __device__ bool intersect_scene(const vec3 origin, const vec3 direction, int *in
 		if (indices != nullptr) // Mesh with indices
 		{
 #if !USE_MBVH
-			return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
+			return intersect_bvh(
+				new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
 			return intersect_mbvh(new_origin, new_direction, t_min, t, primID, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-				const uvec3 idx = indices[triangleID];
-				return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
-			});
+					const uvec3 idx = indices[triangleID];
+					return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y],
+											  vertices[idx.z], barycentrics, T_EPSILON);
+				});
 		}
 
 		// Intersect mesh without indices
 #if !USE_MBVH
-		return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
+		return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices,
+							 [&](uint triangleID) {
 #else
 		return intersect_mbvh(new_origin, new_direction, t_min, t, primID, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-			const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
-			return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
-		});
+								 const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
+								 return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x],
+														   vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
+							 });
 	});
 #else
 	return intersect_mbvh(origin, direction, t_min, t, instID, topLevelMBVH, topPrimIndices, [&](uint instance) {
@@ -264,24 +288,28 @@ __device__ bool intersect_scene(const vec3 origin, const vec3 direction, int *in
 		if (indices != nullptr) // Mesh with indices
 		{
 #if !USE_MBVH
-			return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
+			return intersect_bvh(
+				new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
 			return intersect_mbvh(new_origin, new_direction, t_min, t, primID, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-				const uvec3 idx = indices[triangleID];
-				return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
-			});
+					const uvec3 idx = indices[triangleID];
+					return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y],
+											  vertices[idx.z], barycentrics, T_EPSILON);
+				});
 		}
 
 		// Intersect mesh without indices
 #if !USE_MBVH
-		return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
+		return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices,
+							 [&](uint triangleID) {
 #else
 		return intersect_mbvh(new_origin, new_direction, t_min, t, primID, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-			const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
-			return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
-		});
+								 const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
+								 return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x],
+														   vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
+							 });
 	});
 #endif
 }
@@ -301,24 +329,28 @@ __device__ bool is_occluded(const vec3 origin, const vec3 direction, float t_min
 		if (indices != nullptr) // Mesh with indices
 		{
 #if !USE_MBVH
-			return intersect_bvh_shadow(new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
+			return intersect_bvh_shadow(
+				new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
 			return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-				const uvec3 idx = indices[triangleID];
-				return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y], vertices[idx.z], T_EPSILON);
-			});
+					const uvec3 idx = indices[triangleID];
+					return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x],
+											  vertices[idx.y], vertices[idx.z], T_EPSILON);
+				});
 		}
 
 		// Intersect mesh without indices
 #if !USE_MBVH
-		return intersect_bvh_shadow(new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
+		return intersect_bvh_shadow(
+			new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
 		return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-			const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
-			return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y], vertices[idx.z], T_EPSILON);
-		});
+				const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
+				return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y],
+										  vertices[idx.z], T_EPSILON);
+			});
 	});
 #else
 	return intersect_mbvh_shadow(origin, direction, t_min, t_max, topLevelMBVH, topPrimIndices, [&](uint instance) {
@@ -333,29 +365,33 @@ __device__ bool is_occluded(const vec3 origin, const vec3 direction, float t_min
 		if (indices != nullptr) // Mesh with indices
 		{
 #if !USE_MBVH
-			return intersect_bvh_shadow(new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
+			return intersect_bvh_shadow(
+				new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
 			return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-				const uvec3 idx = indices[triangleID];
-				return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y], vertices[idx.z], T_EPSILON);
-			});
+					const uvec3 idx = indices[triangleID];
+					return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x],
+											  vertices[idx.y], vertices[idx.z], T_EPSILON);
+				});
 		}
 
 		// Intersect mesh without indices
 #if !USE_MBVH
-		return intersect_bvh_shadow(new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
+		return intersect_bvh_shadow(
+			new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
 		return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, meshMBVHs[instance], primIndices, [&](uint triangleID) {
 #endif
-			const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
-			return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y], vertices[idx.z], T_EPSILON);
-		});
+				const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
+				return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y],
+										  vertices[idx.z], T_EPSILON);
+			});
 	});
 #endif
 }
 
-__device__ void generatePrimaryRay(const uint pathID, glm::vec3 *O, glm::vec3 *D)
+inline __device__ void generatePrimaryRay(const uint pathID, glm::vec3 *O, glm::vec3 *D)
 {
 	uint seed = WangHash(pathID * 16789 + counters->sampleIndex * 1791);
 
@@ -424,7 +460,8 @@ __global__ void intersect_rays(IntersectionStage stage, const uint pathLength, u
 
 		vec4 result = vec4(0, 0, __int_as_float(-1), 0);
 		if (intersect_scene(O, D, &instID, &primID, &t, &bary, 1e-5f))
-			result = vec4(__uint_as_float(uint(65535.0f * bary.x) | (uint(65535.0f * bary.y) << 16)), __int_as_float(uint(instID)), __int_as_float(primID), t);
+			result = vec4(__uint_as_float(uint(65535.0f * bary.x) | (uint(65535.0f * bary.y) << 16)),
+						  __int_as_float(uint(instID)), __int_as_float(primID), t);
 
 		pathStates[bufferID] = result;
 	}
@@ -446,7 +483,8 @@ __global__ void intersect_rays(IntersectionStage stage, const uint pathLength, u
 
 		vec4 result = vec4(0, 0, __int_as_float(-1), 0);
 		if (intersect_scene(O, D, &instID, &primID, &t, &bary, 1e-5f))
-			result = vec4(__uint_as_float(uint(65535.0f * bary.x) + (uint(65535.0f * bary.y) << 16)), __int_as_float(uint(instID)), __int_as_float(primID), t);
+			result = vec4(__uint_as_float(uint(65535.0f * bary.x) + (uint(65535.0f * bary.y) << 16)),
+						  __int_as_float(uint(instID)), __int_as_float(primID), t);
 
 		pathStates[bufferID] = result;
 	}
@@ -467,7 +505,8 @@ __global__ void intersect_rays(IntersectionStage stage, const uint pathLength, u
 	}
 }
 
-__global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */) void shade_rays(const uint pathLength, uint count)
+__global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */) void shade_rays(const uint pathLength,
+																								  uint count)
 {
 	const int jobIndex = threadIdx.x + blockIdx.x * blockDim.x;
 	if (jobIndex >= counters->activePaths)
@@ -491,7 +530,8 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	if (primIdx < 0)
 	{
 		// formulas by Paul Debevec, http://www.pauldebevec.com/Probes
-		const uint u = static_cast<uint>(static_cast<float>(skyboxWidth) * 0.5f * (1.0f + atan2(D.x, -D.z) * glm::one_over_pi<float>()));
+		const uint u = static_cast<uint>(static_cast<float>(skyboxWidth) * 0.5f *
+										 (1.0f + atan2(D.x, -D.z) * glm::one_over_pi<float>()));
 		const uint v = static_cast<uint>(static_cast<float>(skyboxHeight) * acos(D.y) * glm::one_over_pi<float>());
 		const uint idx = u + v * skyboxWidth;
 		const vec3 skySample = idx < skyboxHeight * skyboxWidth ? skybox[idx] : vec3(0);
@@ -513,11 +553,12 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	const int instanceIdx = __float_as_uint(hitData.y);
 	const DeviceInstanceDescriptor &instance = instances[instanceIdx];
 	const DeviceTriangle &triangle = instance.triangles[primIdx];
-	const vec2 barycentrics = vec2(float(uintBaryCentrics & 65535), float((uintBaryCentrics >> 16) & 65535)) * (1.0f / 65535.0f);
+	const vec2 barycentrics =
+		vec2(float(uintBaryCentrics & 65535), float((uintBaryCentrics >> 16) & 65535)) * (1.0f / 65535.0f);
 
 	glm::vec3 N, iN, T, B;
-	const ShadingData shadingData =
-		getShadingData(D, barycentrics.x, barycentrics.y, view->spreadAngle * hitData.w, triangle, instanceIdx, N, iN, T, B, instance.invTransform);
+	const ShadingData shadingData = getShadingData(D, barycentrics.x, barycentrics.y, view->spreadAngle * hitData.w,
+												   triangle, instanceIdx, N, iN, T, B, instance.invTransform);
 
 	if (pathLength == 0 && pathIndex == counters->probeIdx)
 	{
@@ -599,8 +640,9 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	throughput *= 1.0f / bsdfPdf; // Apply postponed bsdf pdf
 
 #if VARIANCE_REDUCTION
-	if ((flags & IS_SPECULAR) == 0 && (lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.directionalLightCount +
-									   lightCounts.spotLightCount) > 0) // Only cast shadow rays for non-specular objects
+	if ((flags & IS_SPECULAR) == 0 &&
+		(lightCounts.areaLightCount + lightCounts.pointLightCount + lightCounts.directionalLightCount +
+		 lightCounts.spotLightCount) > 0) // Only cast shadow rays for non-specular objects
 	{
 		vec3 lightColor;
 		float r0, r1, pickProb, lightPdf = 0;
@@ -682,7 +724,8 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 
 	const uint extensionRayIdx = atomicAdd(&counters->extensionRays, 1u); // Get compacted index for extension ray
 
-	pathOrigins[extensionRayIdx + nextBufferIndex * stride] = vec4(SafeOrigin(I, R, N, geometryEpsilon), uintBitsToFloat((pathIndex << 8u) | flags));
+	pathOrigins[extensionRayIdx + nextBufferIndex * stride] =
+		vec4(SafeOrigin(I, R, N, geometryEpsilon), uintBitsToFloat((pathIndex << 8u) | flags));
 	pathDirections[extensionRayIdx + nextBufferIndex * stride] = vec4(R, uintBitsToFloat(PackNormal(iN)));
 	pathThroughputs[extensionRayIdx + nextBufferIndex * stride] = vec4(throughput, newBsdfPdf);
 }

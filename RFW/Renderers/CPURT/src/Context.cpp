@@ -1,6 +1,6 @@
 #include "PCH.h"
 
-#define PACKET_TRAVERSAL 1
+#define PACKET_TRAVERSAL 0
 
 using namespace rfw;
 
@@ -21,7 +21,7 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 		m_Handles.resize(m_Pool.size());
 		m_RNGs.resize(m_Pool.size());
 		for (int i = 0, s = static_cast<int>(m_Pool.size()); i < s; i++)
-			m_RNGs[i] = utils::Xor128(i + 1);
+			m_RNGs[i] = utils::Xor128();
 
 		const auto error = glewInit();
 		if (error != GLEW_NO_ERROR)
@@ -34,6 +34,8 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 	m_Width = static_cast<int>(width);
 	m_Height = static_cast<int>(height);
 	m_TargetID = *glTextureID;
+
+	m_Accumulator.resize(width * height);
 
 	CheckGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
@@ -50,10 +52,15 @@ void Context::cleanup() {}
 
 void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 {
+	using namespace simd;
+
 	if (status == Reset)
 	{
 		for (int i = 0, s = static_cast<int>(m_Pool.size()); i < s; i++)
-			m_RNGs[i] = utils::Xor128(i + 1);
+			m_RNGs[i] = utils::Xor128();
+
+		m_Samples = 0;
+		memset(m_Accumulator.data(), 0, m_Accumulator.size() * sizeof(vec4));
 	}
 
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
@@ -77,40 +84,59 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	constexpr int TILE_HEIGHT = 2;
 #endif
 
-	const int wTiles = (m_Width + m_Width % TILE_WIDTH) / TILE_WIDTH;
-	const int hTiles = (m_Height + m_Height % TILE_HEIGHT) / TILE_HEIGHT;
+	const int wTiles = (m_Width + (TILE_WIDTH - (m_Width % TILE_WIDTH))) / TILE_WIDTH;
+	const int hTiles = (m_Height + (TILE_HEIGHT - (m_Height % TILE_HEIGHT))) / TILE_HEIGHT;
+	const int threads = static_cast<int>(m_Pool.size());
 
 	m_Packets.resize(wTiles * hTiles);
 
+	std::vector<std::future<void>> handles(threads);
+
+	for (int i = 0, s = threads; i < s; i++)
+	{
+		handles[i] = m_Pool.push([this, &camParams, &threads, &wTiles, &hTiles, &TILE_WIDTH, &TILE_HEIGHT](int t_id) {
+			for (int tile_y = t_id; tile_y < hTiles; tile_y += threads)
+			{
+				for (int tile_x = 0; tile_x < wTiles; tile_x++)
+				{
+#if PACKET_WIDTH == 4
+					const int y = tile_y * TILE_HEIGHT;
+					const int x = tile_x * TILE_WIDTH;
+					const int tile_id = tile_y * wTiles + tile_x;
+
+					const int x4[4] = {x, x + 1, x, x + 1};
+					const int y4[4] = {y, y, y + 1, y + 1};
+					m_Packets[tile_id] = cpurt::Ray::generateRay4(camParams, x4, y4, &m_RNGs[t_id]);
+#elif PACKET_WIDTH == 8
+					const int y = tile_y * TILE_HEIGHT;
+					const int x = tile_x * TILE_WIDTH;
+					const int tile_id = tile_y * wTiles + tile_x;
+
+					const int x8[8] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
+					const int y8[8] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1};
+					m_Packets[tile_id] = cpurt::Ray::GenerateRay8(camParams, x8, y8, &m_RNGs[t_id]);
+#endif
+				}
+			}
+		});
+	}
+
+	for (int i = 0; i < threads; i++)
+		handles[i].get();
+
 	const int probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
 	const int maxPixelID = m_Width * m_Height;
-	const auto threads = m_Pool.size();
 	const auto packetsPerThread = m_Packets.size() / threads;
-	std::vector<std::future<void>> handles;
-	handles.reserve(threads);
 
-	for (size_t i = 0; i < threads; i++)
+	for (int j = 0, s = static_cast<int>(threads); j < s; j++)
 	{
-		handles.push_back(m_Pool.push([&](int t_id) {
+		handles[j] = m_Pool.push([&](int t_id) {
 			const int start = static_cast<int>(t_id * packetsPerThread);
 			const int end = static_cast<int>((t_id + 1) * packetsPerThread);
 
 			for (int i = start; i < end; i++)
 			{
-				const int y = (i % wTiles) * TILE_HEIGHT;
-				const int x = (i / wTiles) * TILE_WIDTH;
-
 				auto &packet = m_Packets[i];
-
-#if PACKET_WIDTH == 4
-				const int x4[4] = {x, x + 1, x, x + 1};
-				const int y4[4] = {y, y, y + 1, y + 1};
-				packet = cpurt::Ray::generateRay4(camParams, x4, y4, &m_RNGs[t_id]);
-#elif PACKET_WIDTH == 8
-				const int x8[8] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
-				const int y8[8] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1};
-				packet = Ray::GenerateRay8(camParams, x8, y8, &m_RNGs[t_id]);
-#endif
 
 #if PACKET_TRAVERSAL
 				if (topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x,
@@ -121,12 +147,11 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					{
 						if (packet.pixelID[i] >= maxPixelID)
 							continue;
-						const vec2 uv = vec2(0.5f * (1.0f + atan(packet.direction_x[i], -packet.direction_z[i]) *
+						const vec2 uv = vec2(0.5f * (1.0f + glm::atan(packet.direction_x[i], -packet.direction_z[i]) *
 																glm::one_over_pi<float>()),
-											 acos(packet.direction_y[i]) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
-												uv.y * static_cast<float>(m_SkyboxHeight - 1));
-						m_Pixels[packet.pixelID[i]] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+											 glm::acos(packet.direction_y[i]) * glm::one_over_pi<float>());
+						const uvec2 pUv = uvec2(uv.x * float(m_SkyboxWidth - 1), uv.y *float(m_SkyboxHeight - 1));
+						m_Accumulator[packet.pixelID[i]] += glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 					}
 
 					continue;
@@ -154,106 +179,164 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						m_ProbedTriangle = packet.primID[packet_id];
 					}
 
-					const float t = packet.t[packet_id];
-					const vec3 origin =
+					int primID = packet.primID[packet_id];
+					int instID = packet.instID[packet_id];
+					float t = packet.t[packet_id];
+					vec3 origin =
 						vec3(packet.origin_x[packet_id], packet.origin_y[packet_id], packet.origin_z[packet_id]);
-					const vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id],
-												packet.direction_z[packet_id]);
-
-					if (packet.instID[packet_id] < 0 && packet.instID[packet_id] < 0)
+					vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id],
+										  packet.direction_z[packet_id]);
+					vec3 throughput = vec3(1.0f);
+					for (int pl = 0; pl < MAX_PATH_LENGTH; pl++)
 					{
-						const vec2 uv =
-							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
-								 acos(direction.y) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
-												uv.y * static_cast<float>(m_SkyboxHeight - 1));
-						m_Pixels[pixelID] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
-						continue;
-					}
-					else if (packet.primID[packet_id] < 0 || packet.instID[packet_id] < 0)
-					{
-						m_Pixels[pixelID] = glm::vec4(1, 0, 0, 0);
-						continue;
-					}
-
-					const vec3 p = origin + direction * t;
-					const Triangle &tri = topLevelBVH.get_triangle(packet.instID[packet_id], packet.primID[packet_id]);
-					const simd::matrix4 &matrix = topLevelBVH.get_instance_matrix(packet.instID[packet_id]);
-					const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(packet.instID[packet_id]);
-					vec3 N = normalize(vec3((normal_matrix * simd::vector4(tri.Nx, tri.Ny, tri.Nz, 0.0f)).vec));
-
-					const simd::vector4 vertex0_4 =
-						matrix * simd::vector4(tri.vertex0.x, tri.vertex0.y, tri.vertex0.z, 1.0f);
-					const simd::vector4 vertex1_4 =
-						matrix * simd::vector4(tri.vertex1.x, tri.vertex1.y, tri.vertex1.z, 1.0f);
-					const simd::vector4 vertex2_4 =
-						matrix * simd::vector4(tri.vertex2.x, tri.vertex2.y, tri.vertex2.z, 1.0f);
-
-					const vec3 vertex0 = vec3(vertex0_4.vec);
-					const vec3 vertex1 = vec3(vertex1_4.vec);
-					const vec3 vertex2 = vec3(vertex2_4.vec);
-
-					const vec3 bary = triangle::getBaryCoords(p, N, vertex0, vertex1, vertex2);
-
-					vec3 iN = bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2;
-					const simd::vector4 vN_4 = normal_matrix * simd::vector4(iN.x, iN.y, iN.z, 0.0f);
-					iN = normalize(vec3(vN_4.vec));
-
-					const auto &material = m_Materials[tri.material];
-					auto color = material.getColor();
-
-					float tu, tv;
-					if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) ||
-						material.hasFlag(HasRoughnessMap) || material.hasFlag(HasAlphaMap) ||
-						material.hasFlag(HasSpecularityMap))
-					{
-						tu = bary.x * tri.u0 + bary.y * tri.u1 + bary.z * tri.u2;
-						tv = bary.x * tri.v0 + bary.y * tri.v1 + bary.z * tri.v2;
-					}
-
-					if (material.hasFlag(HasDiffuseMap))
-					{
-						const float u = (tu + material.uoffs0) * material.uscale0;
-						const float v = (tv + material.voffs0) * material.vscale0;
-
-						float tx = fmod(u, 1.0f);
-						float ty = fmod(v, 1.0f);
-
-						if (tx < 0.f)
-							tx = 1.f + tx;
-						if (ty < 0.f)
-							ty = 1.f + ty;
-
-						const auto &tex = m_Textures[material.texaddr0];
-
-						const uint ix = uint(tx * (tex.width - 1));
-						const uint iy = uint(ty * (tex.height - 1));
-						const auto texelID = static_cast<int>(iy * tex.width + ix);
-
-						switch (tex.type)
+						if (instID < 0 || primID < 0)
 						{
-						case (TextureData::FLOAT4):
-						{
-							color = color * vec3(reinterpret_cast<vec4 *>(tex.data)[texelID]);
+							const vec2 uv =
+								vec2(0.5f * (1.0f + glm::atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
+									 glm::acos(direction.y) * glm::one_over_pi<float>());
+							const uvec2 pUv = uvec2(uv.x * float(m_SkyboxWidth - 1), uv.y *float(m_SkyboxHeight - 1));
+							m_Accumulator[pixelID] += vec4(throughput * m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+							break;
 						}
-						case (TextureData::UINT):
-						{
-							// RGBA
-							const uint texel = reinterpret_cast<uint *>(tex.data)[texelID];
-							constexpr float tscale = 1.0f / 256.0f;
-							color = color * tscale * vec3(texel & 0xFFu, (texel >> 8u) & 0xFFu, (texel >> 16u) & 0xFFu);
-						}
-						}
-					}
 
-					m_Pixels[pixelID] = vec4(color, 1.0f);
+						const vec3 p = origin + direction * t;
+						const Triangle &tri = topLevelBVH.get_triangle(instID, primID);
+						const auto &material = m_Materials[tri.material];
+
+						ShadingData shadingData;
+						shadingData.color = material.getColor();
+
+						if (any(greaterThan(shadingData.color, vec3(1.0f))))
+						{
+							m_Accumulator[pixelID] += vec4(throughput * shadingData.color, 0.0f);
+							break;
+						}
+
+						const simd::matrix4 &matrix = topLevelBVH.get_instance_matrix(instID);
+						const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(instID);
+						vec3 N = normalize(normal_matrix * vec3(tri.Nx, tri.Ny, tri.Nz));
+
+						const simd::vector4 vertex0_4 =
+							matrix * simd::vector4(tri.vertex0.x, tri.vertex0.y, tri.vertex0.z, 1.0f);
+						const simd::vector4 vertex1_4 =
+							matrix * simd::vector4(tri.vertex1.x, tri.vertex1.y, tri.vertex1.z, 1.0f);
+						const simd::vector4 vertex2_4 =
+							matrix * simd::vector4(tri.vertex2.x, tri.vertex2.y, tri.vertex2.z, 1.0f);
+
+						const vec3 vertex0 = vec3(vertex0_4.vec);
+						const vec3 vertex1 = vec3(vertex1_4.vec);
+						const vec3 vertex2 = vec3(vertex2_4.vec);
+
+						const vec3 bary = triangle::getBaryCoords(p, N, vertex0, vertex1, vertex2);
+
+						vec3 iN =
+							normalize(normal_matrix * vec3(bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2));
+
+						const float flip = -sign(dot(direction, N));
+						N *= flip;	// Fix geometric normal
+						iN *= flip; // Fix interpolated normal
+
+						vec3 T, B;
+						createTangentSpace(iN, T, B);
+
+						uint seed = WangHash(pixelID * 16789 + m_Samples * 1791 + pl * 720898027);
+
+						shadingData.parameters = material.parameters;
+						shadingData.matID = tri.material;
+						shadingData.absorption = material.getAbsorption();
+
+						float tu, tv;
+						if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) ||
+							material.hasFlag(HasRoughnessMap) || material.hasFlag(HasAlphaMap) ||
+							material.hasFlag(HasSpecularityMap))
+						{
+							tu = bary.x * tri.u0 + bary.y * tri.u1 + bary.z * tri.u2;
+							tv = bary.x * tri.v0 + bary.y * tri.v1 + bary.z * tri.v2;
+						}
+
+						if (material.hasFlag(HasDiffuseMap))
+						{
+							const float u = (tu + material.uoffs0) * material.uscale0;
+							const float v = (tv + material.voffs0) * material.vscale0;
+
+							float tx = fmod(u, 1.0f);
+							float ty = fmod(v, 1.0f);
+
+							if (tx < 0.f)
+								tx = 1.f + tx;
+							if (ty < 0.f)
+								ty = 1.f + ty;
+
+							const auto &tex = m_Textures[material.texaddr0];
+
+							const uint ix = uint(tx * (tex.width - 1));
+							const uint iy = uint(ty * (tex.height - 1));
+							const auto texelID = static_cast<int>(iy * tex.width + ix);
+
+							switch (tex.type)
+							{
+							case (TextureData::FLOAT4):
+							{
+								shadingData.color =
+									shadingData.color * vec3(reinterpret_cast<vec4 *>(tex.data)[texelID]);
+							}
+							case (TextureData::UINT):
+							{
+								// RGBA
+								const uint texel = reinterpret_cast<uint *>(tex.data)[texelID];
+								constexpr float tscale = 1.0f / 256.0f;
+								shadingData.color = shadingData.color * tscale *
+													vec3(texel & 0xFFu, (texel >> 8u) & 0xFFu, (texel >> 16u) & 0xFFu);
+							}
+							}
+						}
+
+						bool specular = false;
+						vec3 R;
+						float pdf;
+						const vec3 bsdf =
+							SampleBSDF(shadingData, iN, N, T, B, -direction, t, bool(flip < 0), direction, pdf, seed);
+
+						throughput = throughput * bsdf * glm::abs(glm::dot(iN, R)) * (1.0f / pdf);
+						if (any(isnan(throughput)))
+							break;
+
+						origin = p + 1e-6f * R;
+						direction = R;
+
+						t = 1e34f;
+						instID = -1;
+						primID = -1;
+						topLevelBVH.intersect(origin, direction, &t, &primID, &instID, 1e-5f);
+					}
 				}
 			}
-		}));
+		});
 	}
 
-	for (auto &handle : handles)
-		handle.get();
+	m_Samples++;
+
+	for (int i = 0; i < threads; i++)
+		handles[i].get();
+
+	const float scale = 1.0f / float(m_Samples);
+	for (int i = 0, s = threads; i < s; i++)
+	{
+		handles[i] = m_Pool.push([this, &threads, &scale](int tId) {
+			for (int y = tId; y < m_Height; y += threads)
+			{
+				const uint y_offset = y * m_Width;
+				for (int x = 0; x < m_Width; x++)
+				{
+					const int pixel_id = y_offset + x;
+					m_Pixels[pixel_id] = m_Accumulator[pixel_id] * scale;
+				}
+			}
+		});
+	}
+
+	for (int i = 0; i < threads; i++)
+		handles[i].get();
 
 	m_Stats.primaryTime = timer.elapsed();
 

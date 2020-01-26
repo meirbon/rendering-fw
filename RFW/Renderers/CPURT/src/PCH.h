@@ -31,3 +31,5 @@
 
 #include "Context.h"
 #include "Traversal.h"
+
+#include <bsdf/bsdf.h>

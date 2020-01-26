@@ -1,9 +1,5 @@
 #pragma once
 
-#include <glm/glm.hpp>
-
-using namespace glm;
-
 #include "compat.h"
 
 // from: https://aras-p.info/texts/CompactNormalStorage.html
@@ -64,7 +60,10 @@ INLINE_FUNC vec3 YCoCgToRGB(const vec3 YCoCg)
 	return vec3(Y + Co - Cg, Y + Cg, Y - Co - Cg);
 }
 
-INLINE_FUNC float Luminance(vec3 rgb) { return 0.299f * min(rgb.x, 10.0f) + 0.587f * min(rgb.y, 10.0f) + 0.114f * min(rgb.z, 10.0f); }
+INLINE_FUNC float Luminance(vec3 rgb)
+{
+	return 0.299f * min(rgb.x, 10.0f) + 0.587f * min(rgb.y, 10.0f) + 0.114f * min(rgb.z, 10.0f);
+}
 
 INLINE_FUNC uint HDRtoRGB32(const vec3 &c)
 {
@@ -76,14 +75,19 @@ INLINE_FUNC uint HDRtoRGB32(const vec3 &c)
 
 INLINE_FUNC vec3 RGB32toHDR(const uint c)
 {
-	return vec3((float)(c >> 22) * (1.0f / 1023.0f), (float)((c >> 11) & 2047) * (1.0f / 2047.0f), (float)(c & 2047) * (1.0f / 2047.0f));
+	return vec3((float)(c >> 22) * (1.0f / 1023.0f), (float)((c >> 11) & 2047) * (1.0f / 2047.0f),
+				(float)(c & 2047) * (1.0f / 2047.0f));
 }
 INLINE_FUNC vec3 RGB32toHDRmin1(const uint c)
 {
-	return vec3((float)max(1u, c >> 22) * (1.0f / 1023.0f), (float)max(1u, (c >> 11) & 2047) * (1.0f / 2047.0f), (float)max(1u, c & 2047) * (1.0f / 2047.0f));
+	return vec3((float)max(1u, c >> 22) * (1.0f / 1023.0f), (float)max(1u, (c >> 11) & 2047) * (1.0f / 2047.0f),
+				(float)max(1u, c & 2047) * (1.0f / 2047.0f));
 }
 
-INLINE_FUNC float SurvivalProbability(const vec3 diffuse) { return min(1.0f, max(max(diffuse.x, diffuse.y), diffuse.z)); }
+INLINE_FUNC float SurvivalProbability(const vec3 diffuse)
+{
+	return min(1.0f, max(max(diffuse.x, diffuse.y), diffuse.z));
+}
 
 INLINE_FUNC float FresnelDielectricExact(const vec3 wo, const vec3 N, float eta)
 {
@@ -110,7 +114,7 @@ INLINE_FUNC vec3 DiffuseReflectionUniform(const float r0, const float r1)
 INLINE_FUNC vec3 DiffuseReflectionCosWeighted(const float r0, const float r1)
 {
 	const float term1 = glm::two_pi<float>() * r0;
-	const float term2 = sqrt(1.0 - r1);
+	const float term2 = sqrt(1.0f - r1);
 	const float s = sin(term1);
 	const float c = cos(term1);
 	return normalize(vec3(c * term2, s * term2, sqrt(r1)));
@@ -143,21 +147,34 @@ INLINE_FUNC vec4 CombineToFloat4(const vec3 A, const vec3 B)
 	// - the input is possitive
 	// - the input can be safely clamped to 31.999
 	// with this in mind, the data is stored as 5:11 unsigned fixed point, which should be plenty.
-	const uint Ar = (uint)(min(A.x, 31.999f) * 2048.0f), Ag = (uint)(min(A.y, 31.999f) * 2048.0f), Ab = (uint)(min(A.z, 31.999f) * 2048.0f);
-	const uint Br = (uint)(min(B.x, 31.999f) * 2048.0f), Bg = (uint)(min(B.y, 31.999f) * 2048.0f), Bb = (uint)(min(B.z, 31.999f) * 2048.0f);
-	return vec4(__uint_as_float((Ar << 16) + Ag), __uint_as_float(Ab), __uint_as_float((Br << 16) + Bg), __uint_as_float(Bb));
+	const uint Ar = (uint)(min(A.x, 31.999f) * 2048.0f);
+	const uint Ag = (uint)(min(A.y, 31.999f) * 2048.0f);
+	const uint Ab = (uint)(min(A.z, 31.999f) * 2048.0f);
+	const uint Br = (uint)(min(B.x, 31.999f) * 2048.0f);
+	const uint Bg = (uint)(min(B.y, 31.999f) * 2048.0f);
+	const uint Bb = (uint)(min(B.z, 31.999f) * 2048.0f);
+
+	const uint x = (Ar << 16) + Ag;
+	const uint y = Ab;
+	const uint z = (Br << 16) + Bg;
+	const uint w = Bb;
+	return vec4(UINT_AS_FLOAT(x), UINT_AS_FLOAT(y), UINT_AS_FLOAT(z), UINT_AS_FLOAT(w));
 }
 
 INLINE_FUNC vec3 GetDirectFromFloat4(const vec3 X)
 {
-	const uint v0 = __float_as_uint(X.x), v1 = __float_as_uint(X.y);
-	return vec3((float)(v0 >> 16) * (1.0f / 2048.0f), (float)(v0 & 65535) * (1.0f / 2048.0f), (float)v1 * (1.0f / 2048.0f));
+	const uint v0 = FLOAT_AS_UINT(X.x);
+	const uint v1 = FLOAT_AS_UINT(X.y);
+	return vec3((float)(v0 >> 16) * (1.0f / 2048.0f), (float)(v0 & 65535) * (1.0f / 2048.0f),
+				(float)v1 * (1.0f / 2048.0f));
 }
 
 INLINE_FUNC vec3 GetIndirectFromFloat4(const vec4 X)
 {
-	const uint v2 = __float_as_uint(X.z), v3 = __float_as_uint(X.w);
-	return vec3((float)(v2 >> 16) * (1.0f / 2048.0f), (float)(v2 & 65535) * (1.0f / 2048.0f), (float)v3 * (1.0f / 2048.0f));
+	const uint v2 = FLOAT_AS_UINT(X.z);
+	const uint v3 = FLOAT_AS_UINT(X.w);
+	return vec3((float)(v2 >> 16) * (1.0f / 2048.0f), (float)(v2 & 65535) * (1.0f / 2048.0f),
+				(float)v3 * (1.0f / 2048.0f));
 }
 
 INLINE_FUNC float blueNoiseSampler(const uint *blueNoise, int x, int y, int sampleIdx, int sampleDimension)
@@ -211,9 +228,15 @@ INLINE_FUNC void createTangentSpace(const vec3 N, REFERENCE_OF(vec3) T, REFERENC
 	B = vec3(b, s + N.y * N.y * a, -N.y);
 }
 
-INLINE_FUNC vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
+INLINE_FUNC vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
+{
+	return T * s.x + B * s.y + N * s.z;
+}
 
-INLINE_FUNC vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return vec3(dot(T, s), dot(B, s), dot(N, s)); }
+INLINE_FUNC vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
+{
+	return vec3(dot(T, s), dot(B, s), dot(N, s));
+}
 
 INLINE_FUNC unsigned int WangHash(uint s)
 {

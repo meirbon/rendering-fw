@@ -804,6 +804,8 @@ struct vector4
 	inline vector4 min(const vector4 &op) const { return _mm_min_ps(vec_4, op.vec_4); }
 	inline vector4 max(const vector4 &op) const { return _mm_max_ps(vec_4, op.vec_4); }
 	inline vector4 abs() const { return _mm_castsi128_ps(_mm_abs_epi32(_mm_castps_si128(vec_4))); }
+	inline vector4 sqrt() const { return _mm_sqrt_ps(vec_4); }
+	inline vector4 inv_sqrt() const { return _mm_rsqrt_ps(vec_4); }
 
 	inline vector4 operator*(const vector4 &op) const { return _mm_mul_ps(vec_4, op.vec_4); }
 	inline vector4 operator/(const vector4 &op) const { return _mm_div_ps(vec_4, op.vec_4); }
@@ -1884,5 +1886,55 @@ inline vector4 acos(const vector4 &op)
 static const vector4 ZERO4 = _mm_setzero_ps();
 static const vector4 ONE4 = _mm_set1_ps(1.0f);
 static const vector8 ONE8 = _mm256_set1_ps(1.0f);
+
+inline glm::vec3 operator*(const matrix4 &mat, const glm::vec3 &op)
+{
+	const __m128 v = _mm_maskload_ps(value_ptr(op), _mm_set_epi32(~0, ~0, ~0, 0));
+
+	__m128 v0 = _mm_shuffle_ps(v, v, _MM_SHUFFLE(0, 0, 0, 0));
+	__m128 v1 = _mm_shuffle_ps(v, v, _MM_SHUFFLE(1, 1, 1, 1));
+	__m128 v2 = _mm_shuffle_ps(v, v, _MM_SHUFFLE(2, 2, 2, 2));
+	__m128 v3 = _mm_shuffle_ps(v, v, _MM_SHUFFLE(3, 3, 3, 3));
+
+	__m128 m0 = _mm_mul_ps(mat.cols[0], v0);
+	__m128 m1 = _mm_mul_ps(mat.cols[1], v1);
+	__m128 m2 = _mm_mul_ps(mat.cols[2], v2);
+	__m128 m3 = _mm_mul_ps(mat.cols[3], v3);
+
+	__m128 a0 = _mm_add_ps(m0, m1);
+	__m128 a1 = _mm_add_ps(m2, m3);
+	__m128 result = _mm_add_ps(a0, a1);
+	glm::vec3 res3;
+	memcpy(value_ptr(res3), &result, sizeof(glm::vec3));
+	return res3;
+}
+
+inline glm::vec3 operator*(const glm::vec3 &op, const matrix4 &mat)
+{
+	__m256 i01 = mat.cols8[0];
+	__m256 i23 = mat.cols8[1];
+
+	const __m128 v = _mm_maskload_ps(value_ptr(op), _mm_set_epi32(~0, ~0, ~0, 0));
+	const __m256 v8 = _mm256_set_m128(v, v);
+
+	__m256 m01 = _mm256_mul_ps(v8, i01);
+	__m256 m23 = _mm256_mul_ps(v8, i23);
+
+	__m128 u0 = _mm_unpacklo_ps(_mm256_extractf128_ps(m01, 0), _mm256_extractf128_ps(m01, 1));
+	__m128 u1 = _mm_unpackhi_ps(_mm256_extractf128_ps(m01, 0), _mm256_extractf128_ps(m01, 1));
+	__m128 a0 = _mm_add_ps(u0, u1);
+
+	__m128 u2 = _mm_unpacklo_ps(_mm256_extractf128_ps(m23, 0), _mm256_extractf128_ps(m23, 1));
+	__m128 u3 = _mm_unpackhi_ps(_mm256_extractf128_ps(m23, 0), _mm256_extractf128_ps(m23, 1));
+	__m128 a1 = _mm_add_ps(u2, u3);
+
+	__m128 f0 = _mm_movelh_ps(a0, a1);
+	__m128 f1 = _mm_movehl_ps(a1, a0);
+
+	__m128 result = _mm_add_ps(f0, f1);
+	glm::vec3 res3;
+	memcpy(value_ptr(res3), &result, sizeof(glm::vec3));
+	return res3;
+}
 } // namespace simd
 } // namespace rfw

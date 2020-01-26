@@ -29,8 +29,12 @@
 
 using namespace glm;
 
+#ifndef INLINE_FUNC
 #define INLINE_FUNC __device__ static inline
+#endif
+#ifndef REFERENCE_OF
 #define REFERENCE_OF(x) x &
+#endif
 
 #define ETA shadingData.getEta()
 #define SPECULAR shadingData.getSpecular()

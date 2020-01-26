@@ -1,7 +1,6 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-#include "tools.h"
 #include "../Settings.h"
 
 #define INVPI 0.318309886183790671537767526745028724f
@@ -22,21 +21,43 @@
 #define FLT_MIN 1 .175494351e-38f
 #endif
 
-#if defined(__CUDACC__) || defined(__NVCC__) || defined(_WIN32) || defined(__linux__)
+#if defined(__CUDACC__) || defined(__NVCC__) || defined(_WIN32) || defined(__linux__) || defined(__APPLE__)
+
+#ifndef REFERENCE_OF
+#define REFERENCE_OF(x) x &
+#endif
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
+using uint = glm::uint;
 using namespace glm;
 
 #if defined(__CUDACC__) || defined(__NVCC__)
+
+#ifndef __device__
+#define __device__
+#endif
+
+#ifndef INLINE_FUNC
 #define INLINE_FUNC __device__ static inline
+#endif
+
+#ifndef MEMBER_INLINE_FUNC
 #define MEMBER_INLINE_FUNC __device__ inline
+#endif
+
 #else
+
+#ifndef INLINE_FUNC
 #define INLINE_FUNC static inline
+#endif
+
+#ifndef MEMBER_INLINE_FUNC
 #define MEMBER_INLINE_FUNC inline
 #endif
-#define REFERENCE_OF(x) x &
+
+#endif
 
 template <uint S> INLINE_FUNC float char2flt(const unsigned int value)
 {
@@ -88,3 +109,5 @@ struct ShadingData
 #endif
 
 #endif
+
+#include "tools.h"

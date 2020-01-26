@@ -16,3 +16,5 @@
 #include "Mesh.h"
 #include "Ray.h"
 #include "Triangle.h"
+
+#include <bsdf/bsdf.h>

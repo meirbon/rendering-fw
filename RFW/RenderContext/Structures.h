@@ -136,8 +136,12 @@ struct Material
 #if defined(__CUDACC__) || defined(__NVCC__) || defined(WIN32) || defined(__linux__) || defined(__APPLE__)
 #if defined(__CUDACC__) || defined(__NVCC__)
 #define FLOAT_AS_UINT(x) (__float_as_uint((x)))
+#define UINT_AS_FLOAT(x) (__uint_as_float((x)))
+#define INT_AS_FLOAT(x) (__int_as_float((x)))
 #else
-#define FLOAT_AS_UINT(x) (*(uint *)&(x))
+#define FLOAT_AS_UINT(x) (*reinterpret_cast<const uint *>(&(x)))
+#define UINT_AS_FLOAT(x) (*reinterpret_cast<const float *>(&(x)))
+#define INT_AS_FLOAT(x) (*reinterpret_cast<const float *>(&(x)))
 #endif
 	DEVICE_FUNC static bool hasFlag(const uint flags, MatPropFlags flag) { return (flags & (1u << uint(flag))); }
 	DEVICE_FUNC bool hasFlag(MatPropFlags flag) const { return (flags & (1u << uint(flag))); }

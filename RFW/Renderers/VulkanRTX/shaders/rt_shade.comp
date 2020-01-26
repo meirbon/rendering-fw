@@ -267,7 +267,7 @@ void main()
 
     // Depth cap
     if (pathLength >= MAXPATHLENGTH)// Early out in case we reached maximum path length
-    return;
+        return;
 
     vec3 R;
     float newBsdfPdf, r3, r4;

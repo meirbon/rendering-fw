@@ -101,7 +101,8 @@ INLINE_FUNC float BSDFPdf(const ShadingData shadingData, const vec3 N, const vec
 }
 
 // evaluate the BSDF for a given pair of directions
-INLINE_FUNC vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const vec3 wi, const float t, const bool backfacing)
+INLINE_FUNC vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec3 wo, const vec3 wi, const float t,
+						  const bool backfacing)
 {
 	const float NDotL = dot(N, wi);
 	const float NDotV = dot(N, wo);
@@ -110,7 +111,7 @@ INLINE_FUNC vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec
 	const float LDotH = dot(wi, H);
 	const vec3 Cdlin = shadingData.color;
 	const float Cdlum = .3f * Cdlin.x + .6f * Cdlin.y + .1f * Cdlin.z; // luminance approx.
-	const vec3 Ctint = Cdlum > 0.0f ? Cdlin / Cdlum : vec3(1.0f); // normalize lum. to isolate hue+sat
+	const vec3 Ctint = Cdlum > 0.0f ? Cdlin / Cdlum : vec3(1.0f);	   // normalize lum. to isolate hue+sat
 	const vec3 Cspec0 = disney_lerp(SPECULAR * .08f * disney_lerp(vec3(1.0f), Ctint, SPECTINT), Cdlin, METALLIC);
 	vec3 bsdf = vec3(0);
 	vec3 brdf = vec3(0);
@@ -165,28 +166,31 @@ INLINE_FUNC vec3 BSDFEval(const ShadingData shadingData, const vec3 N, const vec
 			// Diffuse fresnel - go from 1 at normal incidence to .5 at grazing
 			// and mix in diffuse retro-reflection based on roughness
 			const float FL = SchlickFresnel(NDotL), FV = SchlickFresnel(NDotV);
-			const float Fd90 = 0.5 + 2.0f * LDotH * LDotH * a;
+			const float Fd90 = 0.5f + 2.0f * LDotH * LDotH * a;
 			const float Fd = disney_lerp(1.0f, Fd90, FL) * disney_lerp(1.0f, Fd90, FV);
 
 			// clearcoat (ior = 1.5 -> F0 = 0.04)
 			const float Dr = GTR1(NDotH, disney_lerp(.1, .001, CLEARCOATGLOSS));
 			const float Fc = disney_lerp(.04f, 1.0f, FH);
-			const float Gr = SmithGGX(NDotL, .25) * SmithGGX(NDotV, .25);
+			const float Gr = SmithGGX(NDotL, .25f) * SmithGGX(NDotV, .25f);
 
-			brdf = INVPI * Fd * Cdlin * (1.0f - METALLIC) * (1.0f - SUBSURFACE) + Gs * Fs * Ds + CLEARCOAT * Gr * Fc * Dr;
+			brdf =
+				INVPI * Fd * Cdlin * (1.0f - METALLIC) * (1.0f - SUBSURFACE) + Gs * Fs * Ds + CLEARCOAT * Gr * Fc * Dr;
 		}
 	}
 
 	const vec3 final = disney_lerp(brdf, bsdf, TRANSMISSION);
 	if (backfacing)
-		return final * vec3(exp(-shadingData.absorption.r * t), exp(-shadingData.absorption.g * t), exp(-shadingData.absorption.b * t));
+		return final * vec3(exp(-shadingData.absorption.r * t), exp(-shadingData.absorption.g * t),
+							exp(-shadingData.absorption.b * t));
 	else
 		return final;
 }
 
 // generate an importance sampled BSDF direction
-INLINE_FUNC void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const vec3 N, const vec3 wo, REFERENCE_OF(vec3) wi,
-							REFERENCE_OF(float) pdf, REFERENCE_OF(int) type, const float t, const bool backfacing, const float r3, const float r4)
+INLINE_FUNC void BSDFSample(const ShadingData shadingData, const vec3 T, const vec3 B, const vec3 N, const vec3 wo,
+							REFERENCE_OF(vec3) wi, REFERENCE_OF(float) pdf, REFERENCE_OF(int) type, const float t,
+							const bool backfacing, const float r3, const float r4)
 {
 	const float transmission = TRANSMISSION;
 	if (r3 < transmission)
@@ -263,16 +267,17 @@ INLINE_FUNC void BSDFSample(const ShadingData shadingData, const vec3 T, const v
 
 // ----------------------------------------------------------------
 
-INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo, const vec3 wi, REFERENCE_OF(float) pdf,
-							  REFERENCE_OF(uint) seed)
+INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo,
+							  const vec3 wi, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
 {
 	const vec3 bsdf = BSDFEval(shadingData, iN, wo, wi, 0.0f, false);
 	pdf = BSDFPdf(shadingData, iN, wo, wi);
 	return bsdf;
 }
 
-INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B, vec3 wo, const float t,
-							const bool backfacing, REFERENCE_OF(vec3) wi, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
+INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B,
+							const vec3 wo, const float t, const bool backfacing, REFERENCE_OF(vec3) wi,
+							REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
 {
 	int type;
 	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, RandomFloat(seed), RandomFloat(seed));

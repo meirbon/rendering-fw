@@ -53,8 +53,10 @@ class Context : public RenderContext
 	std::vector<mat3> m_InverseMatrices;
 
 	rfw::utils::ThreadPool m_Pool = {};
+	uint m_Samples = 0;
 	int m_SkyboxWidth = 0, m_SkyboxHeight = 0;
 	std::vector<glm::vec3> m_Skybox = {glm::vec3(0)};
+	std::vector<glm::vec4> m_Accumulator;
 	glm::vec4 *m_Pixels = nullptr;
 	GLuint m_TargetID = 0, m_PboID = 0;
 	int m_Width, m_Height;

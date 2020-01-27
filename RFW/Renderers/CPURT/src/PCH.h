@@ -30,4 +30,3 @@
 #include "BVH/TopLevelBVH.h"
 
 #include "Context.h"
-#include "Traversal.h"

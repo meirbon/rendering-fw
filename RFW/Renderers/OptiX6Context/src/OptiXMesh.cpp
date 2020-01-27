@@ -1,8 +1,4 @@
-#include <MathIncludes.h>
-#include "CUDABuffer.h"
-#include "OptiXMesh.h"
-
-#include <utils/Logger.h>
+#include "OptiXContext.h"
 
 OptiXMesh::OptiXMesh(optix::Context &context, optix::Program attribProgram) : m_Context(context), m_AttribProgram(attribProgram)
 {
@@ -63,8 +59,8 @@ void OptiXMesh::setData(const rfw::Mesh &mesh)
 		WARNING("%s", e.what());
 	}
 
-	vertexCount = mesh.vertexCount;
-	triangleCount = mesh.triangleCount;
+	vertexCount = uint(mesh.vertexCount);
+	triangleCount = uint(mesh.triangleCount);
 
 	CheckCUDA(cudaDeviceSynchronize());
 }

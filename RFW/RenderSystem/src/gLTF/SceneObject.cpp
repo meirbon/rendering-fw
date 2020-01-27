@@ -184,7 +184,7 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 
 			if (mesh.flags & SceneMesh::HAS_INDICES)
 			{
-				for (int i = 0; i < mesh.faceCount; i++)
+				for (int i = 0, s = int(mesh.faceCount); i < s; i++)
 				{
 					const auto index = indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
 					Triangle &tri = triangles.at(i + mesh.triangleOffset);
@@ -219,7 +219,7 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 			}
 			else
 			{
-				for (int i = 0; i < mesh.faceCount; i++)
+				for (int i = 0, s = int(mesh.faceCount); i < s; i++)
 				{
 					const auto idx = i * 3;
 					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
@@ -285,8 +285,8 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 			{
 				const Texture &texture = matList->getTextures().at(texID);
 
-				const float Ta =
-					float(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+				const float Ta = float(texture.width * texture.height) *
+								 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 				const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 				tri.LOD = max(0.f, sqrt(0.5f * log2f(Ta / Pa)));
 			}
@@ -324,8 +324,9 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 					{
 						const Texture &texture = matList->getTextures().at(texID);
 
-						const float Ta = static_cast<float>(texture.width * texture.height) *
-										 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+						const float Ta =
+							static_cast<float>(texture.width * texture.height) *
+							abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 						const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 						tri.LOD = 0.5f * log2f(Ta / Pa);
 					}
@@ -360,8 +361,9 @@ void rfw::SceneObject::updateTriangles(rfw::MaterialList *matList)
 					{
 						const Texture &texture = matList->getTextures()[texID];
 
-						const float Ta = static_cast<float>(texture.width * texture.height) *
-										 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+						const float Ta =
+							static_cast<float>(texture.width * texture.height) *
+							abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 						const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 						tri.LOD = 0.5f * log2f(Ta / Pa);
 					}

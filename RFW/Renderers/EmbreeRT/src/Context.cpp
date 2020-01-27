@@ -362,7 +362,7 @@ void Context::set_instance(const size_t i, const size_t meshIdx, const mat4 &tra
 		rtcCommitGeometry(instance);
 	}
 
-	m_InstanceMesh[i] = meshIdx;
+	m_InstanceMesh[i] = uint(meshIdx);
 	m_InstanceMatrices[i] = transform;
 	m_InverseMatrices[i] = inverse_transform;
 }
@@ -370,8 +370,8 @@ void Context::set_instance(const size_t i, const size_t meshIdx, const mat4 &tra
 void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	m_Skybox = pixels;
-	m_SkyboxWidth = width;
-	m_SkyboxHeight = height;
+	m_SkyboxWidth = int(width);
+	m_SkyboxHeight = int(height);
 }
 
 void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,

@@ -405,7 +405,7 @@ void rfw::SceneAnimation::Channel::setTime(rfw::SceneObject *object, float curre
 		{
 			auto weightCount = node.weights.size();
 			for (int j = 0; j < weightCount; j++)
-				node.weights[j] = sampler.sampleFloat(time, key, j, weightCount);
+				node.weights[j] = sampler.sampleFloat(time, key, j, int(weightCount));
 
 			node.morphed = true;
 		}

@@ -1878,7 +1878,7 @@ inline vector4 atan2(const vector4 &x, const vector4 &y)
 }
 inline vector4 acos(const vector4 &op)
 {
-	return ((-0.69813170079773212 * op * op - 0.87266462599716477) * op + 1.5707963267948966);
+	return ((-0.69813170079773212f * op * op - 0.87266462599716477f) * op + 1.5707963267948966f);
 } // namespace simd
 
 static const vector4 ZERO4 = _mm_setzero_ps();

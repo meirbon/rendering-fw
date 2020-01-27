@@ -107,7 +107,7 @@ void rfw::CUDAContext::render_frame(const rfw::Camera &camera, rfw::RenderStatus
 	glFinish();
 	m_Stats.clear();
 	Counters *counters = m_Counters->data();
-	counters->probeIdx = m_ProbePixel.x + m_ProbePixel.y * m_Width;
+	counters->probeIdx = uint(m_ProbePixel.x + m_ProbePixel.y * m_Width);
 
 	const auto view = camera.get_view();
 	m_CameraView->copy_to_device_async(&view, 1);
@@ -364,7 +364,7 @@ void rfw::CUDAContext::set_instance(size_t i, size_t meshIdx, const mat4 &transf
 		m_InstanceMeshIDs.push_back(0);
 
 	m_TopLevelBVH.set_instance(static_cast<int>(i), transform, m_Meshes[meshIdx], m_Meshes[meshIdx]->bvh->aabb);
-	m_InstanceMeshIDs[i] = meshIdx;
+	m_InstanceMeshIDs[i] = uint(meshIdx);
 }
 
 void rfw::CUDAContext::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)

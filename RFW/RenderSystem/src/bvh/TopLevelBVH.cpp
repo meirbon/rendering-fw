@@ -20,8 +20,8 @@ void rfwMesh::set_geometry(const rfw::Mesh &mesh)
 
 	const bool rebuild = !bvh || (vertexCount != mesh.vertexCount);
 
-	vertexCount = mesh.vertexCount;
-	triangleCount = mesh.triangleCount;
+	vertexCount = int(mesh.vertexCount);
+	triangleCount = int(mesh.triangleCount);
 
 #if REFIT
 	if (rebuild) // Full rebuild of BVH
@@ -30,9 +30,9 @@ void rfwMesh::set_geometry(const rfw::Mesh &mesh)
 		delete mbvh;
 
 		if (mesh.hasIndices())
-			bvh = new BVHTree(mesh.vertices, mesh.vertexCount, mesh.indices, mesh.triangleCount);
+			bvh = new BVHTree(mesh.vertices, int(mesh.vertexCount), mesh.indices, int(mesh.triangleCount));
 		else
-			bvh = new BVHTree(mesh.vertices, mesh.vertexCount);
+			bvh = new BVHTree(mesh.vertices, int(mesh.vertexCount));
 
 		bvh->construct_bvh();
 		mbvh = new MBVHTree(bvh);

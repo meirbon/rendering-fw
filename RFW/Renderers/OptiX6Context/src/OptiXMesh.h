@@ -1,6 +1,9 @@
 #pragma once
 
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
+
 #include <optix.h>
 #include <optix_world.h>
 

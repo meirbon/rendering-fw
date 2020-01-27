@@ -120,7 +120,7 @@ void Context::render_frame(const Camera &camera, RenderStatus status)
 		m_Textures.at(i).bind(i);
 
 		char buffer[128];
-		sprintf(buffer, "textures[%i]", i);
+		utils::string::format(buffer, "textures[%i]", i);
 		m_CurrentShader->setUniform(buffer, m_TextureBindings.at(i));
 	}
 
@@ -244,7 +244,7 @@ void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t
 	for (int i = 0, s = static_cast<int>(width * height); i < s; i++)
 		skybox[i] = vec4(pixels[i], 1);
 
-	m_Skybox.setData(skybox, width, height);
+	m_Skybox.setData(skybox, uint(width), uint(height));
 	CheckGL();
 }
 
@@ -333,17 +333,17 @@ void Context::setLights(utils::GLShader *shader)
 		const auto &l = m_AreaLights.at(i);
 
 		char buffer[128];
-		sprintf(buffer, "areaLights[%i].position_area", i);
+		utils::string::format(buffer, "areaLights[%i].position_area", i);
 		shader->setUniform(buffer, vec4(l.position, Triangle::calculateArea(l.vertex0, l.vertex1, l.vertex2)));
-		sprintf(buffer, "areaLights[%i].normal", i);
+		utils::string::format(buffer, "areaLights[%i].normal", i);
 		shader->setUniform(buffer, l.normal);
-		sprintf(buffer, "areaLights[%i].radiance", i);
+		utils::string::format(buffer, "areaLights[%i].radiance", i);
 		shader->setUniform(buffer, l.radiance);
-		sprintf(buffer, "areaLights[%i].vertex0", i);
+		utils::string::format(buffer, "areaLights[%i].vertex0", i);
 		shader->setUniform(buffer, l.vertex0);
-		sprintf(buffer, "areaLights[%i].vertex1", i);
+		utils::string::format(buffer, "areaLights[%i].vertex1", i);
 		shader->setUniform(buffer, l.vertex1);
-		sprintf(buffer, "areaLights[%i].vertex2", i);
+		utils::string::format(buffer, "areaLights[%i].vertex2", i);
 		shader->setUniform(buffer, l.vertex2);
 	}
 
@@ -352,9 +352,9 @@ void Context::setLights(utils::GLShader *shader)
 		const auto &l = m_PointLights.at(i);
 
 		char buffer[128];
-		sprintf(buffer, "pointLights[%i].position_energy", i);
+		utils::string::format(buffer, "pointLights[%i].position_energy", i);
 		shader->setUniform(buffer, vec4(l.position, l.energy));
-		sprintf(buffer, "pointLights[%i].radiance", i);
+		utils::string::format(buffer, "pointLights[%i].radiance", i);
 		shader->setUniform(buffer, l.radiance);
 	}
 
@@ -363,11 +363,11 @@ void Context::setLights(utils::GLShader *shader)
 		const auto &l = m_SpotLights.at(i);
 
 		char buffer[128];
-		sprintf(buffer, "spotLights[%i].position_cos_inner", i);
+		utils::string::format(buffer, "spotLights[%i].position_cos_inner", i);
 		shader->setUniform(buffer, vec4(l.position, l.cosInner));
-		sprintf(buffer, "spotLights[%i].radiance_cos_outer", i);
+		utils::string::format(buffer, "spotLights[%i].radiance_cos_outer", i);
 		shader->setUniform(buffer, vec4(l.radiance, l.cosOuter));
-		sprintf(buffer, "spotLights[%i].direction_energy", i);
+		utils::string::format(buffer, "spotLights[%i].direction_energy", i);
 		shader->setUniform(buffer, vec4(l.direction, l.energy));
 	}
 
@@ -376,9 +376,9 @@ void Context::setLights(utils::GLShader *shader)
 		const auto &l = m_DirectionalLights.at(i);
 
 		char buffer[128];
-		sprintf(buffer, "dirLights[%i].direction_energy", i);
+		utils::string::format(buffer, "dirLights[%i].direction_energy", i);
 		shader->setUniform(buffer, vec4(l.direction, l.energy));
-		sprintf(buffer, "dirLights[%i].radiance", i);
+		utils::string::format(buffer, "dirLights[%i].radiance", i);
 		shader->setUniform(buffer, l.radiance);
 	}
 

@@ -92,7 +92,7 @@ class CUDAContext : public RenderContext
 	unsigned int m_ProbedInstance = 0;
 	unsigned int m_ProbedPrim = 0;
 	float m_ProbedDistance = 0;
-	glm::vec2 m_ProbePixel = glm::vec2(0);
+	glm::uvec2 m_ProbePixel = glm::vec2(0);
 	glm::vec3 m_ProbedPoint = glm::vec3(0.0f);
 	rfw::RenderStats m_Stats = {};
 };

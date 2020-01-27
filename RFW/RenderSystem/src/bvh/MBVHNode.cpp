@@ -413,7 +413,7 @@ void MBVHNode::validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw:
 		}
 		else
 		{
-			if (childs[i] >= maxPoolPtr)
+			if (childs[i] >= int(maxPoolPtr))
 				throw std::runtime_error("Invalid node: PoolPtr is larger than maximum.");
 			nodes[childs[i]].validate(nodes, primIDs, maxPoolPtr, maxPrimIndex);
 		}

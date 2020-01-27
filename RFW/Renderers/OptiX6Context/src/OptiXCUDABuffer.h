@@ -107,7 +107,7 @@ template <typename T, OptiXBufferType bufferType> class OptiXCUDABuffer
 	}
 
 	OptiXCUDABuffer(optix::Context context, rfw::utils::ArrayProxy<size_t> dimensions)
-		: m_Context(context), m_Dimensions(dimensions.size()), m_Width(uint(dimensions[0]))
+		: m_Context(context), m_Dimensions(uint(dimensions.size())), m_Width(uint(dimensions[0]))
 	{
 		m_Format = parse_format();
 

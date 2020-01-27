@@ -7,7 +7,10 @@
 using namespace glm;
 
 rfw::SceneMesh::SceneMesh() { flags |= INITIAL_PRIM; }
-rfw::SceneMesh::SceneMesh(const rfw::SceneObject &obj) : object(const_cast<rfw::SceneObject *>(&obj)) { flags |= INITIAL_PRIM; }
+rfw::SceneMesh::SceneMesh(const rfw::SceneObject &obj) : object(const_cast<rfw::SceneObject *>(&obj))
+{
+	flags |= INITIAL_PRIM;
+}
 
 void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 {
@@ -193,8 +196,9 @@ const glm::vec3 *rfw::SceneMesh::getNormals() const { return &object->normals[ve
 rfw::simd::vector4 *rfw::SceneMesh::getBaseNormals() { return &object->baseNormals[vertexOffset]; }
 const rfw::simd::vector4 *rfw::SceneMesh::getBaseNormals() const { return &object->baseNormals[vertexOffset]; }
 
-void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vector<glm::vec3> &verts, const std::vector<glm::vec3> &nrmls,
-								  const std::vector<glm::vec2> &uvs, const std::vector<rfw::SceneMesh::Pose> &pses, const std::vector<glm::uvec4> &jnts,
+void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vector<glm::vec3> &verts,
+								  const std::vector<glm::vec3> &nrmls, const std::vector<glm::vec2> &uvs,
+								  const std::vector<rfw::SceneMesh::Pose> &pses, const std::vector<glm::uvec4> &jnts,
 								  const std::vector<glm::vec4> &wghts, const int materialIdx)
 {
 	std::vector<int> indices = indces;
@@ -221,7 +225,7 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 		const uint primIndexOffset = vertexCount;
 
 		faceCount += uint(indices.size() / 3);
-		vertexCount += verts.size();
+		vertexCount += uint(verts.size());
 
 		// Allocate data
 		const auto triangleOffset = object->triangles.size();
@@ -347,8 +351,8 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 			vertexOffset = static_cast<uint>(object->baseVertices.size());
 		}
 
-		faceCount += verts.size() / 3;
-		vertexCount += verts.size();
+		faceCount += uint(verts.size() / 3);
+		vertexCount += uint(verts.size());
 
 		// Allocate data
 		const auto triangleOffset = object->triangles.size();
@@ -403,10 +407,11 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 	object->vertices.resize(object->baseVertices.size());
 	object->normals.resize(object->baseNormals.size());
 
-	memcpy(object->vertices.data() + vertexOffset, object->baseVertices.data() + vertexOffset, count * sizeof(glm::vec4));
+	memcpy(object->vertices.data() + vertexOffset, object->baseVertices.data() + vertexOffset,
+		   count * sizeof(glm::vec4));
 
 	const simd::vector4 normal_mask = _mm_set_epi32(0, ~0, ~0, ~0);
-	for (int i = vertexOffset, s = vertexOffset + count; i < s; i++)
+	for (int i = int(vertexOffset), s = int(vertexOffset) + int(count); i < s; i++)
 	{
 		// object->baseNormals[i].write_to(value_ptr(object->normals[i]), normal_mask);
 		object->normals[i] = object->baseNormals[i].vec;

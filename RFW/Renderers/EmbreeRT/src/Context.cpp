@@ -434,7 +434,7 @@ void Context::set_instance(const size_t i, const size_t meshIdx, const mat4 &tra
 		rtcCommitGeometry(instance);
 	}
 
-	m_InstanceMesh[i] = meshIdx;
+	m_InstanceMesh[i] = uint(meshIdx);
 	m_InstanceMatrices[i] = transform;
 	m_InverseMatrices[i] = inverse_transform;
 }

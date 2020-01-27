@@ -13,7 +13,7 @@ rfw::CUDAContext::~CUDAContext()
 	delete m_Skybox;
 	delete m_TextureBuffersPointers;
 	delete m_Materials;
-	delete m_DeviceInstanceDescriptors;
+	// delete m_DeviceInstanceDescriptors;
 
 	delete m_CameraView;
 	delete m_Accumulator;
@@ -35,10 +35,12 @@ rfw::CUDAContext::~CUDAContext()
 	delete m_CUDAInstanceTransforms;
 	delete m_CUDAInverseTransforms;
 
-	delete m_InstanceVertexPointers;
-	delete m_InstanceIndexPointers;
-	delete m_InstanceBVHPointers;
-	delete m_InstancePrimIdPointers;
+	// delete m_InstanceVertexPointers;
+	// delete m_InstanceIndexPointers;
+	// delete m_InstanceBVHPointers;
+	// delete m_InstancePrimIdPointers;
+
+	delete m_InstanceDescriptors;
 
 	for (auto mesh : m_MeshVertices)
 		delete mesh;
@@ -52,9 +54,15 @@ rfw::CUDAContext::~CUDAContext()
 		delete primIDs;
 }
 
-std::vector<rfw::RenderTarget> rfw::CUDAContext::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
+std::vector<rfw::RenderTarget> rfw::CUDAContext::get_supported_targets() const
+{
+	return {rfw::RenderTarget::OPENGL_TEXTURE};
+}
 
-void rfw::CUDAContext::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("Not supported (yet)."); }
+void rfw::CUDAContext::init(std::shared_ptr<rfw::utils::Window> &window)
+{
+	throw std::runtime_error("Not supported (yet).");
+}
 
 void rfw::CUDAContext::init(GLuint *glTextureID, uint width, uint height)
 {
@@ -107,7 +115,7 @@ void rfw::CUDAContext::render_frame(const rfw::Camera &camera, rfw::RenderStatus
 	glFinish();
 	m_Stats.clear();
 	Counters *counters = m_Counters->data();
-	counters->probeIdx = m_ProbePixel.x + m_ProbePixel.y * m_Width;
+	counters->probeIdx = uint(m_ProbePixel.x + m_ProbePixel.y * m_Width);
 
 	const auto view = camera.get_view();
 	m_CameraView->copy_to_device_async(&view, 1);
@@ -198,7 +206,8 @@ void rfw::CUDAContext::render_frame(const rfw::Camera &camera, rfw::RenderStatus
 	m_Counters->copy_to_device_async();
 }
 
-void rfw::CUDAContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void rfw::CUDAContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials,
+									 const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	std::vector<rfw::DeviceMaterial> mats(materials.size());
 	memcpy(mats.data(), materials.data(), materials.size() * sizeof(rfw::Material));
@@ -364,7 +373,7 @@ void rfw::CUDAContext::set_instance(size_t i, size_t meshIdx, const mat4 &transf
 		m_InstanceMeshIDs.push_back(0);
 
 	m_TopLevelBVH.set_instance(static_cast<int>(i), transform, m_Meshes[meshIdx], m_Meshes[meshIdx]->bvh->aabb);
-	m_InstanceMeshIDs[i] = meshIdx;
+	m_InstanceMeshIDs[i] = uint(meshIdx);
 }
 
 void rfw::CUDAContext::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
@@ -375,8 +384,9 @@ void rfw::CUDAContext::set_sky(const std::vector<glm::vec3> &pixels, size_t widt
 	setSkyDimensions(static_cast<uint>(width), static_cast<uint>(height));
 }
 
-void rfw::CUDAContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-								  const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void rfw::CUDAContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
+								  const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
+								  const rfw::DeviceDirectionalLight *directionalLights)
 {
 	CheckCUDA(cudaDeviceSynchronize());
 
@@ -418,7 +428,8 @@ void rfw::CUDAContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceA
 		if (!m_DirectionalLights || m_DirectionalLights->size())
 		{
 			delete m_DirectionalLights;
-			m_DirectionalLights = new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
+			m_DirectionalLights =
+				new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
 			setDirectionalLights(m_DirectionalLights->device_data());
 		}
 		m_DirectionalLights->copy_to_device_async(directionalLights, lightCount.directionalLightCount);
@@ -428,7 +439,8 @@ void rfw::CUDAContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceA
 	CheckCUDA(cudaDeviceSynchronize());
 }
 
-void rfw::CUDAContext::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
+void rfw::CUDAContext::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex,
+										 float *distance) const
 {
 	*instanceIndex = m_ProbedInstance;
 	*primitiveIndex = m_ProbedPrim;
@@ -451,43 +463,51 @@ void rfw::CUDAContext::update()
 	delete m_CUDAInstanceTransforms;
 	delete m_CUDAInverseTransforms;
 
-	delete m_InstanceVertexPointers;
-	delete m_InstanceIndexPointers;
-	delete m_InstanceBVHPointers;
-	delete m_InstanceMBVHPointers;
-	delete m_InstancePrimIdPointers;
-	delete m_DeviceInstanceDescriptors;
+	delete m_InstanceDescriptors;
 
-	m_InstanceVertexPointers = new CUDABuffer<glm::vec4 *>(m_InstanceMeshIDs.size(), ON_ALL);
-	m_InstanceIndexPointers = new CUDABuffer<glm::uvec3 *>(m_InstanceMeshIDs.size(), ON_ALL);
-	m_InstanceBVHPointers = new CUDABuffer<bvh::BVHNode *>(m_InstanceMeshIDs.size(), ON_ALL);
-	m_InstanceMBVHPointers = new CUDABuffer<bvh::MBVHNode *>(m_InstanceMeshIDs.size(), ON_ALL);
-	m_InstancePrimIdPointers = new CUDABuffer<uint *>(m_InstanceMeshIDs.size()), ON_ALL;
-	m_DeviceInstanceDescriptors = new CUDABuffer<rfw::DeviceInstanceDescriptor>(m_InstanceMeshIDs.size(), ON_ALL);
+	m_InstanceDescriptors = new CUDABuffer<InstanceBVHDescriptor>(m_InstanceMeshIDs.size(), ON_ALL);
+
+	// delete m_InstanceVertexPointers;
+	// delete m_InstanceIndexPointers;
+	// delete m_InstanceBVHPointers;
+	// delete m_InstanceMBVHPointers;
+	// delete m_InstancePrimIdPointers;
+	// delete m_DeviceInstanceDescriptors;
+
+	// m_InstanceVertexPointers = new CUDABuffer<glm::vec4 *>(m_InstanceMeshIDs.size(), ON_ALL);
+	// m_InstanceIndexPointers = new CUDABuffer<glm::uvec3 *>(m_InstanceMeshIDs.size(), ON_ALL);
+	// m_InstanceBVHPointers = new CUDABuffer<bvh::BVHNode *>(m_InstanceMeshIDs.size(), ON_ALL);
+	// m_InstanceMBVHPointers = new CUDABuffer<bvh::MBVHNode *>(m_InstanceMeshIDs.size(), ON_ALL);
+	// m_InstancePrimIdPointers = new CUDABuffer<uint *>(m_InstanceMeshIDs.size()), ON_ALL;
+	// m_DeviceInstanceDescriptors = new CUDABuffer<rfw::DeviceInstanceDescriptor>(m_InstanceMeshIDs.size(), ON_ALL);
 
 	for (int i = 0, s = static_cast<int>(m_InstanceMeshIDs.size()); i < s; i++)
 	{
 		const auto meshID = m_InstanceMeshIDs[i];
+		InstanceBVHDescriptor &desc = m_InstanceDescriptors->data()[i];
+		desc.vertices = m_MeshVertices[meshID]->device_data();
 
-		m_InstanceVertexPointers->data()[i] = m_MeshVertices[meshID]->device_data();
 		if (m_Meshes[meshID]->indices)
-			m_InstanceIndexPointers->data()[i] = m_MeshIndices[meshID]->device_data();
+			desc.indices = m_MeshIndices[meshID]->device_data();
 		else
-			m_InstanceIndexPointers->data()[i] = nullptr;
-		m_InstanceBVHPointers->data()[i] = m_MeshBVHs[meshID]->device_data();
-		m_InstanceMBVHPointers->data()[i] = m_MeshMBVHs[meshID]->device_data();
-		m_InstancePrimIdPointers->data()[i] = m_MeshBVHPrimIndices[meshID]->device_data();
+			desc.indices = nullptr;
 
-		m_DeviceInstanceDescriptors->data()[i].invTransform = m_TopLevelBVH.get_normal_matrix(i).matrix;
-		m_DeviceInstanceDescriptors->data()[i].triangles = m_MeshTriangles[meshID]->device_data();
+		desc.bvh = m_MeshBVHs[meshID]->device_data();
+		desc.mbvh = m_MeshMBVHs[meshID]->device_data();
+		desc.bvh_indices = m_MeshBVHPrimIndices[meshID]->device_data();
+
+		desc.instance_transform = m_TopLevelBVH.get_instance_matrix(i).matrix;
+		desc.inverse_transform = mat3x4(m_TopLevelBVH.get_normal_matrix(i).matrix);
+		desc.triangles = m_MeshTriangles[meshID]->device_data();
 	}
 
-	m_InstanceVertexPointers->copy_to_device_async();
-	m_InstanceIndexPointers->copy_to_device_async();
-	m_InstanceBVHPointers->copy_to_device_async();
-	m_InstanceMBVHPointers->copy_to_device_async();
-	m_InstancePrimIdPointers->copy_to_device_async();
-	m_DeviceInstanceDescriptors->copy_to_device_async();
+	m_InstanceDescriptors->copy_to_device_async();
+	// m_InstanceVertexPointers->copy_to_device_async();
+	// m_InstanceIndexPointers->copy_to_device_async();
+	// m_InstanceBVHPointers->copy_to_device_async();
+	// m_InstanceMBVHPointers->copy_to_device_async();
+	// m_InstancePrimIdPointers->copy_to_device_async();
+	// m_DeviceInstanceDescriptors->copy_to_device_async();
 
 	m_TopLevelCUDABVH = new CUDABuffer<bvh::BVHNode>(m_TopLevelBVH.bvh_nodes.size(), ON_DEVICE);
 	m_TopLevelCUDAMBVH = new CUDABuffer<bvh::MBVHNode>(m_TopLevelBVH.mbvh_nodes.size(), ON_DEVICE);
@@ -502,23 +522,26 @@ void rfw::CUDAContext::update()
 	m_TopLevelCUDAPrimIndices->copy_to_device_async(m_TopLevelBVH.prim_indices);
 	m_TopLevelCUDAABBs->copy_to_device_async(m_TopLevelBVH.instance_aabbs);
 
-	m_CUDAInstanceTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.matrices.data(), m_TopLevelBVH.matrices.size());
-	m_CUDAInverseTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.inverse_matrices.data(), m_TopLevelBVH.inverse_matrices.size());
+	m_CUDAInstanceTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.matrices.data(),
+												   m_TopLevelBVH.matrices.size());
+	m_CUDAInverseTransforms->copy_to_device_async((glm::mat4 *)m_TopLevelBVH.inverse_matrices.data(),
+												  m_TopLevelBVH.inverse_matrices.size());
 
 	setTopLevelBVH(m_TopLevelCUDABVH->device_data());
 	setTopLevelMBVH(m_TopLevelCUDAMBVH->device_data());
 	setTopPrimIndices(m_TopLevelCUDAPrimIndices->device_data());
 	setTopAABBs(m_TopLevelCUDAABBs->device_data());
 
-	setInstanceTransforms(m_CUDAInstanceTransforms->device_data());
-	setInverseTransforms(m_CUDAInverseTransforms->device_data());
+	setInstances(m_InstanceDescriptors->device_data());
 
-	setMeshVertices(m_InstanceVertexPointers->device_data());
-	setMeshIndices(m_InstanceIndexPointers->device_data());
-	setMeshBVHs(m_InstanceBVHPointers->device_data());
-	setMeshMBVHs(m_InstanceMBVHPointers->device_data());
-	setMeshBVHPrimIDs(m_InstancePrimIdPointers->device_data());
-	setInstanceDescriptors(m_DeviceInstanceDescriptors->device_data());
+	// setInstanceTransforms(m_CUDAInstanceTransforms->device_data());
+	// setInverseTransforms(m_CUDAInverseTransforms->device_data());
+	// setMeshVertices(m_InstanceVertexPointers->device_data());
+	// setMeshIndices(m_InstanceIndexPointers->device_data());
+	// setMeshBVHs(m_InstanceBVHPointers->device_data());
+	// setMeshMBVHs(m_InstanceMBVHPointers->device_data());
+	// setMeshBVHPrimIDs(m_InstancePrimIdPointers->device_data());
+	// setInstanceDescriptors(m_DeviceInstanceDescriptors->device_data());
 
 	CheckCUDA(cudaDeviceSynchronize());
 }

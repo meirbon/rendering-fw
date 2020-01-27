@@ -379,8 +379,8 @@ void Context::set_instance(size_t i, size_t meshIdx, const mat4 &transform, cons
 void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
 {
 	m_Skybox = pixels;
-	m_SkyboxWidth = width;
-	m_SkyboxHeight = height;
+	m_SkyboxWidth = int(width);
+	m_SkyboxHeight = int(height);
 }
 
 void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,

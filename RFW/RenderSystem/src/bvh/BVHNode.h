@@ -101,7 +101,7 @@ struct BVHNode
 		const bool subLeft = leftNode->get_count() > 0;
 		const bool subRight = rightNode->get_count() > 0;
 
-		if (threadCount < std::thread::hardware_concurrency()) // Check if we need to create threads
+		if (threadCount.load() < int(std::thread::hardware_concurrency())) // Check if we need to create threads
 		{
 			if (subLeft && subRight)
 			{

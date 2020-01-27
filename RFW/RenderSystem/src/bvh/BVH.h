@@ -6,9 +6,9 @@
 
 #include <Structures.h>
 
-#include "BVH/AABB.h"
-#include "BVH/BVHNode.h"
-#include "BVH/BVHTree.h"
-#include "BVH/MBVHNode.h"
-#include "BVH/MBVHTree.h"
-#include "BVH/TopLevelBVH.h"
+#include "bvh/AABB.h"
+#include "bvh/BVHNode.h"
+#include "bvh/BVHTree.h"
+#include "bvh/MBVHNode.h"
+#include "bvh/MBVHTree.h"
+#include "bvh/TopLevelBVH.h"

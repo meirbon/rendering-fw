@@ -492,7 +492,7 @@ void VkContext::printAvailableExtensions() const
 void VkContext::createCommandBuffers()
 {
 	const auto buffers = m_SwapChain->getBuffers();
-	m_CommandBuffers = m_Device.createCommandBuffers(buffers.size(), vk::CommandBufferLevel::ePrimary, VulkanDevice::GRAPHICS);
+	m_CommandBuffers = m_Device.createCommandBuffers(uint32_t(buffers.size()), vk::CommandBufferLevel::ePrimary, VulkanDevice::GRAPHICS);
 
 	vk::CommandBufferBeginInfo beginInfo = {};
 	vk::ClearValue clearColor{};
@@ -592,7 +592,7 @@ void vkc::VkContext::update()
 			vk::RenderPassBeginInfo(*m_RenderPass, m_Framebuffers.at(i), {{0, 0}, m_SwapChain->getExtent()}, 1, &clearColor);
 
 		cmdBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eInline);
-		cmdBuffer.bindVertexBuffers(0, m_VertexBuffers.size(), m_VertexBuffers.data(), nullptr);
+		cmdBuffer.bindVertexBuffers(0, uint32_t(m_VertexBuffers.size()), m_VertexBuffers.data(), nullptr);
 		cmdBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, m_GraphicsPipeline);
 		cmdBuffer.draw(3, 1, 0, 0);
 		cmdBuffer.endRenderPass();

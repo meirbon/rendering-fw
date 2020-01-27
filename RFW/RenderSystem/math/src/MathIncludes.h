@@ -1144,7 +1144,7 @@ struct vector8
 	inline const float &z2() const { return vec[1].z; }
 	inline const float &w2() const { return vec[1].w; }
 
-	inline const vector4 &vector4(int idx) const { return vec4[idx]; }
+	inline const vector4 &get_vector4(int idx) const { return vec4[idx]; }
 
 	inline float &x1() { return vec[0].x; }
 	inline float &y1() { return vec[0].y; }
@@ -1880,7 +1880,7 @@ inline vector4 atan2(const vector4 &x, const vector4 &y)
 }
 inline vector4 acos(const vector4 &op)
 {
-	return ((-0.69813170079773212 * op * op - 0.87266462599716477) * op + 1.5707963267948966);
+	return ((-0.69813170079773212f * op * op - 0.87266462599716477f) * op + 1.5707963267948966f);
 } // namespace simd
 
 static const vector4 ZERO4 = _mm_setzero_ps();

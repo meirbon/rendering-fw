@@ -50,8 +50,8 @@ void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 				SubMesh m = {};
 				m.matID = lastMaterial;
 				m.first = 0;
-				m.last = mesh.triangleCount * 3 - 1;
-				m.count = mesh.triangleCount * 3;
+				m.last = uint(mesh.triangleCount * 3 - 1);
+				m.count = uint(mesh.triangleCount * 3);
 				m.indexBuffer = new utils::Buffer<uint, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>();
 				m.indexBuffer->setData(mesh.indices, mesh.triangleCount * sizeof(uvec3));
 				meshes.emplace_back(m);
@@ -61,7 +61,7 @@ void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 				SubMesh m = {};
 				m.matID = lastMaterial;
 				m.first = first;					 // first index
-				m.last = mesh.triangleCount * 3 - 1; // last index
+				m.last = uint(mesh.triangleCount * 3 - 1); // last index
 				m.count = (m.last + 1) - m.first;	 // vertex count
 				m.indexBuffer = new utils::Buffer<uint, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW>();
 				m.indexBuffer->setData(mesh.indices + (m.first / 3), m.count * sizeof(unsigned int));
@@ -100,8 +100,8 @@ void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 				SubMesh m = {};
 				m.matID = lastMaterial;
 				m.first = 0;
-				m.last = mesh.vertexCount - 1;
-				m.count = mesh.vertexCount * 3;
+				m.last = uint(mesh.vertexCount - 1);
+				m.count = uint(mesh.vertexCount * 3);
 				meshes.emplace_back(m);
 			}
 			else
@@ -109,7 +109,7 @@ void rfw::GLMesh::setMesh(const rfw::Mesh &mesh)
 				SubMesh m = {};
 				m.matID = lastMaterial;
 				m.first = first;
-				m.last = mesh.vertexCount - 1;
+				m.last = uint(mesh.vertexCount - 1);
 				m.count = (m.last + 1) - m.first;
 				meshes.emplace_back(m);
 			}

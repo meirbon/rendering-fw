@@ -24,8 +24,8 @@ void CPUMesh::setGeometry(const Mesh &mesh)
 		triangles = mesh.triangles;
 
 		auto geometry = rtcGetGeometry(scene, ID);
-		vertexCount = mesh.vertexCount;
-		triangleCount = mesh.triangleCount;
+		vertexCount = int(mesh.vertexCount);
+		triangleCount = int(mesh.triangleCount);
 		rtcSetSharedGeometryBuffer(geometry, RTC_BUFFER_TYPE_VERTEX, 0, RTC_FORMAT_FLOAT3, mesh.vertices, 0, sizeof(vec4), mesh.vertexCount);
 		// rtcSetSharedGeometryBuffer(geometry, RTC_BUFFER_TYPE_NORMAL, 1, RTC_FORMAT_FLOAT3, mesh.normals, 0, sizeof(vec3), mesh.vertexCount);
 		if (mesh.hasIndices())
@@ -38,8 +38,8 @@ void CPUMesh::setGeometry(const Mesh &mesh)
 	{
 		vertices = mesh.vertices;
 		triangles = mesh.triangles;
-		vertexCount = mesh.vertexCount;
-		triangleCount = mesh.triangleCount;
+		vertexCount = int(mesh.vertexCount);
+		triangleCount = int(mesh.triangleCount);
 
 		auto geometry = rtcNewGeometry(device, RTC_GEOMETRY_TYPE_TRIANGLE);
 		rtcSetGeometryVertexAttributeCount(geometry, 1);

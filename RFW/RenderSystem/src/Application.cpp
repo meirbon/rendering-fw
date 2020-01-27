@@ -60,7 +60,7 @@ rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string tit
 		DEBUG("Loading render API: %s", renderAPI.c_str());
 		m_RS->load_render_api(renderAPI);
 		m_RS->set_target(m_Target);
-		camera.resize(scrWidth, scrHeight);
+		camera.resize(int(scrWidth), int(scrHeight));
 	}
 	catch (const std::exception &e)
 	{

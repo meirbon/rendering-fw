@@ -9,14 +9,14 @@ namespace bvh
 
 AABB::AABB()
 {
-	bmin4 = simd::vector4(1e34f, 1e34f, 1e34f, 0);
-	bmax4 = simd::vector4(-1e34f, -1e34f, -1e34f, 0);
+	bmin4 = _mm_setr_ps(1e34f, 1e34f, 1e34f, 0);
+	bmax4 = _mm_setr_ps(-1e34f, -1e34f, -1e34f, 0);
 };
 
 AABB::AABB(simd::vector4 mi, simd::vector4 ma)
 {
-	bmin4 = mi;
-	bmax4 = ma;
+	bmin4 = mi.vec_4;
+	bmax4 = ma.vec_4;
 	bmin[3] = bmax[3] = 0;
 }
 
@@ -129,15 +129,23 @@ int AABB::intersect8(const float origin_x[8], const float origin_y[8], const flo
 	// const __m128 origin = _mm_maskload_ps(value_ptr(org), _mm_set_epi32(0, ~0, ~0, ~0));
 	// const __m128 dirInv = _mm_maskload_ps(value_ptr(dirInverse), _mm_set_epi32(0, ~0, ~0, ~0));
 
+	const vector4 bmin0 = vector4(bmin[0]);
+	const vector4 bmin1 = vector4(bmin[1]);
+	const vector4 bmin2 = vector4(bmin[2]);
+
+	const vector4 bmax0 = vector4(bmax[0]);
+	const vector4 bmax1 = vector4(bmax[1]);
+	const vector4 bmax2 = vector4(bmax[2]);
+
 	// const glm::vec3 t1 = (glm::make_vec3(bounds.bmin) - org) * dirInverse;
-	const vector8 t1_8_x = (vector8(vector4(bmin[0]), vector4(bmin[0])) - vector8(origin_x)) * inv_direction_x8;
-	const vector8 t1_8_y = (vector8(vector4(bmin[1]), vector4(bmin[1])) - vector8(origin_y)) * inv_direction_y8;
-	const vector8 t1_8_z = (vector8(vector4(bmin[2]), vector4(bmin[2])) - vector8(origin_z)) * inv_direction_z8;
+	const vector8 t1_8_x = (vector8(bmin0, bmin0) - vector8(origin_x)) * inv_direction_x8;
+	const vector8 t1_8_y = (vector8(bmin1, bmin1) - vector8(origin_y)) * inv_direction_y8;
+	const vector8 t1_8_z = (vector8(bmin2, bmin2) - vector8(origin_z)) * inv_direction_z8;
 
 	// const glm::vec3 t2 = (glm::make_vec3(bounds.bmax) - org) * dirInverse;
-	const vector8 t2_8_x = (vector8(vector4(bmax[0]), vector4(bmax[0])) - vector8(origin_x)) * inv_direction_x8;
-	const vector8 t2_8_y = (vector8(vector4(bmax[1]), vector4(bmax[1])) - vector8(origin_y)) * inv_direction_y8;
-	const vector8 t2_8_z = (vector8(vector4(bmax[2]), vector4(bmax[2])) - vector8(origin_z)) * inv_direction_z8;
+	const vector8 t2_8_x = (vector8(bmax0, bmax0) - vector8(origin_x)) * inv_direction_x8;
+	const vector8 t2_8_y = (vector8(bmax1, bmax1) - vector8(origin_y)) * inv_direction_y8;
+	const vector8 t2_8_z = (vector8(bmax2, bmax2) - vector8(origin_z)) * inv_direction_z8;
 
 	// const glm::vec3 min = glm::min(t1, t2);
 	const vector8 tmin_x4 = min(t1_8_x, t2_8_x);
@@ -163,7 +171,7 @@ void AABB::reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }
 
 bool AABB::contains(const simd::vector4 &p) const
 {
-	simd::vector4 va = p - bmin4;
+	simd::vector4 va = p - simd::vector4(bmin4);
 	simd::vector4 vb = bmax4 - p;
 	return ((va[0] >= 0) && (va[1] >= 0) && (va[2] >= 0) && (vb[0] >= 0) && (vb[1] >= 0) && (vb[2] >= 0));
 }
@@ -199,20 +207,20 @@ void AABB::offset_by(const float mi, const float ma)
 
 void AABB::grow(const AABB &bb)
 {
-	bmin4 = bmin4.min(bb.bmin4);
-	bmax4 = bmax4.max(bb.bmax4);
+	bmin4 = _mm_min_ps(bmin4, bb.bmin4);
+	bmax4 = _mm_max_ps(bmax4, bb.bmax4);
 }
 
 void AABB::grow(const simd::vector4 &p)
 {
-	bmin4 = bmin4.min(p);
-	bmax4 = bmax4.max(p);
+	bmin4 = _mm_min_ps(bmin4, p.vec_4);
+	bmax4 = _mm_max_ps(bmax4, p.vec_4);
 }
 
 void AABB::grow(const simd::vector4 min4, const simd::vector4 max4)
 {
-	bmin4 = bmin4.min(min4);
-	bmax4 = bmax4.max(max4);
+	bmin4 = _mm_min_ps(bmin4, min4.vec_4);
+	bmax4 = _mm_max_ps(bmax4, max4.vec_4);
 }
 
 void AABB::grow(const glm::vec3 &p) { grow(simd::vector4(p.x, p.y, p.z, 0)); }
@@ -220,24 +228,24 @@ void AABB::grow(const glm::vec3 &p) { grow(simd::vector4(p.x, p.y, p.z, 0)); }
 AABB AABB::union_of(const AABB &bb) const
 {
 	AABB r;
-	r.bmin4 = bmin4.min(bb.bmin4);
-	r.bmax4 = bmax4.max(bb.bmax4);
+	r.bmin4 = _mm_min_ps(bmin4, bb.bmin4);
+	r.bmax4 = _mm_max_ps(bmax4, bb.bmax4);
 	return r;
 }
 
 AABB AABB::union_of(const AABB &a, const AABB &b)
 {
 	AABB r;
-	r.bmin4 = a.bmin4.min(b.bmin4);
-	r.bmax4 = a.bmax4.max(b.bmax4);
+	r.bmin4 = _mm_min_ps(a.bmin4, b.bmin4);
+	r.bmax4 = _mm_max_ps(a.bmax4, b.bmax4);
 	return r;
 }
 
 AABB AABB::intersection(const AABB &bb) const
 {
 	AABB r;
-	r.bmin4 = bmin4.max(bb.bmin4);
-	r.bmax4 = bmax4.min(bb.bmax4);
+	r.bmin4 = _mm_max_ps(bmin4, bb.bmin4);
+	r.bmax4 = _mm_min_ps(bmax4, bb.bmax4);
 	return r;
 }
 
@@ -288,8 +296,8 @@ void AABB::set_bounds(const AABB &other)
 
 void AABB::set_bounds(const simd::vector4 min4, const simd::vector4 max4)
 {
-	bmin4 = min4;
-	bmax4 = max4;
+	bmin4 = min4.vec_4;
+	bmax4 = max4.vec_4;
 }
 
 simd::vector4 AABB::center() const { return (bmin4 + bmax4) * 0.5f; }

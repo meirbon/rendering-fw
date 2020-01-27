@@ -1,7 +1,7 @@
 #include <RenderSystem.h>
 #include <Application.h>
 
-#define SKINNED_MESH 1
+#define SKINNED_MESH 0
 #define CESIUMMAN 1
 #define POLLY 0
 #define PICA 1
@@ -15,11 +15,12 @@ using namespace utils;
 class App : public rfw::Application
 {
   public:
-	App();
+	App(std::string renderer = "");
 
   protected:
 	void init(std::unique_ptr<rfw::RenderSystem> &rs) override;
-	void load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
+						std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void update(std::unique_ptr<rfw::RenderSystem> &rs, float dt) override;
 	void post_render(std::unique_ptr<rfw::RenderSystem> &rs) override;
 	void cleanup() override;
@@ -71,7 +72,7 @@ class App : public rfw::Application
 	bool playAnimations = false;
 };
 
-App::App() : Application(512, 512, "RenderingFW", CPURT)
+App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : CPURT)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -121,7 +122,8 @@ void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 #endif
 }
 
-void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs)
+void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
+						 std::unique_ptr<rfw::RenderSystem> &rs)
 {
 #if SKINNED_MESH
 	skinnedMeshInstance = rs->add_instance(skinnedMesh, vec3(4));
@@ -263,14 +265,19 @@ void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::Checkbox("Animations", &playAnimations);
 	for (int i = 0, s = static_cast<int>(settingKeys.size()); i < s; i++)
 	{
-		if (ImGui::ListBox(settingKeys[i], &settingsCurrentValues[i], settingAvailableValues[i].data(), static_cast<int>(settingAvailableValues[i].size())))
+		if (ImGui::ListBox(settingKeys[i], &settingsCurrentValues[i], settingAvailableValues[i].data(),
+						   static_cast<int>(settingAvailableValues[i].size())))
 			rs->set_setting(rfw::RenderSetting(settingKeys[i], settingAvailableValues[i][settingsCurrentValues[i]]));
 	}
 
-	ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000, stats.primaryCount / (max(1.0f, stats.primaryTime * 1000000)));
-	ImGui::Text("# Secondary: %6ik (%2.1fM/s)", stats.secondaryCount / 1000, stats.secondaryCount / (max(1.0f, stats.secondaryTime * 1000000)));
-	ImGui::Text("# Deep: %6ik (%2.1fM/s)", stats.deepCount / 1000, stats.deepCount / (max(1.0f, stats.deepTime * 1000000)));
-	ImGui::Text("# Shadow: %6ik (%2.1fM/s)", stats.shadowCount / 1000, stats.shadowCount / (max(1.0f, stats.shadowTime * 1000000)));
+	ImGui::Text("# Primary: %6ik (%2.1fM/s)", stats.primaryCount / 1000,
+				stats.primaryCount / (max(1.0f, stats.primaryTime * 1000000)));
+	ImGui::Text("# Secondary: %6ik (%2.1fM/s)", stats.secondaryCount / 1000,
+				stats.secondaryCount / (max(1.0f, stats.secondaryTime * 1000000)));
+	ImGui::Text("# Deep: %6ik (%2.1fM/s)", stats.deepCount / 1000,
+				stats.deepCount / (max(1.0f, stats.deepTime * 1000000)));
+	ImGui::Text("# Shadow: %6ik (%2.1fM/s)", stats.shadowCount / 1000,
+				stats.shadowCount / (max(1.0f, stats.shadowTime * 1000000)));
 
 	ImGui::Text("Primary %2.2f ms", stats.primaryTime);
 	ImGui::Text("Secondary %2.2f ms", stats.secondaryTime);
@@ -362,6 +369,26 @@ void App::cleanup() { camera.serialize("camera.bin"); }
 
 int main(int argc, char *argv[])
 {
-	auto app = new App();
+	std::string renderer = "";
+
+	if (argc > 1)
+	{
+		if (argc == 2)
+		{
+			const std::string arg = argv[1];
+			if (utils::string::begins_with(arg, "-r="))
+				renderer = arg.substr(strlen("-r="));
+			else if (utils::string::begins_with(arg, "--renderer="))
+				renderer = arg.substr(strlen("--renderer="));
+		}
+		else if (argc >= 3)
+		{
+			const std::string arg = argv[1];
+			if (arg == "-r" || arg == "--renderer")
+				renderer = argv[2];
+		}
+	}
+
+	auto app = new App(renderer);
 	rfw::Application::run(app);
 }

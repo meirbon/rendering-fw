@@ -53,7 +53,7 @@ class AABB
 	struct
 	{
 		union {
-			simd::vector4 bmin4;
+			__m128 bmin4;
 			float bmin[4];
 			struct
 			{
@@ -62,7 +62,7 @@ class AABB
 			};
 		};
 		union {
-			simd::vector4 bmax4;
+			__m128 bmax4;
 			float bmax[4];
 			struct
 			{

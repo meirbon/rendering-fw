@@ -18,15 +18,15 @@
 
 #include "Ray.h"
 
-#include "BVH/AABB.h"
+#include "bvh/AABB.h"
 
 #include "Triangle.h"
 
-#include "BVH/BVHNode.h"
-#include "BVH/BVHTree.h"
+#include "bvh/BVHNode.h"
+#include "bvh/BVHTree.h"
 
-#include "BVH/MBVHNode.h"
-#include "BVH/MBVHTree.h"
-#include "BVH/TopLevelBVH.h"
+#include "bvh/MBVHNode.h"
+#include "bvh/MBVHTree.h"
+#include "bvh/TopLevelBVH.h"
 
 #include "Context.h"

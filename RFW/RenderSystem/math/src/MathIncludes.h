@@ -1142,7 +1142,7 @@ struct vector8
 	inline const float &z2() const { return vec[1].z; }
 	inline const float &w2() const { return vec[1].w; }
 
-	inline const vector4 &vector4(int idx) const { return vec4[idx]; }
+	inline const vector4 &get_vector4(int idx) const { return vec4[idx]; }
 
 	inline float &x1() { return vec[0].x; }
 	inline float &y1() { return vec[0].y; }

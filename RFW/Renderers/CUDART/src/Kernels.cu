@@ -3,8 +3,8 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
-#include "BVH/BVHNode.h"
-#include "BVH/MBVHNode.h"
+#include "bvh/BVHNode.h"
+#include "bvh/MBVHNode.h"
 
 #include "CUDAIntersect.h"
 
@@ -64,7 +64,6 @@ __constant__ __device__ uint *blueNoise;
 __constant__ __device__ float clampValue;
 
 __constant__ __device__ PotentialContribution *connectData;
-__constant__ __device__ DeviceInstanceDescriptor *instances;
 
 #ifndef MAT_CONSTANTS_H
 #define MAT_CONSTANTS_H
@@ -82,33 +81,19 @@ __constant__ __device__ rfw::DeviceDirectionalLight *directionalLights;
 __constant__ __device__ rfw::LightCount lightCounts;
 #endif
 
-__constant__ __device__ glm::mat4 *instance_transforms;
-__constant__ __device__ glm::mat4 *inverse_transforms;
-
 __constant__ __device__ rfw::bvh::BVHNode *topLevelBVH;
 __constant__ __device__ rfw::bvh::MBVHNode *topLevelMBVH;
 __constant__ __device__ uint *topPrimIndices;
 __constant__ __device__ rfw::bvh::AABB *topAABBs;
 
-__constant__ __device__ rfw::bvh::BVHNode **meshBVHs;
-__constant__ __device__ rfw::bvh::MBVHNode **meshMBVHs;
-__constant__ __device__ uint **meshPrimIndices;
-__constant__ __device__ glm::vec4 **meshVertices;
-__constant__ __device__ glm::uvec3 **meshIndices;
+__constant__ __device__ InstanceBVHDescriptor *instances;
 
 __host__ void setTopLevelBVH(rfw::bvh::BVHNode *ptr) { cudaMemcpyToSymbol(topLevelBVH, &ptr, sizeof(void *)); }
 __host__ void setTopLevelMBVH(rfw::bvh::MBVHNode *ptr) { cudaMemcpyToSymbol(topLevelMBVH, &ptr, sizeof(void *)); }
 __host__ void setTopPrimIndices(uint *ptr) { cudaMemcpyToSymbol(topPrimIndices, &ptr, sizeof(void *)); }
 __host__ void setTopAABBs(rfw::bvh::AABB *ptr) { cudaMemcpyToSymbol(topAABBs, &ptr, sizeof(void *)); }
 
-__host__ void setInstanceTransforms(glm::mat4 *ptr) { cudaMemcpyToSymbol(instance_transforms, &ptr, sizeof(void *)); }
-__host__ void setInverseTransforms(glm::mat4 *ptr) { cudaMemcpyToSymbol(inverse_transforms, &ptr, sizeof(void *)); }
-
-__host__ void setMeshBVHs(rfw::bvh::BVHNode **ptr) { cudaMemcpyToSymbol(meshBVHs, &ptr, sizeof(void *)); }
-__host__ void setMeshMBVHs(rfw::bvh::MBVHNode **ptr) { cudaMemcpyToSymbol(meshMBVHs, &ptr, sizeof(void *)); }
-__host__ void setMeshBVHPrimIDs(uint **ptr) { cudaMemcpyToSymbol(meshPrimIndices, &ptr, sizeof(void *)); }
-__host__ void setMeshVertices(glm::vec4 **ptr) { cudaMemcpyToSymbol(meshVertices, &ptr, sizeof(void *)); }
-__host__ void setMeshIndices(glm::uvec3 **ptr) { cudaMemcpyToSymbol(meshIndices, &ptr, sizeof(void *)); }
+__host__ void setInstances(InstanceBVHDescriptor *ptr) { cudaMemcpyToSymbol(instances, &ptr, sizeof(void *)); }
 
 __host__ void setCameraView(rfw::CameraView *ptr) { cudaMemcpyToSymbol(view, &ptr, sizeof(void *)); }
 __host__ void setCounters(Counters *ptr) { cudaMemcpyToSymbol(counters, &ptr, sizeof(void *)); }
@@ -170,7 +155,7 @@ __global__ void initCountersExtent(uint pathCount, uint sampleIndex)
 	counters->activePaths = pathCount;
 	counters->shaded = 0;		 // Thread atomic for shade kernel
 	counters->extensionRays = 0; // Compaction counter for extension rays
-	counters->shadowRays = 0;	 // Compaction counter for connections
+	counters->shadowRays = 0;	// Compaction counter for connections
 	counters->totalExtensionRays = pathCount;
 	counters->totalShadowRays = 0;
 	counters->sampleIndex = sampleIndex;
@@ -239,7 +224,7 @@ __device__ inline float blueNoiseSampler(int x, int y, int sampleIdx, int sample
 }
 
 inline __device__ bool intersect_scene(const vec3 origin, const vec3 direction, int *instID, int *primID, float *t,
-									   vec2 *barycentrics, float t_min = 1e-5f) inline
+									   vec2 *barycentrics, float t_min = 1e-5f)
 {
 #if !USE_TOP_MBVH
 	return intersect_bvh(origin, direction, t_min, t, instID, topLevelBVH, topPrimIndices, [&](uint instance) {
@@ -278,20 +263,22 @@ inline __device__ bool intersect_scene(const vec3 origin, const vec3 direction, 
 	});
 #else
 	return intersect_mbvh(origin, direction, t_min, t, instID, topLevelMBVH, topPrimIndices, [&](uint instance) {
-		const vec3 new_origin = inverse_transforms[instance] * vec4(origin, 1);
-		const vec3 new_direction = inverse_transforms[instance] * vec4(direction, 0);
+		const InstanceBVHDescriptor &desc = instances[instance];
 
-		const uvec3 *indices = meshIndices[instance];
-		const vec4 *vertices = meshVertices[instance];
-		const uint *primIndices = meshPrimIndices[instance];
+		const vec3 new_origin = desc.inverse_transform * vec4(origin, 1);
+		const vec3 new_direction = desc.inverse_transform * vec4(direction, 0);
+
+		const uvec3 *indices = desc.indices;
+		const vec4 *vertices = desc.vertices;
+		const uint *primIndices = desc.bvh_indices;
 
 		if (indices != nullptr) // Mesh with indices
 		{
 #if !USE_MBVH
 			return intersect_bvh(
-				new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices, [&](uint triangleID) {
+				new_origin, new_direction, t_min, t, primID, desc.bvh, primIndices, [&](uint triangleID) {
 #else
-			return intersect_mbvh(new_origin, new_direction, t_min, t, primID, meshMBVHs[instance], primIndices, [&](uint triangleID) {
+			return intersect_mbvh(new_origin, new_direction, t_min, t, primID, desc.mbvh, primIndices, [&](uint triangleID) {
 #endif
 					const uvec3 idx = indices[triangleID];
 					return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y],
@@ -301,15 +288,14 @@ inline __device__ bool intersect_scene(const vec3 origin, const vec3 direction, 
 
 		// Intersect mesh without indices
 #if !USE_MBVH
-		return intersect_bvh(new_origin, new_direction, t_min, t, primID, meshBVHs[instance], primIndices,
-							 [&](uint triangleID) {
+		return intersect_bvh(new_origin, new_direction, t_min, t, primID, desc.bvh, primIndices, [&](uint triangleID) {
 #else
-		return intersect_mbvh(new_origin, new_direction, t_min, t, primID, meshMBVHs[instance], primIndices, [&](uint triangleID) {
+		return intersect_mbvh(new_origin, new_direction, t_min, t, primID, desc.mbvh, primIndices, [&](uint triangleID) {
 #endif
-								 const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
-								 return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x],
-														   vertices[idx.y], vertices[idx.z], barycentrics, T_EPSILON);
-							 });
+			const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
+			return intersect_triangle(new_origin, new_direction, t_min, t, vertices[idx.x], vertices[idx.y],
+									  vertices[idx.z], barycentrics, T_EPSILON);
+		});
 	});
 #endif
 }
@@ -354,21 +340,22 @@ __device__ bool is_occluded(const vec3 origin, const vec3 direction, float t_min
 	});
 #else
 	return intersect_mbvh_shadow(origin, direction, t_min, t_max, topLevelMBVH, topPrimIndices, [&](uint instance) {
-		const vec3 new_origin = inverse_transforms[instance] * vec4(origin, 1);
-		const vec3 new_direction = inverse_transforms[instance] * vec4(direction, 0);
+		const InstanceBVHDescriptor &desc = instances[instance];
 
-		const uvec3 *indices = meshIndices[instance];
-		const vec4 *vertices = meshVertices[instance];
+		const vec3 new_origin = desc.inverse_transform * vec4(origin, 1);
+		const vec3 new_direction = desc.inverse_transform * vec4(direction, 0);
 
-		const uint *primIndices = meshPrimIndices[instance];
+		const uvec3 *indices = desc.indices;
+		const vec4 *vertices = desc.vertices;
+		const uint *primIndices = desc.bvh_indices;
 
 		if (indices != nullptr) // Mesh with indices
 		{
 #if !USE_MBVH
 			return intersect_bvh_shadow(
-				new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
+				new_origin, new_direction, t_min, t_max, desc.bvh, primIndices, [&](uint triangleID) {
 #else
-			return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, meshMBVHs[instance], primIndices, [&](uint triangleID) {
+			return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, desc.mbvh, primIndices, [&](uint triangleID) {
 #endif
 					const uvec3 idx = indices[triangleID];
 					return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x],
@@ -381,7 +368,7 @@ __device__ bool is_occluded(const vec3 origin, const vec3 direction, float t_min
 		return intersect_bvh_shadow(
 			new_origin, new_direction, t_min, t_max, meshBVHs[instance], primIndices, [&](uint triangleID) {
 #else
-		return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, meshMBVHs[instance], primIndices, [&](uint triangleID) {
+		return intersect_mbvh_shadow(new_origin, new_direction, t_min, t_max, desc.mbvh, primIndices, [&](uint triangleID) {
 #endif
 				const uvec3 idx = uvec3(triangleID * 3) + uvec3(0, 1, 2);
 				return intersect_triangle(new_origin, new_direction, t_min, &t_max, vertices[idx.x], vertices[idx.y],
@@ -551,14 +538,14 @@ __global__ __launch_bounds__(128 /* Max block size */, 4 /* Min blocks per sm */
 	const uint uintBaryCentrics = __float_as_uint(hitData.x);
 
 	const int instanceIdx = __float_as_uint(hitData.y);
-	const DeviceInstanceDescriptor &instance = instances[instanceIdx];
+	const InstanceBVHDescriptor &instance = instances[instanceIdx];
 	const DeviceTriangle &triangle = instance.triangles[primIdx];
 	const vec2 barycentrics =
 		vec2(float(uintBaryCentrics & 65535), float((uintBaryCentrics >> 16) & 65535)) * (1.0f / 65535.0f);
 
 	glm::vec3 N, iN, T, B;
 	const ShadingData shadingData = getShadingData(D, barycentrics.x, barycentrics.y, view->spreadAngle * hitData.w,
-												   triangle, instanceIdx, N, iN, T, B, instance.invTransform);
+												   triangle, instanceIdx, N, iN, T, B, instance.inverse_transform);
 
 	if (pathLength == 0 && pathIndex == counters->probeIdx)
 	{

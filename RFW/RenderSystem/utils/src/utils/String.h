@@ -29,6 +29,13 @@ static void format(char *buffer, const char *format, ...)
 	va_end(args);
 }
 
+static bool begins_with(std::string_view value, std::string_view beginning)
+{
+	if (beginning.size() > value.size())
+		return false;
+	return std::equal(beginning.begin(), beginning.end(), value.begin());
+}
+
 static bool ends_with(std::string_view value, std::string_view ending)
 {
 	if (ending.size() > value.size())

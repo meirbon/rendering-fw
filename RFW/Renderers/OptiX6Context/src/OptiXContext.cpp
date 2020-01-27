@@ -730,8 +730,8 @@ void OptiXContext::update()
 		m_Acceleration->markDirty();
 
 	m_AnyMeshChanged = false;
-	for (auto &b : m_MeshChanged)
-		b = false;
+	for (int i = 0, s = int(m_MeshChanged.size()); i < s; i++)
+		m_MeshChanged[i] = false;
 
 	if (!m_DeviceInstanceDescriptors || m_InstanceDescriptors.size() > m_DeviceInstanceDescriptors->getElementCount())
 	{

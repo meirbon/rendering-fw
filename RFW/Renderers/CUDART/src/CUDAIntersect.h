@@ -1,10 +1,12 @@
 #pragma once
 
+#include <cuda_runtime.h>
+
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
-#include "BVH/BVHNode.h"
-#include "BVH/MBVHNode.h"
+#include "bvh/BVHNode.h"
+#include "bvh/MBVHNode.h"
 
 inline __host__ __device__ bool intersect_triangle(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt,
 												   const glm::vec4 &p04, const glm::vec4 &p14, const glm::vec4 &p24,

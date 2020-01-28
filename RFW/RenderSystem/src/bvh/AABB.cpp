@@ -251,7 +251,7 @@ AABB AABB::intersection(const AABB &bb) const
 
 float AABB::volume() const
 {
-	const simd::vector4 length = bmax4 - bmin4;
+	const simd::vector4 length = simd::vector4(bmax4) - simd::vector4(bmin4);
 	return length[0] * length[1] * length[2];
 }
 
@@ -263,13 +263,13 @@ glm::vec3 AABB::centroid() const
 
 float AABB::area() const
 {
-	simd::vector4 e = bmax4 - bmin4;
-	return fmax(0.0f, e[0] * e[1] + e[0] * e[2] + e[1] * e[2]);
+	const simd::vector4 e = simd::vector4(bmax4) - simd::vector4(bmin4);
+	return max(0.0f, e[0] * e[1] + e[0] * e[2] + e[1] * e[2]);
 }
 
 glm::vec3 AABB::lengths() const
 {
-	simd::vector4 length = bmax4 - bmin4;
+	simd::vector4 length = simd::vector4(bmax4) - simd::vector4(bmin4);
 	return glm::vec3(length[0], length[1], length[2]);
 }
 
@@ -300,7 +300,7 @@ void AABB::set_bounds(const simd::vector4 min4, const simd::vector4 max4)
 	bmax4 = max4.vec_4;
 }
 
-simd::vector4 AABB::center() const { return (bmin4 + bmax4) * 0.5f; }
+simd::vector4 AABB::center() const { return (simd::vector4(bmin4) + simd::vector4(bmax4)) * 0.5f; }
 
 float AABB::center(unsigned int axis) const { return (bmin[axis] + bmax[axis]) * 0.5f; }
 

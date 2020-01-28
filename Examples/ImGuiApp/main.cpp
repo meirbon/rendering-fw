@@ -67,12 +67,15 @@ class App : public rfw::Application
 	float distance = 0;
 	float speedModifier = 0.2f;
 
+	vec3 hit_point = vec3(0);
+
 	bool updateFocus = false;
 	bool camChanged = false;
 	bool playAnimations = false;
+	bool followFocus = false;
 };
 
-App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : CPURT)
+App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : VULKANRTX)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -230,8 +233,8 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 			probe = rs->get_probe_result();
 			instanceID = probe.object.get_index();
 			materialID = probe.materialIdx;
-
 			hostMaterial = rs->get_material(materialID);
+			hit_point = camera.position + probe.distance * camera.direction;
 		}
 		catch (const std::exception &e)
 		{
@@ -244,19 +247,22 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 
 	if (updateFocus)
 	{
-		camera.focalDistance = max(probe.distance, 0.00001f);
 		updateFocus = false;
 		camChanged = true;
+		camera.focalDistance = probe.distance;
 	}
-
-	camera.aperture = max(camera.aperture, 0.00001f);
-	camera.focalDistance = max(camera.focalDistance, 0.01f);
 
 	if (camChanged)
 	{
 		status = Reset;
 		camChanged = false;
+
+		if (followFocus)
+			camera.focalDistance = length(hit_point - camera.position);
 	}
+
+	camera.aperture = max(camera.aperture, 0.00001f);
+	camera.focalDistance = max(camera.focalDistance, 0.01f);
 }
 
 void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
@@ -293,8 +299,12 @@ void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs)
 	ImGui::BeginGroup();
 	ImGui::Text("Camera");
 	if (ImGui::Button("Reset"))
+	{
+		followFocus = false;
 		camera.reset();
+	}
 
+	ImGui::Checkbox("Follow focus", &followFocus);
 	ImGui::SliderFloat("Contrast", &camera.contrast, 0.0f, 2.0f, "%.7f");
 	ImGui::SliderFloat("Brightness", &camera.brightness, 0.0f, 2.0f, "%.7f");
 	camChanged |= ImGui::DragFloat("Aperture", &camera.aperture, 0.0001f, 0.000001f, 1.0f, "%.7f");

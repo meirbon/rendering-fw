@@ -20,8 +20,6 @@
 
 #include "bvh/AABB.h"
 
-#include "Triangle.h"
-
 #include "bvh/BVHNode.h"
 #include "bvh/BVHTree.h"
 

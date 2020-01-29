@@ -96,7 +96,8 @@ INLINE_FUNC float abgam(float x)
 	gam[4] = 22999.f / 22737.f;
 	gam[5] = 29944523.f / 19733142.f;
 	gam[6] = 109535241009.f / 48264275462.f;
-	temp = 0.5 * log(2 * PI) - x + (x - 0.5f) * log(x) + gam[0] / (x + gam[1] / (x + gam[2] / (x + gam[3] / (x + gam[4] / (x + gam[5] / (x + gam[6] / x))))));
+	temp = 0.5 * log(2 * PI) - x + (x - 0.5f) * log(x) +
+		   gam[0] / (x + gam[1] / (x + gam[2] / (x + gam[3] / (x + gam[4] / (x + gam[5] / (x + gam[6] / x))))));
 
 	return temp;
 }
@@ -140,7 +141,8 @@ namespace mf_slope_beckmann
 // distribution of slopes
 INLINE_FUNC float P22(const float alpha_x, const float alpha_y, const float slope_x, const float slope_y)
 {
-	const float value = 1.0f / (PI * alpha_x * alpha_y) * expf(-slope_x * slope_x / (alpha_x * alpha_x) - slope_y * slope_y / (alpha_y * alpha_y));
+	const float value = 1.0f / (PI * alpha_x * alpha_y) *
+						expf(-slope_x * slope_x / (alpha_x * alpha_x) - slope_y * slope_y / (alpha_y * alpha_y));
 	return value;
 }
 // Smith's Lambda function
@@ -174,12 +176,14 @@ INLINE_FUNC float projectedArea(const float alpha_x, const float alpha_y, const 
 	const float a = 1.0f / tan(theta_i) / alphai;
 
 	// value
-	const float value = 0.5f * ((float)mf_erf(a) + 1.0f) * wi.z + HALF_INV_SQRT_PI * alphai * sin(theta_i) * exp(-a * a);
+	const float value =
+		0.5f * ((float)mf_erf(a) + 1.0f) * wi.z + HALF_INV_SQRT_PI * alphai * sin(theta_i) * exp(-a * a);
 
 	return value;
 }
 // sample the distribution of visible slopes with alpha=1.0
-INLINE_FUNC vec2 sampleP22_11(const float alpha_x, const float alpha_y, const float theta_i, const float U, const float U_2)
+INLINE_FUNC vec2 sampleP22_11(const float alpha_x, const float alpha_y, const float theta_i, const float U,
+							  const float U_2)
 {
 	vec2 slope;
 
@@ -201,7 +205,8 @@ INLINE_FUNC vec2 sampleP22_11(const float alpha_x, const float alpha_y, const fl
 
 	// projected area
 	const float a = cos_theta_i / sin_theta_i;
-	const float projectedarea = 0.5f * ((float)mf_erf(a) + 1.0f) * cos_theta_i + HALF_INV_SQRT_PI * sin_theta_i * exp(-a * a);
+	const float projectedarea =
+		0.5f * ((float)mf_erf(a) + 1.0f) * cos_theta_i + HALF_INV_SQRT_PI * sin_theta_i * exp(-a * a);
 	if (projectedarea < 0.0001f || projectedarea != projectedarea)
 		return vec2(0, 0);
 	// VNDF normalization factor
@@ -221,8 +226,9 @@ INLINE_FUNC vec2 sampleP22_11(const float alpha_x, const float alpha_y, const fl
 		const float slope = mf_erfinv(erf_current);
 
 		// CDF
-		const float CDF =
-			(slope >= slope_i) ? 1.0f : c * (HALF_INV_SQRT_PI * sin_theta_i * exp(-slope * slope) + cos_theta_i * (0.5f + 0.5f * float(erf(slope))));
+		const float CDF = (slope >= slope_i) ? 1.0f
+											 : c * (HALF_INV_SQRT_PI * sin_theta_i * exp(-slope * slope) +
+													cos_theta_i * (0.5f + 0.5f * float(erf(slope))));
 		const float diff = CDF - U;
 
 		// test estimate
@@ -379,7 +385,8 @@ INLINE_FUNC float sampleHeight(const float alpha_x, const float alpha_y, const v
 	if (U > 1.0f - G_1_) // leave the microsurface
 		return FLT_MAX;
 
-	const float h = mf_height_uniform::invC1(mf_height_uniform::C1(hr) / pow((1.0f - U), 1.0f / mf_slope_beckmann::Lambda(alpha_x, alpha_y, wr)));
+	const float h = mf_height_uniform::invC1(mf_height_uniform::C1(hr) /
+											 pow((1.0f - U), 1.0f / mf_slope_beckmann::Lambda(alpha_x, alpha_y, wr)));
 	return h;
 }
 } // namespace microsurface
@@ -423,7 +430,8 @@ INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y,
 	const float D = mf_slope::D(alpha_x, alpha_y, wh);
 
 	// masking-shadowing
-	const float G2 = 1.0f / (1.0f + mf_slope_beckmann::Lambda(alpha_x, alpha_y, wi) + mf_slope_beckmann::Lambda(alpha_x, alpha_y, wo));
+	const float G2 = 1.0f / (1.0f + mf_slope_beckmann::Lambda(alpha_x, alpha_y, wi) +
+							 mf_slope_beckmann::Lambda(alpha_x, alpha_y, wo));
 
 	// BRDF * cos
 	const float value = D * G2 / (4.0f * wi.z);
@@ -435,8 +443,8 @@ INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y,
 // scatteringOrder=0 --> contribution from all scattering events
 // scatteringOrder=1 --> contribution from 1st bounce only
 // scatteringOrder=2 --> contribution from 2nd bounce only, etc..
-INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float r1, const float r2, const float r3, const vec3 wi, const vec3 wo,
-					   const int scatteringOrder = 0)
+INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float r1, const float r2, const float r3,
+					   const vec3 wi, const vec3 wo, const int scatteringOrder = 0)
 {
 	if (wo.z < 0)
 		return 0;
@@ -481,7 +489,8 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float r1,
 
 // sample BSDF with a random walk
 // scatteringOrder is set to the number of bounces computed for this sample
-INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const vec3 wi, const float r1, const float r2, const float r3, int &scatteringOrder)
+INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const vec3 wi, const float r1, const float r2,
+						const float r3, int &scatteringOrder)
 {
 	// init
 	vec3 wr = -wi;
@@ -512,7 +521,8 @@ INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const vec3 wi,
 	return wr;
 }
 
-INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float r1, const float r2, const float r3, const vec3 wi)
+INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float r1, const float r2, const float r3,
+						const vec3 wi)
 {
 	int scatteringOrder;
 	return sample(alpha_x, alpha_y, wi, r1, r2, r3, scatteringOrder);
@@ -548,8 +558,8 @@ INLINE_FUNC vec3 refract(const vec3 wi, const vec3 wm, const float eta)
 	return wm * (dot(wi, wm) / eta + cos_theta_t) - wi / eta;
 }
 
-INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, float eta, const vec3 wi, const vec3 wo, const bool wi_outside,
-									const bool wo_outside)
+INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, float eta, const vec3 wi, const vec3 wo,
+									const bool wi_outside, const bool wo_outside)
 {
 	eta = wi_outside ? eta : 1.0f / eta;
 
@@ -558,8 +568,10 @@ INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, fl
 		// half vector
 		const vec3 wh = normalize(wi + wo);
 		// value
-		const float value = (wi_outside) ? (0.25f * mf_slope::D_wi(alpha_x, alpha_y, wi, wh) / dot(wi, wh) * fresnel(wi, wh, eta))
-										 : (0.25f * mf_slope::D_wi(alpha_x, alpha_y, -wi, -wh) / dot(-wi, -wh) * fresnel(-wi, -wh, eta));
+		const float value =
+			(wi_outside)
+				? (0.25f * mf_slope::D_wi(alpha_x, alpha_y, wi, wh) / dot(wi, wh) * fresnel(wi, wh, eta))
+				: (0.25f * mf_slope::D_wi(alpha_x, alpha_y, -wi, -wh) / dot(-wi, -wh) * fresnel(-wi, -wh, eta));
 		return value;
 	}
 	else // transmission
@@ -573,13 +585,13 @@ INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, fl
 		float value;
 		if (wi_outside)
 		{
-			value = eta * eta * (1.0f - fresnel(wi, wh, eta)) * mf_slope::D_wi(alpha_x, alpha_y, wi, wh) * max(0.0f, -dot(wo, wh)) * 1.0f /
-					powf(dot(wi, wh) + eta * dot(wo, wh), 2.0f);
+			value = eta * eta * (1.0f - fresnel(wi, wh, eta)) * mf_slope::D_wi(alpha_x, alpha_y, wi, wh) *
+					max(0.0f, -dot(wo, wh)) * 1.0f / powf(dot(wi, wh) + eta * dot(wo, wh), 2.0f);
 		}
 		else
 		{
-			value = eta * eta * (1.0f - fresnel(-wi, -wh, eta)) * mf_slope::D_wi(alpha_x, alpha_y, -wi, -wh) * max(0.0f, -dot(-wo, -wh)) * 1.0f /
-					powf(dot(-wi, -wh) + eta * dot(-wo, -wh), 2.0f);
+			value = eta * eta * (1.0f - fresnel(-wi, -wh, eta)) * mf_slope::D_wi(alpha_x, alpha_y, -wi, -wh) *
+					max(0.0f, -dot(-wo, -wh)) * 1.0f / powf(dot(-wi, -wh) + eta * dot(-wo, -wh), 2.0f);
 		}
 
 		return value;
@@ -587,17 +599,20 @@ INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, fl
 }
 
 // evaluate local phase function
-INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, const float eta, const vec3 wi, const vec3 wo)
+INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, const float eta, const vec3 wi,
+									const vec3 wo)
 {
-	return evalPhaseFunction(alpha_x, alpha_y, eta, wi, wo, true, true) + evalPhaseFunction(alpha_x, alpha_y, eta, wi, wo, true, false);
+	return evalPhaseFunction(alpha_x, alpha_y, eta, wi, wo, true, true) +
+		   evalPhaseFunction(alpha_x, alpha_y, eta, wi, wo, true, false);
 }
 
-INLINE_FUNC vec3 samplePhaseFunction(const vec3 wi, const float alpha_x, const float alpha_y, float eta, const float U1, const float U2, const float r3,
-									 const bool wi_outside, bool &wo_outside)
+INLINE_FUNC vec3 samplePhaseFunction(const vec3 wi, const float alpha_x, const float alpha_y, float eta, const float U1,
+									 const float U2, const float r3, const bool wi_outside, bool &wo_outside)
 {
 	eta = wi_outside ? eta : 1.0f / eta;
 
-	vec3 wm = wi_outside ? (mf_slope::sampleD_wi(alpha_x, alpha_y, wi, U1, U2)) : (-mf_slope::sampleD_wi(alpha_x, alpha_y, -wi, U1, U2));
+	vec3 wm = wi_outside ? (mf_slope::sampleD_wi(alpha_x, alpha_y, wi, U1, U2))
+						 : (-mf_slope::sampleD_wi(alpha_x, alpha_y, -wi, U1, U2));
 
 	const float F = fresnel(wi, wm, eta);
 
@@ -615,15 +630,16 @@ INLINE_FUNC vec3 samplePhaseFunction(const vec3 wi, const float alpha_x, const f
 }
 
 // sample local phase function
-INLINE_FUNC vec3 samplePhaseFunction(const float alpha_x, const float alpha_y, const float eta, const float r1, const float r2, const float r3, const vec3 wi,
-									 REFERENCE_OF(bool) wo_outside)
+INLINE_FUNC vec3 samplePhaseFunction(const float alpha_x, const float alpha_y, const float eta, const float r1,
+									 const float r2, const float r3, const vec3 wi, REFERENCE_OF(bool) wo_outside)
 {
 	return samplePhaseFunction(wi, alpha_x, alpha_y, eta, r1, r2, r3, true, wo_outside);
 }
 
 // evaluate BSDF limited to single scattering
 // this is in average equivalent to eval(wi, wo, 1);
-INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y, const float eta, const vec3 wi, const vec3 wo)
+INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y, const float eta, const vec3 wi,
+									   const vec3 wo)
 {
 	bool wi_outside = true;
 	bool wo_outside = wo.z > 0;
@@ -657,8 +673,8 @@ INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y,
 		const float G2 = (float)beta(1.0f + Lambda_i, 1.0f + Lambda_o);
 
 		// BSDF
-		const float value = max(0.0f, dot(wi, wh)) * max(0.0f, -dot(wo, wh)) * 1.0f / wi.z * eta * eta * (1.0f - fresnel(wi, wh, eta)) * G2 * D /
-							pow(dot(wi, wh) + eta * dot(wo, wh), 2.0f);
+		const float value = max(0.0f, dot(wi, wh)) * max(0.0f, -dot(wo, wh)) * 1.0f / wi.z * eta * eta *
+							(1.0f - fresnel(wi, wh, eta)) * G2 * D / pow(dot(wi, wh) + eta * dot(wo, wh), 2.0f);
 		return value;
 	}
 }
@@ -667,8 +683,8 @@ INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y,
 // scatteringOrder=0 --> contribution from all scattering events
 // scatteringOrder=1 --> contribution from 1st bounce only
 // scatteringOrder=2 --> contribution from 2nd bounce only, etc..
-INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float eta, const float r1, const float r2, const float r3, const vec3 wi, const vec3 wo,
-					   bool &wo_outside, const int scatteringOrder = 0)
+INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float eta, const float r1, const float r2,
+					   const float r3, const vec3 wi, const vec3 wo, bool &wo_outside, const int scatteringOrder = 0)
 {
 	// TODO: Might need more random numbers depending on scatteringorder
 
@@ -685,7 +701,8 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float eta
 	{
 		// next height
 		float U = r1;
-		hr = (outside) ? microsurface::sampleHeight(alpha_x, alpha_y, wr, hr, U) : -microsurface::sampleHeight(alpha_x, alpha_y, -wr, -hr, U);
+		hr = (outside) ? microsurface::sampleHeight(alpha_x, alpha_y, wr, hr, U)
+					   : -microsurface::sampleHeight(alpha_x, alpha_y, -wr, -hr, U);
 
 		// leave the microsurface?
 		if (hr == FLT_MAX || hr == -FLT_MAX)
@@ -695,7 +712,8 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float eta
 
 		// next event estimation
 		float phasefunction = evalPhaseFunction(alpha_x, alpha_y, eta, -wr, wo, outside, (wo.z > 0));
-		float shadowing = (wo.z > 0) ? microsurface::G_1(alpha_x, alpha_y, wo, hr) : microsurface::G_1(alpha_x, alpha_y, -wo, -hr);
+		float shadowing =
+			(wo.z > 0) ? microsurface::G_1(alpha_x, alpha_y, wo, hr) : microsurface::G_1(alpha_x, alpha_y, -wo, -hr);
 		float I = phasefunction * shadowing;
 
 		if (is_finite_number(I) && (scatteringOrder == 0 || current_scatteringOrder == scatteringOrder))
@@ -714,8 +732,8 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float eta
 
 // sample BSDF with a random walk
 // scatteringOrder is set to the number of bounces computed for this sample
-INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float eta, const vec3 wi, const float r1, const float r2, const float r3,
-						int &scatteringOrder)
+INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float eta, const vec3 wi, const float r1,
+						const float r2, const float r3, int &scatteringOrder)
 {
 	// init
 	vec3 wr = -wi;
@@ -728,7 +746,8 @@ INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float et
 	{
 		// next height
 		float U = r1;
-		hr = (outside) ? microsurface::sampleHeight(alpha_x, alpha_y, wr, hr, U) : -microsurface::sampleHeight(alpha_x, alpha_y, -wr, -hr, U);
+		hr = (outside) ? microsurface::sampleHeight(alpha_x, alpha_y, wr, hr, U)
+					   : -microsurface::sampleHeight(alpha_x, alpha_y, -wr, -hr, U);
 
 		// leave the microsurface?
 		if (hr == FLT_MAX || hr == -FLT_MAX)
@@ -747,7 +766,8 @@ INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float et
 	return wr;
 }
 
-INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float eta, const float r1, const float r2, const float r3, const vec3 wi)
+INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float eta, const float r1, const float r2,
+						const float r3, const vec3 wi)
 {
 	int scatteringOrder;
 	return sample(alpha_x, alpha_y, eta, wi, r1, r2, r3, scatteringOrder);
@@ -758,7 +778,8 @@ namespace microsurf_diffuse
 {
 
 // evaluate local phase function
-INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, const float r1, const float r2, const vec3 wi, const vec3 wo)
+INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, const float r1, const float r2,
+									const vec3 wi, const vec3 wo)
 {
 	const float U1 = r1;
 	const float U2 = r2;
@@ -770,8 +791,8 @@ INLINE_FUNC float evalPhaseFunction(const float alpha_x, const float alpha_y, co
 }
 
 // sample local phase function
-INLINE_FUNC vec3 samplePhaseFunction(const float alpha_x, const float alpha_y, const float U1, const float U2, const const float U3, const float U4,
-									 const vec3 &wi)
+INLINE_FUNC vec3 samplePhaseFunction(const float alpha_x, const float alpha_y, const float U1, const float U2,
+									 const const float U3, const float U4, const vec3 &wi)
 {
 	vec3 wm = mf_slope::sampleD_wi(alpha_x, alpha_y, wi, U1, U2);
 
@@ -809,7 +830,8 @@ INLINE_FUNC vec3 samplePhaseFunction(const float alpha_x, const float alpha_y, c
 
 // evaluate BSDF limited to single scattering
 // this is in average equivalent to eval(wi, wo, 1);
-INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y, const float r1, const float r2, const vec3 wi, const vec3 wo)
+INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y, const float r1, const float r2,
+									   const vec3 wi, const vec3 wo)
 {
 	// sample visible microfacet
 	const float U1 = r1;
@@ -831,7 +853,8 @@ INLINE_FUNC float evalSingleScattering(const float alpha_x, const float alpha_y,
 namespace microsurface
 {
 
-INLINE_FUNC float eval_single(const float alpha_x, const float alpha_y, const float eta, const vec3 wi, const vec3 wo, REFERENCE_OF(uint) seed)
+INLINE_FUNC float eval_single(const float alpha_x, const float alpha_y, const float eta, const vec3 wi, const vec3 wo,
+							  REFERENCE_OF(uint) seed)
 {
 	return microsurf_diffuse::evalSingleScattering(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), wi, wo);
 }
@@ -840,8 +863,8 @@ INLINE_FUNC float eval_single(const float alpha_x, const float alpha_y, const fl
 // scatteringOrder=0 --> contribution from all scattering events
 // scatteringOrder=1 --> contribution from 1st bounce only
 // scatteringOrder=2 --> contribution from 2nd bounce only, etc..
-INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float metallic, const float eta, const vec3 wi, const vec3 wo, REFERENCE_OF(uint) seed,
-					   const int scatteringOrder = 0)
+INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float metallic, const float eta, const vec3 wi,
+					   const vec3 wo, REFERENCE_OF(uint) seed, const int scatteringOrder = 0)
 {
 	if (wo.z < 0)
 		return 0;
@@ -866,7 +889,8 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float met
 			current_scatteringOrder++;
 
 		// next event estimation
-		float phasefunction = microsurf_diffuse::evalPhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), -wr, wo);
+		float phasefunction =
+			microsurf_diffuse::evalPhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), -wr, wo);
 		float shadowing = microsurface::G_1(alpha_x, alpha_y, wo, hr);
 		float I = phasefunction * shadowing;
 
@@ -876,11 +900,13 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float met
 		// next direction
 		bool wo_outside;
 		if (eta > 1.0f)
-			wr = microsurf_dielectric::samplePhaseFunction(alpha_x, alpha_y, eta, RandomFloat(seed), RandomFloat(seed), RandomFloat(seed), -wr, wo_outside);
+			wr = microsurf_dielectric::samplePhaseFunction(alpha_x, alpha_y, eta, RandomFloat(seed), RandomFloat(seed),
+														   RandomFloat(seed), -wr, wo_outside);
 		else if (metallic > 0.0f)
 			wr = microsurf_conductor::samplePhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), -wr);
 		else
-			wr = microsurf_diffuse::samplePhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), RandomFloat(seed), RandomFloat(seed), -wr);
+			wr = microsurf_diffuse::samplePhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed),
+														RandomFloat(seed), RandomFloat(seed), -wr);
 
 		// if NaN (should not happen, just in case)
 		if ((hr != hr) || (wr.z != wr.z))
@@ -892,8 +918,8 @@ INLINE_FUNC float eval(const float alpha_x, const float alpha_y, const float met
 
 // sample BSDF with a random walk
 // scatteringOrder is set to the number of bounces computed for this sample
-INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float metallic, const float eta, REFERENCE_OF(uint) seed, const vec3 wi,
-						REFERENCE_OF(int) scatteringOrder)
+INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float metallic, const float eta, const vec3 wi,
+						REFERENCE_OF(int) scatteringOrder, float r0, float r1, float r2, float r3)
 {
 	// init
 	vec3 wr = -wi;
@@ -904,7 +930,7 @@ INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float me
 	while (true)
 	{
 		// next height
-		float U = RandomFloat(seed);
+		float U = r0;
 		hr = sampleHeight(alpha_x, alpha_y, wr, hr, U);
 
 		// leave the microsurface?
@@ -917,11 +943,11 @@ INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float me
 
 		bool wo_outside;
 		if (eta > 1.0f)
-			wr = microsurf_dielectric::samplePhaseFunction(alpha_x, alpha_y, eta, RandomFloat(seed), RandomFloat(seed), RandomFloat(seed), -wr, wo_outside);
+			wr = microsurf_dielectric::samplePhaseFunction(alpha_x, alpha_y, eta, r1, r2, r3, -wr, wo_outside);
 		else if (metallic > 0.0f)
-			wr = microsurf_conductor::samplePhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), -wr);
+			wr = microsurf_conductor::samplePhaseFunction(alpha_x, alpha_y, r1, r2, -wr);
 		else
-			wr = microsurf_diffuse::samplePhaseFunction(alpha_x, alpha_y, RandomFloat(seed), RandomFloat(seed), RandomFloat(seed), RandomFloat(seed), -wr);
+			wr = microsurf_diffuse::samplePhaseFunction(alpha_x, alpha_y, r0, r1, r2, r3, -wr);
 
 		// if NaN (should not happen, just in case)
 		if ((hr != hr) || (wr.z != wr.z))
@@ -931,34 +957,38 @@ INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float me
 	return wr;
 }
 
-INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float metallic, const float eta, const vec3 wi, REFERENCE_OF(uint) seed,
-						REFERENCE_OF(int) scatteringOrder)
+INLINE_FUNC vec3 sample(const float alpha_x, const float alpha_y, const float metallic, const float eta, const vec3 wi,
+						REFERENCE_OF(uint) seed, REFERENCE_OF(int) scatteringOrder)
 {
 	return sample(alpha_x, alpha_y, metallic, eta, seed, wi, scatteringOrder);
 }
 } // namespace microsurface
 
 // To implement a bsdf, implement the following 2 functions:
-INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wi, const vec3 wo, REFERENCE_OF(float) pdf,
-							  REFERENCE_OF(uint) seed)
+INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wi,
+							  const vec3 wo, REFERENCE_OF(float) pdf)
 {
 	const float roughness = shadingData.getRoughness();
 
-	pdf = microsurface::eval_single(roughness, roughness, shadingData.getEta(), worldToTangent(wi, iN, T, B), worldToTangent(wo, iN, T, B), seed);
+	pdf = microsurface::eval_single(roughness, roughness, shadingData.getEta(), worldToTangent(wi, iN, T, B),
+									worldToTangent(wo, iN, T, B), seed);
 
 	return shadingData.color;
 }
 
-INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B, const vec3 wi, const float t,
-							const bool backfacing, REFERENCE_OF(vec3) wo, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
+INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B,
+							const vec3 wi, const float t, const bool backfacing, REFERENCE_OF(vec3) wo,
+							REFERENCE_OF(float) pdf, , float r0, float r1, float r2, float r3)
 {
 	vec3 wiLocal = worldToTangent(wi, iN, T, B);
 
 	const float roughness = shadingData.getRoughness();
 
 	int scatteringOrder = 0;
-	wo = microsurface::sample(roughness, roughness, shadingData.getMetallic(), shadingData.getEta(), seed, wiLocal, scatteringOrder);
-	pdf = microsurface::eval(roughness, roughness, shadingData.getMetallic(), shadingData.getEta(), wiLocal, wo, seed, scatteringOrder);
+	wo = microsurface::sample(roughness, roughness, shadingData.getMetallic(), shadingData.getEta(), seed, wiLocal,
+							  scatteringOrder);
+	pdf = microsurface::eval(roughness, roughness, shadingData.getMetallic(), shadingData.getEta(), wiLocal, wo, seed,
+							 scatteringOrder);
 
 	wo = normalize(worldToTangent(wo, T, B, iN));
 

@@ -37,30 +37,23 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 #if USE_PARALLEL_FOR
 		concurrency::parallel_for<int>(offset, static_cast<int>(last), [&](int i) {
 			const auto idx = i * 3;
-			Triangle &tri = triangles.at(i);
-			const vec3 &v0 = vertices.at(idx + 0);
-			const vec3 &v1 = vertices.at(idx + 1);
-			const vec3 &v2 = vertices.at(idx + 2);
+			Triangle &tri = triangles[i];
 
-			tri.vertex0 = v0;
-			tri.vertex1 = v1;
-			tri.vertex2 = v2;
+			tri.vertex0 = vertices[idx + 0];
+			tri.vertex1 = vertices[idx + 1];
+			tri.vertex2 = vertices[idx + 2];
 
-			const vec3 &n0 = normals.at(idx + 0);
-			const vec3 &n1 = normals.at(idx + 1);
-			const vec3 &n2 = normals.at(idx + 2);
+			tri.vN0 = normals[idx + 0];
+			tri.vN1 = normals[idx + 1];
+			tri.vN2 = normals[idx + 2];
 
 			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
 				N *= -1.0f; // flip if not consistent with vertex normals
 
 			tri.Nx = N.x;
 			tri.Ny = N.y;
 			tri.Nz = N.z;
-
-			tri.vN0 = n0;
-			tri.vN1 = n1;
-			tri.vN2 = n2;
 
 			tri.material = materialIndices.at(i);
 		});
@@ -68,30 +61,23 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 		for (int i = static_cast<int>(offset), s = static_cast<int>(last); i < s; i++)
 		{
 			const auto idx = i * 3;
-			Triangle &tri = triangles.at(i);
-			const vec3 &v0 = vertices.at(idx + 0);
-			const vec3 &v1 = vertices.at(idx + 1);
-			const vec3 &v2 = vertices.at(idx + 2);
+			Triangle &tri = triangles[i];
 
-			tri.vertex0 = v0;
-			tri.vertex1 = v1;
-			tri.vertex2 = v2;
+			tri.vertex0 = vertices[idx + 0];
+			tri.vertex1 = vertices[idx + 1];
+			tri.vertex2 = vertices[idx + 2];
 
-			const vec3 &n0 = normals.at(idx + 0);
-			const vec3 &n1 = normals.at(idx + 1);
-			const vec3 &n2 = normals.at(idx + 2);
+			tri.vN0 = normals[idx + 0];
+			tri.vN1 = normals[idx + 1];
+			tri.vN2 = normals[idx + 2];
 
 			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
 				N *= -1.0f; // flip if not consistent with vertex normals
 
 			tri.Nx = N.x;
 			tri.Ny = N.y;
 			tri.Nz = N.z;
-
-			tri.vN0 = n0;
-			tri.vN1 = n1;
-			tri.vN2 = n2;
 
 			tri.material = materialIndices.at(i);
 		}
@@ -189,30 +175,21 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 					const auto index = indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
 					Triangle &tri = triangles.at(i + mesh.triangleOffset);
 
-					const vec3 &v0 = vertices.at(index.x);
-					const vec3 &v1 = vertices.at(index.y);
-					const vec3 &v2 = vertices.at(index.z);
+					tri.vN0 = normals[index.x];
+					tri.vN1 = normals[index.y];
+					tri.vN2 = normals[index.z];
 
-					const vec3 &n0 = normals.at(index.x);
-					const vec3 &n1 = normals.at(index.y);
-					const vec3 &n2 = normals.at(index.z);
+					tri.vertex0 = vertices[index.x];
+					tri.vertex1 = vertices[index.y];
+					tri.vertex2 = vertices[index.z];
 
-					vec3 N = normalize(cross(v1 - v0, v2 - v0));
-
-					if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+					vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+					if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
 						N *= -1.0f; // flip if not consistent with vertex normals
-
-					tri.vertex0 = v0;
-					tri.vertex1 = v1;
-					tri.vertex2 = v2;
 
 					tri.Nx = N.x;
 					tri.Ny = N.y;
 					tri.Nz = N.z;
-
-					tri.vN0 = n0;
-					tri.vN1 = n1;
-					tri.vN2 = n2;
 
 					tri.material = materialIndices.at(i + mesh.triangleOffset);
 				}
@@ -225,30 +202,21 @@ void rfw::SceneObject::updateTriangles(uint offset, uint last)
 					const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + mesh.vertexOffset;
 					Triangle &tri = triangles.at(i + mesh.triangleOffset);
 
-					const vec3 &v0 = vertices.at(index.x);
-					const vec3 &v1 = vertices.at(index.y);
-					const vec3 &v2 = vertices.at(index.z);
+					tri.vN0 = normals[index.x];
+					tri.vN1 = normals[index.y];
+					tri.vN2 = normals[index.z];
 
-					const vec3 &n0 = normals.at(index.x);
-					const vec3 &n1 = normals.at(index.y);
-					const vec3 &n2 = normals.at(index.z);
+					tri.vertex0 = vertices[index.x];
+					tri.vertex1 = vertices[index.y];
+					tri.vertex2 = vertices[index.z];
 
-					vec3 N = normalize(cross(v1 - v0, v2 - v0));
-
-					if (dot(N, n0) < 0.0f && dot(N, n1) < 0.0f && dot(N, n1) < 0.0f)
+					vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+					if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
 						N *= -1.0f; // flip if not consistent with vertex normals
-
-					tri.vertex0 = v0;
-					tri.vertex1 = v1;
-					tri.vertex2 = v2;
 
 					tri.Nx = N.x;
 					tri.Ny = N.y;
 					tri.Nz = N.z;
-
-					tri.vN0 = n0;
-					tri.vN1 = n1;
-					tri.vN2 = n2;
 
 					tri.material = materialIndices.at(i + mesh.triangleOffset);
 				}

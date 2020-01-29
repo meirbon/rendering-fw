@@ -221,11 +221,24 @@ INLINE_FUNC void clampIntensity(REFERENCE_OF(vec4) value, const float clampValue
 
 INLINE_FUNC void createTangentSpace(const vec3 N, REFERENCE_OF(vec3) T, REFERENCE_OF(vec3) B)
 {
+#if 1 // Frisvad
+	if (abs(N.x) > abs(N.z))
+	{
+		T = vec3(-N.y, N.x, 0.0f);
+		B = vec3(0.0f, -N.z, N.y);
+	}
+	else
+	{
+		B = vec3(0.0f, -N.z, N.y);
+		T = cross(B, N);
+	}
+#else
 	const float s = sign(N.z);
 	const float a = -1.0f / (s + N.z);
 	const float b = N.x * N.y * a;
 	T = vec3(1.0f + s * N.x * N.x * a, s * b, -s * N.x);
 	B = vec3(b, s + N.y * N.y * a, -N.y);
+#endif
 }
 
 INLINE_FUNC vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B)

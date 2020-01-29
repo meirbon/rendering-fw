@@ -371,6 +371,104 @@ int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z
 #endif
 }
 
+int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z[4], float direction_x[4],
+							float direction_y[4], float direction_z[4], float t[4], float bary_x[4], float bary_y[4],
+							int primID[4], int instID[4], float t_min) const
+{
+	const auto intersection = [&](const int instance, __m128 *inst_mask) {
+		const auto &matrix = this->inverse_matrices[instance];
+
+		const simd::vector4 org_x = simd::vector4(origin_x);
+		const simd::vector4 org_y = simd::vector4(origin_y);
+		const simd::vector4 org_z = simd::vector4(origin_z);
+		const simd::vector4 org_w = simd::ONE4;
+
+		const simd::vector4 dir_x = simd::vector4(direction_x);
+		const simd::vector4 dir_y = simd::vector4(direction_y);
+		const simd::vector4 dir_z = simd::vector4(direction_z);
+
+		const simd::vector4 m0_0 = matrix.matrix[0][0];
+		// _mm_shuffle_ps(matrix.cols[0], matrix.cols[0], _MM_SHUFFLE(0, 0, 0, 0));
+		const simd::vector4 m0_1 = matrix.matrix[0][1];
+		// _mm_shuffle_ps(matrix.cols[0], matrix.cols[0], _MM_SHUFFLE(1, 1, 1, 1));
+		const simd::vector4 m0_2 = matrix.matrix[0][2];
+		// _mm_shuffle_ps(matrix.cols[0], matrix.cols[0], _MM_SHUFFLE(2, 2, 2, 2));
+
+		simd::vector4 new_origin_x = m0_0 * org_x;
+		simd::vector4 new_origin_y = m0_1 * org_x;
+		simd::vector4 new_origin_z = m0_2 * org_x;
+
+		simd::vector4 new_direction_x = m0_0 * dir_x;
+		simd::vector4 new_direction_y = m0_1 * dir_x;
+		simd::vector4 new_direction_z = m0_2 * dir_x;
+
+		const simd::vector4 m1_0 = matrix.matrix[1][0];
+		// _mm_shuffle_ps(matrix.cols[1], matrix.cols[1], _MM_SHUFFLE(0, 0, 0, 0));
+		const simd::vector4 m1_1 = matrix.matrix[1][1];
+		// _mm_shuffle_ps(matrix.cols[1], matrix.cols[1], _MM_SHUFFLE(1, 1, 1, 1));
+		const simd::vector4 m1_2 = matrix.matrix[1][2];
+		// _mm_shuffle_ps(matrix.cols[1], matrix.cols[1], _MM_SHUFFLE(3, 2, 2, 2));
+
+		new_origin_x += m1_0 * org_y;
+		new_origin_y += m1_1 * org_y;
+		new_origin_z += m1_2 * org_y;
+
+		new_direction_x += m1_0 * dir_y;
+		new_direction_y += m1_1 * dir_y;
+		new_direction_z += m1_2 * dir_y;
+
+		const simd::vector4 m2_0 = matrix.matrix[2][0];
+		// _mm_shuffle_ps(matrix.cols[2], matrix.cols[2], _MM_SHUFFLE(0, 0, 0, 0));
+		const simd::vector4 m2_1 = matrix.matrix[2][1];
+		// _mm_shuffle_ps(matrix.cols[2], matrix.cols[2], _MM_SHUFFLE(1, 1, 1, 1));
+		const simd::vector4 m2_2 = matrix.matrix[2][2];
+		// _mm_shuffle_ps(matrix.cols[2], matrix.cols[2], _MM_SHUFFLE(3, 2, 2, 2));
+
+		new_origin_x += m2_0 * org_z;
+		new_origin_y += m2_1 * org_z;
+		new_origin_z += m2_2 * org_z;
+
+		new_direction_x += m2_0 * dir_z;
+		new_direction_y += m2_1 * dir_z;
+		new_direction_z += m2_2 * dir_z;
+
+		const simd::vector4 m3_0 = matrix.matrix[3][0];
+		// _mm_shuffle_ps(matrix.cols[3], matrix.cols[3], _MM_SHUFFLE(0, 0, 0, 0));
+		const simd::vector4 m3_1 = matrix.matrix[3][1];
+		// _mm_shuffle_ps(matrix.cols[3], matrix.cols[3], _MM_SHUFFLE(1, 1, 1, 1));
+		const simd::vector4 m3_2 = matrix.matrix[3][2];
+		// _mm_shuffle_ps(matrix.cols[3], matrix.cols[3], _MM_SHUFFLE(3, 2, 2, 2));
+
+		new_origin_x += m3_0 * org_w;
+		new_origin_y += m3_1 * org_w;
+		new_origin_z += m3_2 * org_w;
+
+		const float *ox = reinterpret_cast<float *>(&new_origin_x);
+		const float *oy = reinterpret_cast<float *>(&new_origin_y);
+		const float *oz = reinterpret_cast<float *>(&new_origin_z);
+		const float *dx = reinterpret_cast<float *>(&new_direction_x);
+		const float *dy = reinterpret_cast<float *>(&new_direction_y);
+		const float *dz = reinterpret_cast<float *>(&new_direction_z);
+
+#if TOP_PACKET_MBVH
+		return instance_meshes[instance]->mbvh->traverse4(ox, oy, oz, dx, dy, dz, t, bary_x, bary_y, primID, t_min,
+														  inst_mask);
+#else
+		return instance_meshes[instance]->bvh->traverse4(ox, oy, oz, dx, dy, dz, t, bary_x, bary_y, primID, t_min,
+														 inst_mask);
+#endif
+	};
+
+	__m128 mask = _mm_setzero_ps();
+#if PACKET_MBVH
+	return MBVHNode::traverse_mbvh4(origin_x, origin_y, origin_z, direction_x, direction_y, direction_z, t, instID,
+									mbvh_nodes.data(), prim_indices.data(), &mask, intersection);
+#else
+	return BVHNode::traverse_bvh4(origin_x, origin_y, origin_z, direction_x, direction_y, direction_z, t, instID,
+								  bvh_nodes.data(), prim_indices.data(), &mask, intersection);
+#endif
+}
+
 void TopLevelBVH::set_instance(size_t idx, glm::mat4 transform, rfwMesh *tree, AABB boundingBox)
 {
 	while (idx >= static_cast<int>(instance_meshes.size()))

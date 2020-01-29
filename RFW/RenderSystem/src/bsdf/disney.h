@@ -268,7 +268,7 @@ INLINE_FUNC void BSDFSample(const ShadingData shadingData, const vec3 T, const v
 // ----------------------------------------------------------------
 
 INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo,
-							  const vec3 wi, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
+							  const vec3 wi, REFERENCE_OF(float) pdf)
 {
 	const vec3 bsdf = BSDFEval(shadingData, iN, wo, wi, 0.0f, false);
 	pdf = BSDFPdf(shadingData, iN, wo, wi);
@@ -277,10 +277,10 @@ INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, cons
 
 INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B,
 							const vec3 wo, const float t, const bool backfacing, REFERENCE_OF(vec3) wi,
-							REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
+							REFERENCE_OF(float) pdf, float r0, float r1, float r2, float r3)
 {
 	int type;
-	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, RandomFloat(seed), RandomFloat(seed));
+	BSDFSample(shadingData, T, B, iN, wo, wi, pdf, type, t, backfacing, r0, r1);
 	return BSDFEval(shadingData, iN, wo, wi, t, backfacing);
 }
 

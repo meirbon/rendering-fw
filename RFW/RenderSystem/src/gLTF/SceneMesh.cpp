@@ -436,7 +436,9 @@ void rfw::SceneMesh::updateTriangles() const
 			tri.vN1 = object->normals[index.y];
 			tri.vN2 = object->normals[index.z];
 
-			const vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+				N *= -1.0f; // flip if not consistent with vertex normals
 
 			tri.Nx = N.x;
 			tri.Ny = N.y;
@@ -452,27 +454,23 @@ void rfw::SceneMesh::updateTriangles() const
 			const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);
 
-			const vec3 &v0 = object->vertices.at(index.x);
-			const vec3 &v1 = object->vertices.at(index.y);
-			const vec3 &v2 = object->vertices.at(index.z);
+			tri.vertex0 = object->vertices[index.x];
+			tri.vertex1 = object->vertices[index.y];
+			tri.vertex2 = object->vertices[index.z];
 
-			const vec3 &n0 = object->normals.at(index.x);
-			const vec3 &n1 = object->normals.at(index.y);
-			const vec3 &n2 = object->normals.at(index.z);
+			tri.vN0 = object->normals[index.x];
+			tri.vN1 = object->normals[index.y];
+			tri.vN2 = object->normals[index.z];
 
-			const vec3 N = normalize(cross(v1 - v0, v2 - v0));
-
-			tri.vertex0 = v0;
-			tri.vertex1 = v1;
-			tri.vertex2 = v2;
+			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+			{
+				N *= -1.0f;
+			} // flip if not consistent with vertex normals
 
 			tri.Nx = N.x;
 			tri.Ny = N.y;
 			tri.Nz = N.z;
-
-			tri.vN0 = n0;
-			tri.vN1 = n1;
-			tri.vN2 = n2;
 
 			tri.material = object->materialIndices.at(i + triangleOffset);
 		});

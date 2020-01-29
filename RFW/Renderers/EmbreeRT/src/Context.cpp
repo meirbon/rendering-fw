@@ -163,8 +163,9 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	for (int i = 0, s = static_cast<int>(threads); i < s; i++)
 	{
-		handles.push_back(m_Pool.push([packetsPerThread, maxPixelID, &probe_id, &maxPixelID4, &maxPixelID8,
-									   this](int tID) {
+		const int tID = i;
+		handles.push_back(std::async([packetsPerThread, maxPixelID, &probe_id, &maxPixelID4, &maxPixelID8, this,
+									  tID]() {
 			const int start = static_cast<int>(tID * packetsPerThread);
 			const int end = static_cast<int>((tID + 1) * packetsPerThread);
 
@@ -204,6 +205,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					vec3 origin = vec3(packet.ray.org_x[p_id], packet.ray.org_y[p_id], packet.ray.org_z[p_id]);
 					vec3 direction = vec3(packet.ray.dir_x[p_id], packet.ray.dir_y[p_id], packet.ray.dir_z[p_id]);
 					vec3 throughput = vec3(1.0f);
+					vec2 bary = vec2(packet.hit.u[p_id], packet.hit.v[p_id]);
 					for (int pl = 0; pl < MAX_PATH_LENGTH; pl++)
 					{
 						if (instID == RTC_INVALID_GEOMETRY_ID || primID == RTC_INVALID_GEOMETRY_ID)
@@ -234,32 +236,18 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						const mat3 &normal_matrix = m_InverseMatrices[instID];
 						vec3 N = normalize(normal_matrix * vec3(tri.Nx, tri.Ny, tri.Nz));
 
-						const simd::vector4 vertex0_4 =
-							matrix * simd::vector4(tri.vertex0.x, tri.vertex0.y, tri.vertex0.z, 1.0f);
-						const simd::vector4 vertex1_4 =
-							matrix * simd::vector4(tri.vertex1.x, tri.vertex1.y, tri.vertex1.z, 1.0f);
-						const simd::vector4 vertex2_4 =
-							matrix * simd::vector4(tri.vertex2.x, tri.vertex2.y, tri.vertex2.z, 1.0f);
+						const float v = bary.x;
+						const float w = bary.y;
+						const float u = 1.0f - v - w;
 
-						const vec3 vertex0 = vec3(vertex0_4.vec);
-						const vec3 vertex1 = vec3(vertex1_4.vec);
-						const vec3 vertex2 = vec3(vertex2_4.vec);
-
-						const vec3 bary = triangle::getBaryCoords(p, N, vertex0, vertex1, vertex2);
-
-						vec3 iN =
-							normalize(normal_matrix * vec3(bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2));
-
-
-						m_Accumulator[pixelID] += vec4(iN, 0.0f);
+						vec3 iN = normalize(normal_matrix * vec3(u * tri.vN0 + v * tri.vN1 + w * tri.vN2));
+						
 						const float flip = -sign(dot(direction, N));
 						N *= flip;	// Fix geometric normal
 						iN *= flip; // Fix interpolated normal
 
 						vec3 T, B;
 						createTangentSpace(iN, T, B);
-
-						uint seed = WangHash(pixelID * 16789 + m_Samples * 1791 + pl * 720898027);
 
 						shadingData.parameters = material.parameters;
 						shadingData.matID = tri.material;
@@ -270,17 +258,14 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 							material.hasFlag(HasRoughnessMap) || material.hasFlag(HasAlphaMap) ||
 							material.hasFlag(HasSpecularityMap))
 						{
-							tu = bary.x * tri.u0 + bary.y * tri.u1 + bary.z * tri.u2;
-							tv = bary.x * tri.v0 + bary.y * tri.v1 + bary.z * tri.v2;
+							tu = u * tri.u0 + v * tri.u1 + w * tri.u2;
+							tv = u * tri.v0 + v * tri.v1 + w * tri.v2;
 						}
 
 						if (material.hasFlag(HasDiffuseMap))
 						{
-							const float u = (tu + material.uoffs0) * material.uscale0;
-							const float v = (tv + material.voffs0) * material.vscale0;
-
-							float tx = fmod(u, 1.0f);
-							float ty = fmod(v, 1.0f);
+							float tx = fmod((tu + material.uoffs0) * material.uscale0, 1.0f);
+							float ty = fmod((tv + material.voffs0) * material.vscale0, 1.0f);
 
 							if (tx < 0.f)
 								tx = 1.f + tx;
@@ -314,8 +299,8 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						bool specular = false;
 						vec3 R;
 						float pdf;
-						const vec3 bsdf =
-							SampleBSDF(shadingData, iN, N, T, B, -direction, t, bool(flip < 0), direction, pdf, seed);
+						const vec3 bsdf = SampleBSDF(shadingData, iN, N, T, B, -direction, t, bool(flip < 0), direction,
+													 pdf, m_Rng.Rand(), m_Rng.Rand(), m_Rng.Rand(), m_Rng.Rand());
 
 						throughput = throughput * bsdf * glm::abs(glm::dot(iN, R)) * (1.0f / pdf);
 						if (any(isnan(throughput)))
@@ -339,6 +324,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						t = hit.ray.tfar;
 						instID = hit.hit.instID[0];
 						primID = hit.hit.geomID;
+						bary = vec2(hit.hit.u, hit.hit.v);
 					}
 				}
 			}

@@ -52,7 +52,9 @@ INLINE_FUNC float Erf(float x)
 
 	// A&S formula 7.1.26
 	const float t = 1.0f / (1.0f + 0.3275911f * x);
-	const float y = 1.0f - (((((1.061405429f * t + -1.453152027f) * t) + 1.421413741f) * t + -0.284496736f) * t + 0.254829592f) * t * expf(-x * x);
+	const float y =
+		1.0f - (((((1.061405429f * t + -1.453152027f) * t) + 1.421413741f) * t + -0.284496736f) * t + 0.254829592f) *
+				   t * expf(-x * x);
 
 	return sign * y;
 }
@@ -89,7 +91,8 @@ INLINE_FUNC float Sin2Phi(const vec3 w) { return SinPhi(w) * SinPhi(w); }
 
 INLINE_FUNC float CosDPhi(const vec3 wa, const vec3 wb)
 {
-	return clamp((wa.x * wb.x + wa.y * wb.y) / sqrt((wa.x * wa.x + wa.y * wa.y) * (wb.x * wb.x + wb.y * wb.y)), -1.f, 1.f);
+	return clamp((wa.x * wb.x + wa.y * wb.y) / sqrt((wa.x * wa.x + wa.y * wa.y) * (wb.x * wb.x + wb.y * wb.y)), -1.f,
+				 1.f);
 }
 
 INLINE_FUNC float G1(float lambda_w) { return 1.0f / (1.0f + lambda_w); }
@@ -102,7 +105,8 @@ INLINE_FUNC float D(const vec3 wh, float alphay, float alphax)
 
 	const float cos4Theta = Cos2Theta(wh) * Cos2Theta(wh);
 
-	return expf(-tan2Theta * (Cos2Phi(wh) / (alphax * alphax) + Sin2Phi(wh) / (alphay * alphay))) / (glm::pi<float>() * alphax * alphay * cos4Theta);
+	return expf(-tan2Theta * (Cos2Phi(wh) / (alphax * alphax) + Sin2Phi(wh) / (alphay * alphay))) /
+		   (glm::pi<float>() * alphax * alphay * cos4Theta);
 }
 
 INLINE_FUNC vec3 EvalF(const vec3 col, const vec3 vl, const vec3 m)
@@ -125,7 +129,10 @@ INLINE_FUNC float EvalLambda(const vec3 vl, const vec2 alpha)
 
 INLINE_FUNC float EvalG1(const vec3 vl, const vec2 alpha) { return 1.0f / (EvalLambda(vl, alpha) + 1.0f); }
 
-INLINE_FUNC float EvalG2(const vec3 il, const vec3 ol, const vec2 alpha) { return 1.0f / (EvalLambda(il, alpha) + EvalLambda(ol, alpha) + 1.0f); }
+INLINE_FUNC float EvalG2(const vec3 il, const vec3 ol, const vec2 alpha)
+{
+	return 1.0f / (EvalLambda(il, alpha) + EvalLambda(ol, alpha) + 1.0f);
+}
 
 INLINE_FUNC float EvalD(const vec3 m, const vec2 alpha)
 {
@@ -161,7 +168,10 @@ INLINE_FUNC float lambda_ggx(const vec3 wo, float alphaX, float alphaY)
 	return (-1.0f + sqrt(1.0f + alpha2Tan2Theta)) / 2.0f;
 }
 
-INLINE_FUNC float pdf_ggx(const vec3 wo, const vec3 wh, const vec3 wi, float alphaX, float alphaY) { return G1(lambda_ggx(wo, alphaX, alphaY)); }
+INLINE_FUNC float pdf_ggx(const vec3 wo, const vec3 wh, const vec3 wi, float alphaX, float alphaY)
+{
+	return G1(lambda_ggx(wo, alphaX, alphaY));
+}
 
 INLINE_FUNC vec3 SampleMicrofacet(const vec3 ol, const vec2 alpha, const vec2 r)
 {
@@ -188,8 +198,8 @@ INLINE_FUNC vec3 BsdfPDF(const vec3 col, const vec3 m, const vec3 ol, const vec3
 	return (F * G1 * G1 * D) * (1.0f / (4.0f * il.z * ol.z));
 }
 
-INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo, const vec3 wi, REFERENCE_OF(float) pdf,
-							  REFERENCE_OF(uint) seed)
+INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, const vec3 T, const vec3 B, const vec3 wo,
+							  const vec3 wi, REFERENCE_OF(float) pdf)
 {
 	const float roughness = ROUGHNESS;
 	if (roughness < 0.01f) // Use purely specular BRDF for roughness below threshold
@@ -206,8 +216,9 @@ INLINE_FUNC vec3 EvaluateBSDF(const ShadingData shadingData, const vec3 iN, cons
 	return shadingData.color;
 }
 
-INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B, const vec3 wi, const float t,
-							const bool backfacing, REFERENCE_OF(vec3) wo, REFERENCE_OF(float) pdf, REFERENCE_OF(uint) seed)
+INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const vec3 N, const vec3 T, const vec3 B,
+							const vec3 wi, const float t, const bool backfacing, REFERENCE_OF(vec3) wo,
+							REFERENCE_OF(float) pdf, float r0, float r1, float r2, float r3)
 {
 	const float roughness = ROUGHNESS;
 
@@ -219,7 +230,7 @@ INLINE_FUNC vec3 SampleBSDF(const ShadingData shadingData, const vec3 iN, const 
 	}
 
 	const vec3 wiLocal = worldToTangent(wi, iN, T, B);
-	vec3 sample = SampleMicrofacet(wiLocal, vec2(roughness), vec2(RandomFloat(seed), RandomFloat(seed)));
+	vec3 sample = SampleMicrofacet(wiLocal, vec2(roughness), vec2(r0, r1)));
 	const vec3 woLocal = reflect(-wiLocal, sample);
 	pdf = pdf_ggx(woLocal, sample, wiLocal, roughness, roughness);
 	wo = tangentToWorld(woLocal, iN, T, B);

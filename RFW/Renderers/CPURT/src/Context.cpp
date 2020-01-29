@@ -1,6 +1,6 @@
 #include "PCH.h"
 
-#define PACKET_TRAVERSAL 0
+#define PACKET_TRAVERSAL 1
 
 using namespace rfw;
 
@@ -16,6 +16,8 @@ void Context::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::run
 
 void Context::init(GLuint *glTextureID, uint width, uint height)
 {
+	m_Pool.clearQueue();
+
 	if (!m_InitializedGlew)
 	{
 		m_Handles.resize(m_Pool.size());
@@ -35,7 +37,14 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 	m_Height = static_cast<int>(height);
 	m_TargetID = *glTextureID;
 
-	m_Accumulator.resize(width * height);
+	if (m_Accumulator.size() < width * height)
+	{
+		// Prevent reallocating memory often
+		m_Accumulator.resize(width * height * 4);
+	}
+
+	memset(m_Accumulator.data(), 0, m_Accumulator.size() * sizeof(vec4));
+	m_Samples = 0;
 
 	CheckGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
@@ -77,22 +86,23 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	const auto s = static_cast<int>(m_Pool.size());
 
 #if PACKET_WIDTH == 4
-	constexpr int TILE_WIDTH = 2;
-	constexpr int TILE_HEIGHT = 2;
+	constexpr int TILE_WIDTH = 4;
+	constexpr int TILE_HEIGHT = 1;
 #elif PACKET_WIDTH == 8
 	constexpr int TILE_WIDTH = 4;
 	constexpr int TILE_HEIGHT = 2;
 #endif
 
-	const int wTiles = (m_Width + (TILE_WIDTH - (m_Width % TILE_WIDTH))) / TILE_WIDTH;
-	const int hTiles = (m_Height + (TILE_HEIGHT - (m_Height % TILE_HEIGHT))) / TILE_HEIGHT;
-	const int threads = static_cast<int>(m_Pool.size());
-
-	m_Packets.resize(wTiles * hTiles);
+	const int wTiles = m_Width / TILE_WIDTH;
+	const int hTiles = m_Height / TILE_HEIGHT;
+	DEBUG("wTiles: %i, hTiles: %i", wTiles, hTiles);
+	const int threads = int(m_Pool.size());
+	const int nr_packets = wTiles * hTiles;
+	m_Packets.resize(nr_packets);
 
 	std::vector<std::future<void>> handles(threads);
 
-	for (int i = 0, s = threads; i < s; i++)
+	for (int i = 0; i < threads; i++)
 	{
 		handles[i] = m_Pool.push([this, &camParams, &threads, &wTiles, &hTiles, &TILE_WIDTH, &TILE_HEIGHT](int t_id) {
 			for (int tile_y = t_id; tile_y < hTiles; tile_y += threads)
@@ -104,8 +114,13 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					const int x = tile_x * TILE_WIDTH;
 					const int tile_id = tile_y * wTiles + tile_x;
 
+#if 1
+					const int x4[4] = {x, x + 1, x + 2, x + 3};
+					const int y4[4] = {y, y, y, y};
+#else
 					const int x4[4] = {x, x + 1, x, x + 1};
 					const int y4[4] = {y, y, y + 1, y + 1};
+#endif
 					m_Packets[tile_id] = cpurt::Ray::generateRay4(camParams, x4, y4, &m_RNGs[t_id]);
 #elif PACKET_WIDTH == 8
 					const int y = tile_y * TILE_HEIGHT;
@@ -126,11 +141,51 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	const int probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
 	const int maxPixelID = m_Width * m_Height;
-	const auto packetsPerThread = m_Packets.size() / threads;
-
-	for (int j = 0, s = static_cast<int>(threads); j < s; j++)
+	const int packetsPerThread = nr_packets / threads;
+#if 0
+	for (int j = 0; j < threads; j++)
 	{
-		handles[j] = m_Pool.push([&](int t_id) {
+		const int t_id = j;
+		handles[j] = m_Pool.push([this, packetsPerThread, nr_packets, maxPixelID, t_id](int) {
+			const int start = int(t_id * packetsPerThread);
+			const int end = min(int((t_id + 1) * packetsPerThread), nr_packets);
+
+			for (int i = start; i < end; i++)
+			{
+				auto &packet = m_Packets[i];
+				topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x,
+									   packet.direction_y, packet.direction_z, packet.t, packet.primID, packet.instID,
+									   1e-5f);
+
+				for (int p_id = 0, s = TILE_WIDTH * TILE_HEIGHT; p_id < s; p_id++)
+				{
+					const int pixelID = packet.pixelID[p_id];
+					int instID = packet.instID[p_id];
+					int primID = packet.primID[p_id];
+
+					const vec3 direction =
+						vec3(packet.direction_x[p_id], packet.direction_y[p_id], packet.direction_z[p_id]);
+					const vec3 origin = vec3(packet.origin_x[p_id], packet.origin_y[p_id], packet.origin_z[p_id]);
+
+					if (pixelID >= maxPixelID)
+						continue;
+
+					if (instID < 0 || primID < 0)
+					{
+						m_Accumulator[pixelID] += vec4(1, 0, 0, 0.0f);
+						continue;
+					}
+
+					m_Accumulator[pixelID] += vec4(direction, 0.0f);
+				}
+			}
+		});
+	}
+#else
+	for (int j = 0; j < threads; j++)
+	{
+		const int t_id = j;
+		handles[j] = std::async([this, packetsPerThread, nr_packets, maxPixelID, probe_id, t_id]() {
 			const int start = static_cast<int>(t_id * packetsPerThread);
 			const int end = static_cast<int>((t_id + 1) * packetsPerThread);
 
@@ -138,24 +193,13 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 			{
 				auto &packet = m_Packets[i];
 
-#if PACKET_TRAVERSAL
-				if (topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x,
-										   packet.direction_y, packet.direction_z, packet.t, packet.primID,
-										   packet.instID, 1e-5f) == 0)
-				{
-					for (int i = 0; i < 4; i++)
-					{
-						if (packet.pixelID[i] >= maxPixelID)
-							continue;
-						const vec2 uv = vec2(0.5f * (1.0f + glm::atan(packet.direction_x[i], -packet.direction_z[i]) *
-																glm::one_over_pi<float>()),
-											 glm::acos(packet.direction_y[i]) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * float(m_SkyboxWidth - 1), uv.y *float(m_SkyboxHeight - 1));
-						m_Accumulator[packet.pixelID[i]] += glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
-					}
+				float bary_x[4];
+				float bary_y[4];
 
-					continue;
-				}
+#if PACKET_TRAVERSAL
+				topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x,
+									   packet.direction_y, packet.direction_z, packet.t, bary_x, bary_y, packet.primID,
+									   packet.instID, 1e-5f);
 #else
 				for (int i = 0; i < 4; i++)
 				{
@@ -169,6 +213,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 				for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
 				{
 					const int pixelID = packet.pixelID[packet_id];
+
 					if (pixelID >= maxPixelID)
 						continue;
 
@@ -187,6 +232,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 					vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id],
 										  packet.direction_z[packet_id]);
 					vec3 throughput = vec3(1.0f);
+					vec2 bary = vec2(bary_x[packet_id], bary_y[packet_id]);
 					for (int pl = 0; pl < MAX_PATH_LENGTH; pl++)
 					{
 						if (instID < 0 || primID < 0)
@@ -203,7 +249,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						const Triangle &tri = topLevelBVH.get_triangle(instID, primID);
 						const auto &material = m_Materials[tri.material];
 
-						ShadingData shadingData;
+						ShadingData shadingData{};
 						shadingData.color = material.getColor();
 
 						if (any(greaterThan(shadingData.color, vec3(1.0f))))
@@ -216,21 +262,11 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(instID);
 						vec3 N = normalize(normal_matrix * vec3(tri.Nx, tri.Ny, tri.Nz));
 
-						const simd::vector4 vertex0_4 =
-							matrix * simd::vector4(tri.vertex0.x, tri.vertex0.y, tri.vertex0.z, 1.0f);
-						const simd::vector4 vertex1_4 =
-							matrix * simd::vector4(tri.vertex1.x, tri.vertex1.y, tri.vertex1.z, 1.0f);
-						const simd::vector4 vertex2_4 =
-							matrix * simd::vector4(tri.vertex2.x, tri.vertex2.y, tri.vertex2.z, 1.0f);
+						const float u = bary.x;
+						const float v = bary.y;
+						const float w = 1.0f - u - v;
 
-						const vec3 vertex0 = vec3(vertex0_4.vec);
-						const vec3 vertex1 = vec3(vertex1_4.vec);
-						const vec3 vertex2 = vec3(vertex2_4.vec);
-
-						const vec3 bary = triangle::getBaryCoords(p, N, vertex0, vertex1, vertex2);
-
-						vec3 iN =
-							normalize(normal_matrix * vec3(bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2));
+						vec3 iN = normalize(normal_matrix * vec3(u * tri.vN0 + v * tri.vN1 + w * tri.vN2));
 
 						const float flip = -sign(dot(direction, N));
 						N *= flip;	// Fix geometric normal
@@ -250,17 +286,17 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 							material.hasFlag(HasRoughnessMap) || material.hasFlag(HasAlphaMap) ||
 							material.hasFlag(HasSpecularityMap))
 						{
-							tu = bary.x * tri.u0 + bary.y * tri.u1 + bary.z * tri.u2;
-							tv = bary.x * tri.v0 + bary.y * tri.v1 + bary.z * tri.v2;
+							tu = u * tri.u0 + v * tri.u1 + w * tri.u2;
+							tv = u * tri.v0 + v * tri.v1 + w * tri.v2;
 						}
 
 						if (material.hasFlag(HasDiffuseMap))
 						{
-							const float u = (tu + material.uoffs0) * material.uscale0;
-							const float v = (tv + material.voffs0) * material.vscale0;
+							const float t_u = (tu + material.uoffs0) * material.uscale0;
+							const float t_v = (tv + material.voffs0) * material.vscale0;
 
-							float tx = fmod(u, 1.0f);
-							float ty = fmod(v, 1.0f);
+							float tx = glm::mod(t_u, 1.0f);
+							float ty = glm::mod(t_v, 1.0f);
 
 							if (tx < 0.f)
 								tx = 1.f + tx;
@@ -291,41 +327,41 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 							}
 						}
 
-						bool specular = false;
 						vec3 R;
 						float pdf;
-						const vec3 bsdf =
-							SampleBSDF(shadingData, iN, N, T, B, -direction, t, bool(flip < 0), direction, pdf, seed);
+						const vec3 bsdf = SampleBSDF(shadingData, iN, N, T, B, -direction, t, bool(flip < 0), R, pdf,
+													 m_RNGs[t_id].Rand(), m_RNGs[t_id].Rand(), m_RNGs[t_id].Rand(),
+													 m_RNGs[t_id].Rand());
 
 						throughput = throughput * bsdf * glm::abs(glm::dot(iN, R)) * (1.0f / pdf);
-						if (any(isnan(throughput)))
+						if (any(isnan(throughput)) || any(lessThan(throughput, vec3(0))))
 							break;
 
-						origin = p + 1e-6f * R;
+						origin = SafeOrigin(p, R, N, 1e-6f);
 						direction = R;
 
 						t = 1e34f;
 						instID = -1;
 						primID = -1;
-						topLevelBVH.intersect(origin, direction, &t, &primID, &instID, 1e-5f);
+						topLevelBVH.intersect(origin, direction, &t, &primID, &instID, &bary, 1e-6f);
 					}
 				}
 			}
 		});
 	}
+#endif
 
 	m_Samples++;
-
 	for (int i = 0; i < threads; i++)
 		handles[i].get();
 
 	const float scale = 1.0f / float(m_Samples);
-	for (int i = 0, s = threads; i < s; i++)
+	for (int i = 0; i < threads; i++)
 	{
-		handles[i] = m_Pool.push([this, &threads, &scale](int tId) {
+		handles[i] = m_Pool.push([this, threads, scale](int tId) {
 			for (int y = tId; y < m_Height; y += threads)
 			{
-				const uint y_offset = y * m_Width;
+				const int y_offset = y * m_Width;
 				for (int x = 0; x < m_Width; x++)
 				{
 					const int pixel_id = y_offset + x;

@@ -19,7 +19,10 @@ enum OptiXRayIndex
 	Shadow = 2u
 };
 
-void usageReportCallback(int error, const char *context, const char *message, void *cbdata) { WARNING("OptiX (%i) %s: %s", error, context, message); }
+void usageReportCallback(int error, const char *context, const char *message, void *cbdata)
+{
+	WARNING("OptiX (%i) %s: %s", error, context, message);
+}
 
 void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 {
@@ -72,15 +75,35 @@ void OptiXContext::init(std::shared_ptr<rfw::utils::Window> &window)
 	m_SceneGraph = m_Context->createGroup();
 	m_SceneGraph->setAcceleration(m_Acceleration);
 
-	// Retrieve PTX program handles
-	m_AttribProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "triangleAttributes");
-	m_PrimaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generatePrimaryRay");
-	m_SecondaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateSecondaryRay");
-	m_ShadowRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateShadowRay");
-	m_ClosestHit = m_Context->createProgramFromPTXFile("Kernels.ptx", "closestHit");
-	m_ShadowMissProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "missShadow");
+	int major = 0, minor = 0;
+	cudaDeviceGetAttribute(&major, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
+	cudaDeviceGetAttribute(&minor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
 
-	optix::Program exceptionProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "exception");
+	if (major < 5)
+		FAILURE("Minimum CUDA compute capability for this renderer is 50, found %i%i", major, minor);
+
+	char kernel_source_file[512];
+	memset(kernel_source_file, 0, sizeof(kernel_source_file));
+	utils::string::format(kernel_source_file, "Kernels%i%i.ptx", major, minor);
+
+	WARNING("%s", kernel_source_file);
+
+	// Retrieve PTX program handles
+	try
+	{
+		m_AttribProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "triangleAttributes");
+		m_PrimaryRayProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "generatePrimaryRay");
+		m_SecondaryRayProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "generateSecondaryRay");
+		m_ShadowRayProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "generateShadowRay");
+		m_ClosestHit = m_Context->createProgramFromPTXFile(kernel_source_file, "closestHit");
+		m_ShadowMissProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "missShadow");
+	}
+	catch (const std::exception &e)
+	{
+		FAILURE("%s", e.what());
+	}
+
+	optix::Program exceptionProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "exception");
 
 	// Setup context entry points for each ray type
 	m_Context->setRayTypeCount(3);
@@ -170,15 +193,35 @@ void OptiXContext::init(GLuint *glTextureID, uint width, uint height)
 		m_SceneGraph = m_Context->createGroup();
 		m_SceneGraph->setAcceleration(m_Acceleration);
 
-		// Retrieve PTX program handles
-		m_AttribProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "triangleAttributes");
-		m_PrimaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generatePrimaryRay");
-		m_SecondaryRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateSecondaryRay");
-		m_ShadowRayProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "generateShadowRay");
-		m_ClosestHit = m_Context->createProgramFromPTXFile("Kernels.ptx", "closestHit");
-		m_ShadowMissProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "missShadow");
+		int major = 0, minor = 0;
+		cudaDeviceGetAttribute(&major, cudaDeviceAttr::cudaDevAttrComputeCapabilityMajor, 0);
+		cudaDeviceGetAttribute(&minor, cudaDeviceAttr::cudaDevAttrComputeCapabilityMinor, 0);
 
-		optix::Program exceptionProgram = m_Context->createProgramFromPTXFile("Kernels.ptx", "exception");
+		if (major < 5)
+			FAILURE("Minimum CUDA compute capability for this renderer is 50, found %i%i", major, minor);
+
+		char kernel_source_file[512];
+		memset(kernel_source_file, 0, sizeof(kernel_source_file));
+		utils::string::format(kernel_source_file, "Kernels%i%i.ptx", major, minor);
+
+		WARNING("%s", kernel_source_file);
+
+		// Retrieve PTX program handles
+		try
+		{
+			m_AttribProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "triangleAttributes");
+			m_PrimaryRayProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "generatePrimaryRay");
+			m_SecondaryRayProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "generateSecondaryRay");
+			m_ShadowRayProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "generateShadowRay");
+			m_ClosestHit = m_Context->createProgramFromPTXFile(kernel_source_file, "closestHit");
+			m_ShadowMissProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "missShadow");
+		}
+		catch (const std::exception &e)
+		{
+			FAILURE("%s", e.what());
+		}
+
+		optix::Program exceptionProgram = m_Context->createProgramFromPTXFile(kernel_source_file, "exception");
 
 		// Setup context entry points for each ray type
 		m_Context->setRayTypeCount(3);
@@ -452,7 +495,8 @@ void OptiXContext::render_frame(const Camera &camera, RenderStatus status)
 	m_Counters->copyToDeviceAsync();
 }
 
-void OptiXContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void OptiXContext::set_materials(const std::vector<rfw::DeviceMaterial> &materials,
+								 const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	std::vector<rfw::DeviceMaterial> mats(materials.size());
 	memcpy(mats.data(), materials.data(), materials.size() * sizeof(rfw::Material));
@@ -585,7 +629,8 @@ void OptiXContext::set_mesh(const size_t index, const rfw::Mesh &mesh)
 	m_Meshes[index]->setData(mesh);
 }
 
-void OptiXContext::set_instance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void OptiXContext::set_instance(const size_t instanceIdx, const size_t meshIdx, const mat4 &transform,
+								const mat3 &inverse_transform)
 {
 	try
 	{
@@ -633,7 +678,8 @@ void OptiXContext::set_instance(const size_t instanceIdx, const size_t meshIdx, 
 		m_InstanceMeshes[instanceIdx] = meshIdx;
 
 		m_InstanceDescriptors[instanceIdx].invTransform = inverse_transform;
-		m_InstanceDescriptors[instanceIdx].triangles = reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->triangles->getDevicePointer());
+		m_InstanceDescriptors[instanceIdx].triangles =
+			reinterpret_cast<DeviceTriangle *>(m_Meshes[meshIdx]->triangles->getDevicePointer());
 
 		m_Acceleration->markDirty();
 		m_Acceleration->validate();
@@ -653,8 +699,9 @@ void OptiXContext::set_sky(const std::vector<glm::vec3> &pixels, size_t width, s
 	setSkyDimensions(static_cast<uint>(width), static_cast<uint>(height));
 }
 
-void OptiXContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-							  const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void OptiXContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
+							  const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
+							  const rfw::DeviceDirectionalLight *directionalLights)
 {
 	CheckCUDA(cudaDeviceSynchronize());
 
@@ -696,7 +743,8 @@ void OptiXContext::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaL
 		if (!m_DirectionalLights || m_DirectionalLights->getElementCount())
 		{
 			delete m_DirectionalLights;
-			m_DirectionalLights = new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
+			m_DirectionalLights =
+				new CUDABuffer<DeviceDirectionalLight>(directionalLights, lightCount.directionalLightCount, ON_DEVICE);
 			setDirectionalLights(m_DirectionalLights->getDevicePointer());
 		}
 		m_DirectionalLights->copyToDeviceAsync(directionalLights, lightCount.directionalLightCount);
@@ -736,7 +784,8 @@ void OptiXContext::update()
 	if (!m_DeviceInstanceDescriptors || m_InstanceDescriptors.size() > m_DeviceInstanceDescriptors->getElementCount())
 	{
 		delete m_DeviceInstanceDescriptors;
-		m_DeviceInstanceDescriptors = new CUDABuffer<DeviceInstanceDescriptor>(m_InstanceDescriptors.size() + (m_InstanceDescriptors.size() % 32), ON_DEVICE);
+		m_DeviceInstanceDescriptors = new CUDABuffer<DeviceInstanceDescriptor>(
+			m_InstanceDescriptors.size() + (m_InstanceDescriptors.size() % 32), ON_DEVICE);
 		m_DeviceInstanceDescriptors->copyToDeviceAsync(m_InstanceDescriptors);
 		setInstanceDescriptors(m_DeviceInstanceDescriptors->getDevicePointer());
 	}
@@ -748,7 +797,7 @@ void OptiXContext::set_probe_index(glm::uvec2 probePos)
 	counters->probeIdx = probePos.x + probePos.y * m_ScrWidth;
 }
 
-rfw::RenderStats OptiXContext::get_stats() const { return rfw::RenderStats(); }
+rfw::RenderStats OptiXContext::get_stats() const { return m_RenderStats; }
 
 void OptiXContext::get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const
 {

@@ -2,11 +2,11 @@
 #include <Application.h>
 
 #define SKINNED_MESH 0
-#define CESIUMMAN 1
+#define CESIUMMAN 0
 #define POLLY 0
 #define PICA 1
 #define SPONZA 0
-#define PICA_LIGHTS 1
+#define PICA_LIGHTS 0
 #define DRAGON 0
 
 using namespace rfw;
@@ -42,6 +42,8 @@ class App : public rfw::Application
 #if PICA
 	rfw::GeometryReference pica{};
 	rfw::InstanceReference picaInstance;
+	rfw::GeometryReference lightQuad{};
+	rfw::InstanceReference lightQuadInstance;
 #elif SPONZA
 	rfw::GeometryReference sponza;
 	rfw::InstanceReference sponzaInstance;
@@ -53,8 +55,6 @@ class App : public rfw::Application
 	rfw::InstanceReference planeInstance;
 #endif
 #if PICA_LIGHTS
-	rfw::GeometryReference lightQuad{};
-	rfw::InstanceReference lightQuadInstance;
 	rfw::LightReference pointLight;
 	rfw::LightReference spotLight;
 #endif
@@ -75,7 +75,7 @@ class App : public rfw::Application
 	bool followFocus = false;
 };
 
-App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : VULKANRTX)
+App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : OPTIX6)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -100,12 +100,12 @@ void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 #endif
 #if PICA
 	pica = rs->add_object("Models/pica/scene.gltf");
+	auto lightMaterial = rs->add_material(vec3(10), 1);
+	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 12.0f, 12.0f, lightMaterial);
 #elif SPONZA
 	sponza = rs->add_object("Models/sponza/sponza.obj");
 #endif
 #if PICA_LIGHTS
-	auto lightMaterial = rs->add_material(vec3(10), 1);
-	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
 	pointLight = rs->add_point_light(vec3(-15, 10, -5), vec3(20));
 	spotLight = rs->add_spot_light(vec3(10, 10, 3), 10.0f, vec3(30), 30.0f, vec3(0, -1, 0));
 #endif
@@ -141,11 +141,9 @@ void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry
 	picaInstance = rs->add_instance(pica);
 	picaInstance.rotate(180.0f, vec3(0, 1, 0));
 	picaInstance.update();
+	lightQuadInstance = rs->add_instance(lightQuad);
 #elif SPONZA
 	sponzaInstance = rs->add_instance(sponza, vec3(0.2f));
-#endif
-#if PICA_LIGHTS
-	lightQuadInstance = rs->add_instance(lightQuad);
 #endif
 #if DRAGON
 	dragonInstance = rs->add_instance(dragon, vec3(1), vec3(5, 1.83f, -2));

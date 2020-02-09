@@ -201,7 +201,14 @@ void RenderSystem::set_target(rfw::utils::GLTexture *texture)
 
 	if (texture == nullptr)
 		throw std::runtime_error("Invalid texture.");
-	m_Context->init(&texture->m_ID, texture->get_width(), texture->get_height());
+	try
+	{
+		m_Context->init(&texture->m_ID, texture->get_width(), texture->get_height());
+	}
+	catch (const std::exception &e)
+	{
+		FAILURE("%s", e.what());
+	}
 
 	m_TargetID = texture->m_ID;
 	m_TargetWidth = texture->get_width();

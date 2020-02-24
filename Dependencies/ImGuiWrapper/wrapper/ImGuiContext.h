@@ -3,7 +3,6 @@
 #include <imgui.h>
 #include <memory>
 #include <GLFW/glfw3.h>
-#include <vulkan/vulkan.hpp>
 
 #if defined(__APPLE__) && defined(__OBJC__)
 #import <Metal/Metal.h>

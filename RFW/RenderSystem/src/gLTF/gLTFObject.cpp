@@ -1,7 +1,9 @@
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#define TINYGLTF_NO_INCLUDE_JSON 1
 
+#include <nlohmann/json.hpp>
 #include <tiny_gltf.h>
 
 #include "../rfw.h"

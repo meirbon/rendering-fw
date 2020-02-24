@@ -15,27 +15,34 @@ add_subdirectory(math)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 find_package(OpenGL REQUIRED)
 
-if (WIN32)
-	set(LIBS ${LIBS} GLEW assimp FreeImage GLFW3 glm)
-else ()
+if (UNIX)
 	set(THREADS_PREFER_PTHREAD_FLAG ON)
-	find_package(Threads REQUIRED)
-
 	set(OpenGL_GL_PREFERENCE GLVND)
-	find_package(FreeImage REQUIRED)
-	find_package(ASSIMP REQUIRED)
-	find_package(glfw3 REQUIRED)
-	set(LIBS ${LIBS} glm ${FREEIMAGE_LIBRARIES} ${ASSIMP_LIBRARIES} glfw Threads::Threads)
-	target_include_directories(${PROJECT_NAME} PRIVATE ${ASSIMP_INCLUDE_DIR} ${FREEIMAGE_INCLUDE_DIR})
+endif (UNIX)
+
+find_package(Threads REQUIRED)
+find_package(FreeImage REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+
+find_path(TINY_GLTF_INCLUDE_DIR tiny_gltf.h)
+find_path(STB_IMAGE_INCLUDE_DIR stb_image.h)
+
+find_package(nlohmann_json CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC nlohmann_json nlohmann_json::nlohmann_json)
+target_include_directories(${PROJECT_NAME} PUBLIC nlohmann_json nlohmann_json::nlohmann_json)
+target_include_directories(${PROJECT_NAME} PUBLIC ${TINY_GLTF_INCLUDE_DIR} ${STB_IMAGE_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${FREEIMAGE_INCLUDE_DIR})
+if (UNIX)
 	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")
-endif ()
+endif (UNIX)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC rfwUtils rfwMath)
-target_include_directories(${PROJECT_NAME} PUBLIC rfwUtils rfwMath)
-
-target_compile_definitions(${PROJECT_NAME} PUBLIC GLEW_STATIC GLFW_DLL)
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext ${LIBS} OpenGL::GL ${CMAKE_DL_LIBS} Half tinygltf ImGuiWrapper)
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src ${LIBS} tinygltf)
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext rfwUtils rfwMath rfwUtils
+		${FREEIMAGE_LIBRARIES} glfw Threads::Threads
+		OpenGL::GL GLEW::GLEW ${CMAKE_DL_LIBS} Half ImGuiWrapper assimp::assimp)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(${PROJECT_NAME} PUBLIC assimp::assimp)
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

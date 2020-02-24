@@ -17,7 +17,7 @@ imgui::Context::Context(GLFWwindow *window)
 	ImGui_ImplOpenGL3_Init("#version 330");
 }
 
-//Context::Context(vk::Instance vulkanInstance)
+// Context::Context(vk::Instance vulkanInstance)
 //{
 //	IMGUI_CHECKVERSION();
 //	m_Members = std::make_shared<Members>();

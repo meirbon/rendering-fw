@@ -1,3 +1,6 @@
+#ifdef WIN32
+#include <Windows.h>
+#endif
 #include "Context.h"
 
 using namespace vkrtx;
@@ -52,7 +55,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t width, uint3
 
 	// Allocate memory for image
 	vk::ExportMemoryAllocateInfo exportAllocInfo{};
-	exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 	vk::MemoryAllocateInfo memAllocInfo{};
 	memAllocInfo.pNext = &exportAllocInfo;
 	const auto unaligned = vk::DeviceSize(memoryRequirements.size * 1.3f);
@@ -89,7 +92,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t width, uint3
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
@@ -170,7 +173,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t texID, uint3
 
 	// Allocate memory for image
 	vk::ExportMemoryAllocateInfo exportAllocInfo{};
-	exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 	vk::MemoryAllocateInfo memAllocInfo{};
 	memAllocInfo.pNext = &exportAllocInfo;
 	const auto unaligned = vk::DeviceSize(memoryRequirements.size * 1.3f);
@@ -207,7 +210,7 @@ InteropTexture::InteropTexture(const VulkanDevice &device, uint32_t texID, uint3
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
@@ -366,7 +369,7 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 		memoryRequirements.size = m_BufferSize;
 		// Allocate memory
 		vk::ExportMemoryAllocateInfo exportAllocInfo{};
-		exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+		exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 		vk::MemoryAllocateInfo memAllocInfo{};
 		memAllocInfo.pNext = &exportAllocInfo;
 		memAllocInfo.setAllocationSize(m_BufferSize);
@@ -399,7 +402,7 @@ void InteropTexture::resize(uint32_t width, uint32_t height, bool deleteOldGLTex
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX
@@ -481,7 +484,7 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 		memoryRequirements.size = m_BufferSize;
 		// Allocate memory
 		vk::ExportMemoryAllocateInfo exportAllocInfo{};
-		exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+		exportAllocInfo.setHandleTypes(vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 		vk::MemoryAllocateInfo memAllocInfo{};
 		memAllocInfo.pNext = &exportAllocInfo;
 		memAllocInfo.setAllocationSize(m_BufferSize);
@@ -514,7 +517,7 @@ void InteropTexture::resize(GLuint ID, uint32_t width, uint32_t height, bool del
 	assert(getMemoryWin32HandleKHR != nullptr);
 
 	// Acquire WIN32 handle to Vulkan initialized memory
-	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32KHR);
+	vk::MemoryGetWin32HandleInfoKHR getMemoryHandleInfo = vk::MemoryGetWin32HandleInfoKHR(m_Memory, vk::ExternalMemoryHandleTypeFlagBits::eOpaqueWin32);
 	getMemoryWin32HandleKHR((VkDevice)m_Device.getVkDevice(), (VkMemoryGetWin32HandleInfoKHR *)&getMemoryHandleInfo, &handle);
 	assert(handle != INVALID_HANDLE_VALUE && handle != nullptr);
 #else // LINUX

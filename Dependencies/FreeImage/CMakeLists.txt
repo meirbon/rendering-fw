@@ -1,8 +1,0 @@
-project(FreeImage3.18)
-add_library(FreeImage IMPORTED SHARED GLOBAL)
-
-set_target_properties(FreeImage PROPERTIES
-		IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/FreeImage.dll
-		IMPORTED_IMPLIB ${PROJECT_SOURCE_DIR}/FreeImage.lib
-		INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/include
-)

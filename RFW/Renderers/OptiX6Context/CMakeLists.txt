@@ -14,6 +14,8 @@ file(GLOB_RECURSE KERNELS ./assets/kernels/*.cu ./assets/kernels/*.h)
 file(GLOB_RECURSE HEADERS ./src/*.h ./src/*.hpp)
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${KERNELS} ${HEADERS})
 
+find_package(GLEW REQUIRED)
+
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 set_target_properties(${PROJECT_NAME} PROPERTIES
         POSITION_INDEPENDENT_CODE ON
@@ -21,12 +23,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${CUDA_TOOLKIT_ROOT_DIR}/include RenderSystem ../RenderContext ../RenderSystem/src)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/assets/kernels)
-if (WIN32)
-    target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW OptiX6 OptiX6u OptiX6prime ${CUDA_LIBRARIES})
-else ()
-    find_package(GLEW REQUIRED)
-    target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OptiX6 OptiX6u OptiX6prime ${CUDA_LIBRARIES})
-endif ()
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OptiX6 OptiX6u OptiX6prime ${CUDA_LIBRARIES})
 
 
 target_compile_options(${PROJECT_NAME} PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)

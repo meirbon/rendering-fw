@@ -8,6 +8,24 @@ project shares most of its code with the Vulkan RTX rendercore of lighthouse2.
 ![screenshot0](docs/screenshot0.jpg)
 ![screenshot0](docs/screenshot1.png)
 
+## Building
+This project requires the following dependencies:
+- OpenGL, version >=3.3 for any non-Vulkan based renderers, >= 4.5 for Vulkan based renderers (for interop)
+- [GLEW](http://glew.sourceforge.net/)
+- [OptiX 6.5 (included)](https://developer.nvidia.com/optix)
+- [OptiX 7.0 (included)](https://developer.nvidia.com/optix)
+- [GLFW 3.3](https://github.com/glfw/glfw)
+- [FreeImage](http://freeimage.sourceforge.net/)
+- [Vulkan-Memory-Allocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
+- [Assimp](https://github.com/assimp/assimp)
+- [Embree](https://github.com/embree/embree)
+- [Cpp-Taskflow](https://github.com/cpp-taskflow/cpp-taskflow)
+- [Vulkan SDK](https://www.lunarg.com/vulkan-sdk/)
+
+I recommend using [vcpkg](https://github.com/microsoft/vcpkg) as it can provide all the libraries listed above.
+To install the dependencies for this project, run: `vcpkg install glew glfw3 freeimage vulkan-memory-allocator assimp embree3 cpp-taskflow` after installing vcpkg.
+This project has only been tested on 64 bit platforms. You may be able to get certain renderers working on 32 bit architectures but it is not guarenteed.
+
 ## Features
 - Overall performance-oriented renderers
 - gLTF with animations

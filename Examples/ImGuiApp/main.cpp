@@ -1,8 +1,8 @@
 #include <RenderSystem.h>
 #include <Application.h>
 
-#define SKINNED_MESH 0
-#define CESIUMMAN 0
+#define SKINNED_MESH 1
+#define CESIUMMAN 1
 #define POLLY 0
 #define PICA 1
 #define SPONZA 0
@@ -75,7 +75,7 @@ class App : public rfw::Application
 	bool followFocus = false;
 };
 
-App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : OPTIX6)
+App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : VULKANRTX)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());

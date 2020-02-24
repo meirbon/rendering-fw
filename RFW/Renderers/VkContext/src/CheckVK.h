@@ -104,9 +104,6 @@ static void _CheckVK(int line, const char *file, vk::Result x)
 	case (vk::Result::eErrorInvalidDeviceAddressEXT):
 		error = "VK_ERROR_INVALID_DEVICE_ADDRESS_EXT";
 		break;
-	case (vk::Result::eErrorFullScreenExclusiveModeLostEXT):
-		error = "VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT";
-		break;
 	default:
 		error = "UNKNOWN";
 		break;

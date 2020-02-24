@@ -4,9 +4,9 @@ project(CUDART CXX CUDA)
 find_package(CUDA REQUIRED)
 
 if (WIN32)
-	set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ${CUDA_NVCC_FLAGS_RELWITHDEBINFO} -use_fast_math -O3 -rdc=true --expt-relaxed-constexpr -gencode arch=compute_75,code=sm_75)
+	set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ${CUDA_NVCC_FLAGS_RELWITHDEBINFO} -use_fast_math -O3 -rdc=true --expt-relaxed-constexpr)
 else (WIN32)
-    set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ${CUDA_NVCC_FLAGS_RELWITHDEBINFO} -use_fast_math -O3 -rdc=true --expt-relaxed-constexpr -ccbin g++-8 -gencode arch=compute_75,code=sm_75)
+    set(CUDA_NVCC_FLAGS_RELWITHDEBINFO ${CUDA_NVCC_FLAGS_RELWITHDEBINFO} -use_fast_math -O3 -rdc=true --expt-relaxed-constexpr -ccbin g++-8)
 endif (WIN32)
 
 set(CUDA_NVCC_COMPILE_DEFINITIONS "${CUDA_NVCC_COMPILE_DEFINITIONS}" "GLM_FORCE_PURE")
@@ -21,18 +21,12 @@ endif()
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT GLEW_STATIC)
+target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src RenderSystem ../RenderContext ../RenderSystem/src ${CUDA_INCLUDE_DIRS} ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 
 find_package(OpenGL REQUIRED)
-if (WIN32)
-	target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW OpenGL::GL)
-else ()
-	find_package(GLEW REQUIRED)
-	target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OpenGL::GL)
-endif ()
-
-target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_LIBRARIES})
+find_package(GLEW REQUIRED)
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OpenGL::GL ${CUDA_LIBRARIES})
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

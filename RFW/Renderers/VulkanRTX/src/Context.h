@@ -1,8 +1,11 @@
 #pragma once
 
-#include <vulkan/vulkan.hpp>
+#ifdef WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <Windows.h>
+#endif
+
 #include <MathIncludes.h>
-#include <vk_mem_alloc.h>
 
 #include <array>
 #include <memory>
@@ -11,6 +14,11 @@
 #include <set>
 #include <map>
 #include <string>
+#include <algorithm>
+
+#include <vk_mem_alloc.h>
+
+#include <vulkan/vulkan.hpp>
 
 #include <GL/glew.h>
 

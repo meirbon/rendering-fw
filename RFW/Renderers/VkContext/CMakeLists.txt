@@ -12,18 +12,17 @@ endif (WIN32)
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT)
 
-find_package(Vulkan REQUIRED)
 
-if (WIN32)
-	target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem Vulkan::Vulkan GLFW3)
-else(WIN32)
-	find_package(glfw3 REQUIRED)
-	target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem Vulkan::Vulkan glfw)
-endif(WIN32)
+find_package(Threads REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE GLEW::GLEW glfw Threads::Threads RenderSystem)
+target_link_libraries(${PROJECT_NAME} PUBLIC unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${PROJECT_NAME} PUBLIC Vulkan::Vulkan ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem Vulkan::Vulkan VulkanMemoryAllocator)
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

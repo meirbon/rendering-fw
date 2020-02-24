@@ -17,23 +17,21 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT)
 
 find_package(Vulkan REQUIRED)
 
-if (WIN32)
-	set(LIBS ${LIBS} GLEW GLFW3)
-else ()
-	set(THREADS_PREFER_PTHREAD_FLAG ON)
-	find_package(Threads REQUIRED)
-
+if (UNIX)
 	set(OpenGL_GL_PREFERENCE GLVND)
-	find_package(glfw3 REQUIRED)
-	find_package(GLEW REQUIRED)
-	set(LIBS ${LIBS} GLEW::GLEW glfw Threads::Threads)
-endif ()
+	set(THREADS_PREFER_PTHREAD_FLAG ON)
+endif (UNIX)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBS})
+find_package(Threads REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE GLEW::GLEW glfw Threads::Threads RenderSystem)
+target_link_libraries(${PROJECT_NAME} PUBLIC unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${PROJECT_NAME} PUBLIC Vulkan::Vulkan ${Vulkan_INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem Vulkan::Vulkan VulkanMemoryAllocator ${LIBS})
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

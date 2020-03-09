@@ -391,10 +391,12 @@ void rfw::SceneMesh::addPrimitive(const std::vector<int> &indces, const std::vec
 		{
 			object->baseVertices.emplace_back(verts[i], 1.0f);
 
+			const simd::vector4 normal = simd::vector4(nrmls[i], 0.0f);
+
 			if (!jnts.empty())
-				object->baseNormals.emplace_back(nrmls[i], 0);
+				object->baseNormals.push_back(normal);
 			else
-				object->baseNormals.emplace_back(nrmls[i], 0);
+				object->baseNormals.push_back(normal);
 			if (!uvs.empty())
 				object->texCoords.push_back(uvs[i]);
 			else

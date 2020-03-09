@@ -46,7 +46,7 @@ template <typename T> class VmaBuffer
 	};
 
   public:
-	VmaBuffer(const VulkanDevice &device, VmaPool pool = nullptr)
+	explicit VmaBuffer(const VulkanDevice &device, VmaPool pool = nullptr)
 	{
 		m_Members = std::make_shared<Members>();
 		m_Members->device = device;
@@ -211,7 +211,7 @@ template <typename T> class VmaBuffer
 		auto cmdBuffer =
 			m_Members->device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::TRANSFER);
 		vk::BufferCopy copyRegion = vk::BufferCopy(0, 0, m_Members->elements * sizeof(T));
-		cmdBuffer->copyBuffer(m_Members->buffer, *buffer, 1, &copyRegion);
+		cmdBuffer->copyBuffer(static_cast<vk::Buffer>(m_Members->buffer), static_cast<vk::Buffer>(*buffer), 1, &copyRegion);
 
 		auto transferQueue = m_Members->device.getTransferQueue();
 		cmdBuffer.submit(transferQueue, true);
@@ -262,18 +262,18 @@ template <typename T> class VmaBuffer
 		return info;
 	}
 
-	vk::DeviceSize getElementCount() const { return m_Members->elements; }
-	vk::DeviceSize getSize() const { return m_Members->elements * sizeof(T); }
-	vk::DeviceSize getOffset() const { return m_Members->allocInfo.offset; }
-	vk::DeviceMemory getDeviceMemory() const { return m_Members->allocInfo.deviceMemory; };
+	[[nodiscard]] vk::DeviceSize getElementCount() const { return m_Members->elements; }
+	[[nodiscard]] vk::DeviceSize getSize() const { return m_Members->elements * sizeof(T); }
+	[[nodiscard]] vk::DeviceSize getOffset() const { return m_Members->allocInfo.offset; }
+	[[nodiscard]] vk::DeviceMemory getDeviceMemory() const { return m_Members->allocInfo.deviceMemory; };
 	[[nodiscard]] vk::MemoryPropertyFlags getMemoryProperties() const { return m_Members->memFlags; }
 	[[nodiscard]] vk::BufferUsageFlags getBufferUsageFlags() const { return m_Members->usageFlags; }
 
-	operator vk::Buffer() const { return m_Members->buffer; }
-	operator vk::DeviceMemory() const { return getDeviceMemory(); }
-	operator vk::Buffer *() { return &m_Members->buffer; }
-	operator vk::DescriptorBufferInfo() const { return getDescriptorBufferInfo(0, 0); }
-	operator bool() const { return m_Members->elements > 0; }
+	explicit operator vk::Buffer() const { return m_Members->buffer; }
+	explicit operator vk::DeviceMemory() const { return getDeviceMemory(); }
+	explicit operator vk::Buffer *() { return &m_Members->buffer; }
+	explicit operator vk::DescriptorBufferInfo() const { return getDescriptorBufferInfo(0, 0); }
+	explicit operator bool() const { return m_Members->elements > 0; }
 
 	[[nodiscard]] bool canMap() const
 	{

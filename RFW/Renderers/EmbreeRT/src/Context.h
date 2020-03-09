@@ -32,6 +32,18 @@ class Context : public RenderContext
 	rfw::RenderStats get_stats() const override;
 
   private:
+	struct ShadingData
+	{
+		glm::vec3 color;
+		glm::vec3 N;
+		glm::vec3 iN;
+		glm::vec3 T;
+		glm::vec3 B;
+	};
+	
+	ShadingData retrieve_material(const Triangle &tri, const Material &material, const glm::vec3 &p,
+								  const glm::vec3 bary, const simd::matrix4 &normal_matrix) const;
+	
 	rfw::RenderStats m_Stats;
 	LightCount m_LightCount;
 	std::vector<PointLight> m_PointLights;
@@ -49,8 +61,8 @@ class Context : public RenderContext
 	std::vector<bool> m_MeshChanged;
 	std::vector<uint> m_Instances;
 	std::vector<uint> m_InstanceMesh;
-	std::vector<mat4> m_InstanceMatrices;
-	std::vector<mat3> m_InverseMatrices;
+	std::vector<simd::matrix4> m_InstanceMatrices;
+	std::vector<simd::matrix4> m_InverseMatrices;
 
 	rfw::utils::ThreadPool m_Pool = {};
 	int m_SkyboxWidth = 0, m_SkyboxHeight = 0;

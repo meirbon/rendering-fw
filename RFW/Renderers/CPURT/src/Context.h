@@ -20,6 +20,7 @@ namespace rfw
 
 class Context : public RenderContext
 {
+  public:
 	~Context() override;
 	[[nodiscard]] std::vector<rfw::RenderTarget> get_supported_targets() const override;
 
@@ -28,13 +29,15 @@ class Context : public RenderContext
 
 	void cleanup() override;
 	void render_frame(const rfw::Camera &camera, rfw::RenderStatus status) override;
-	void set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
+	void set_materials(const std::vector<rfw::DeviceMaterial> &materials,
+					   const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
 	void set_textures(const std::vector<rfw::TextureData> &textures) override;
 	void set_mesh(size_t index, const rfw::Mesh &mesh) override;
 	void set_instance(size_t i, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
 	void set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
-	void set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-					const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) override;
+	void set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
+					const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
+					const rfw::DeviceDirectionalLight *directionalLights) override;
 	void get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const override;
 	rfw::AvailableRenderSettings get_settings() const override;
 	void set_setting(const rfw::RenderSetting &setting) override;
@@ -43,6 +46,18 @@ class Context : public RenderContext
 	rfw::RenderStats get_stats() const override;
 
   private:
+	struct ShadingData
+	{
+		glm::vec3 color;
+		glm::vec3 N;
+		glm::vec3 iN;
+		glm::vec3 T;
+		glm::vec3 B;
+	};
+
+	ShadingData retrieve_material(const Triangle &tri, const Material &material, const glm::vec3 &p,
+								  const simd::matrix4 &matrix, const simd::matrix4 &normal_matrix) const;
+
 	rfw::RenderStats m_Stats;
 	LightCount m_LightCount;
 	std::vector<PointLight> m_PointLights;
@@ -74,6 +89,7 @@ class Context : public RenderContext
 	unsigned int m_ProbedTriangle = 0;
 	float m_ProbedDist = -1.0f;
 
+	bool m_packet_traversal = true;
 	bool m_InitializedGlew = false;
 };
 

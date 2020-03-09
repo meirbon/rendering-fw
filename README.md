@@ -21,9 +21,11 @@ This project requires the following dependencies:
 - [Embree](https://github.com/embree/embree)
 - [Cpp-Taskflow](https://github.com/cpp-taskflow/cpp-taskflow)
 - [Vulkan SDK](https://www.lunarg.com/vulkan-sdk/)
+- [ImGui](https://github.com/ocornut/imgui)
+- [tinygltf](https://github.com/syoyo/tinygltf)
 
 I recommend using [vcpkg](https://github.com/microsoft/vcpkg) as it can provide all the libraries listed above.
-To install the dependencies for this project, run: `vcpkg install glew glfw3 freeimage vulkan-memory-allocator assimp embree3 cpp-taskflow` after installing vcpkg.
+To install the dependencies for this project, run: `vcpkg install glew glfw3 freeimage vulkan-memory-allocator assimp embree3 cpp-taskflow imgui tinygltf` after installing vcpkg.
 This project has only been tested on 64 bit platforms. You may be able to get certain renderers working on 32 bit architectures but it is not guarenteed.
 
 ## Features
@@ -36,10 +38,9 @@ This project has only been tested on 64 bit platforms. You may be able to get ce
 - Vulkan RTX path tracer
 - OptiX 6.5 RTX path tracer
 - OpenGL Renderer
-- CUDA (non-RTX) Path tracer
-
-## WIP Renderers
-- CPU path tracer using Embree
+- CPU ray tracer using Embree
+- CPU ray tracer using custom BVH implementation (relatively fast as it uses simd packet traversal, but Embree is still a lot faster)
+- CUDA (non-RTX) Path tracer using custom BVH implementation
 
 ## Planned renderers:
 - Vulkan PBR Rasterizer

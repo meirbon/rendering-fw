@@ -2,12 +2,25 @@ cmake_minimum_required(VERSION 3.12)
 project(VulkanRTX)
 set(CMAKE_CXX_STANDARD 17)
 
-file(GLOB_RECURSE SOURCES ./src/*.cpp)
-file(GLOB_RECURSE HEADERS ./src/*.h ./src/*.hpp)
-add_library(${PROJECT_NAME} SHARED ${SOURCES} ${HEADERS})
-if(${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
+add_library(${PROJECT_NAME} SHARED
+		src/BottomLevelAs.cpp
+		src/CheckVK.cpp
+		src/ComputePipeline.cpp
+		src/Context.cpp
+		src/DescriptorSet.cpp
+		src/Image.cpp
+		src/InteropTexture.cpp
+		src/Mesh.cpp
+		src/RtxPipeline.cpp
+		src/Shader.cpp
+		src/TopLevelAs.cpp
+		src/VmaBuffer.cpp
+		src/VulkanDevice.cpp
+		)
+
+if (${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
 	target_precompile_headers(${PROJECT_NAME} PUBLIC src/Context.h)
-endif()
+endif ()
 
 if (WIN32)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE VK_USE_PLATFORM_WIN32_KHR)
@@ -22,12 +35,13 @@ if (UNIX)
 	set(THREADS_PREFER_PTHREAD_FLAG ON)
 endif (UNIX)
 
+find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE GLEW::GLEW glfw Threads::Threads RenderSystem)
+target_link_libraries(${PROJECT_NAME} PRIVATE OpenGL::GL GLEW::GLEW glfw Threads::Threads RenderSystem)
 target_link_libraries(${PROJECT_NAME} PUBLIC unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

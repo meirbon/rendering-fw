@@ -12,6 +12,22 @@
 #include <ppl.h>
 #endif
 
+void createTangentSpace(const vec3 N, vec3 &T, vec3 &B)
+{
+	const float s = sign(N.z);
+	const float a = -1.0f / (s + N.z);
+	const float b = N.x * N.y * a;
+	T = vec3(1.0f + s * N.x * N.x * a, s * b, -s * N.x);
+	B = vec3(b, s + N.y * N.y * a, -N.y);
+}
+
+vec3 tangentToWorld(const vec3 s, const vec3 N, const vec3 T, const vec3 B) { return T * s.x + B * s.y + N * s.z; }
+
+vec3 worldToTangent(const vec3 s, const vec3 N, const vec3 T, const vec3 B)
+{
+	return vec3(dot(T, s), dot(B, s), dot(N, s));
+}
+
 using namespace rfw;
 
 rfw::RenderContext *createRenderContext() { return new Context(); }
@@ -79,7 +95,8 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	CheckGL();
 	std::vector<glm::vec4> dummyData(m_Width * m_Height, glm::vec4(0));
-	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_Width * m_Height * sizeof(glm::vec4), dummyData.data(), GL_STREAM_DRAW_ARB);
+	glBufferData(GL_PIXEL_UNPACK_BUFFER_ARB, m_Width * m_Height * sizeof(glm::vec4), dummyData.data(),
+				 GL_STREAM_DRAW_ARB);
 	CheckGL();
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	CheckGL();
@@ -102,8 +119,13 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	auto timer = utils::Timer();
 
-	const int wTiles = (m_Width + m_Width % TILE_WIDTH) / TILE_WIDTH;
-	const int hTiles = (m_Height + m_Height % TILE_HEIGHT) / TILE_HEIGHT;
+	int wTiles = m_Width / TILE_WIDTH;
+	int hTiles = m_Height / TILE_HEIGHT;
+
+	if (m_Width % TILE_WIDTH)
+		wTiles = m_Width + (TILE_WIDTH - m_Width % TILE_WIDTH);
+	if (m_Height % TILE_WIDTH)
+		hTiles = m_Height + (TILE_HEIGHT - m_Height % TILE_HEIGHT);
 
 	m_Packets.resize(wTiles * hTiles);
 
@@ -149,18 +171,19 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	const __m256i maxPixelID8 = _mm256_set1_epi32(maxPixelID - 1);
 	const int probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
 
-	std::vector<std::future<void>> handles;
-	handles.reserve(threads);
+	std::vector<std::future<void>> handles(threads);
 
 	for (int i = 0, s = static_cast<int>(threads); i < s; i++)
 	{
-		handles.push_back(m_Pool.push([packetsPerThread, maxPixelID, &probe_id, &maxPixelID4, &maxPixelID8, this](int tID) {
+		handles[i] = m_Pool.push([packetsPerThread, maxPixelID, &probe_id, &maxPixelID4, &maxPixelID8, this](int tID) {
 			const int start = static_cast<int>(tID * packetsPerThread);
 			const int end = static_cast<int>((tID + 1) * packetsPerThread);
 
-			RTCIntersectContext context;
+			RTCIntersectContext context, shadow_context;
 			rtcInitIntersectContext(&context);
+			rtcInitIntersectContext(&shadow_context);
 			context.flags = RTC_INTERSECT_CONTEXT_FLAG_COHERENT;
+			shadow_context.flags = RTC_INTERSECT_CONTEXT_FLAG_INCOHERENT;
 			int valid[PACKET_WIDTH];
 			memset(valid, -1, sizeof(valid));
 
@@ -175,58 +198,27 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 				rtcIntersect16(valid, m_Scene, &context, &m_Packets[i]);
 #endif
 
-				const simd::vector4 one_over_pi = _mm_set1_ps(glm::one_over_pi<float>());
-				const simd::vector4 one4 = _mm_set1_ps(1.0f);
-				const simd::vector4 min_one4 = _mm_set1_ps(-1.0f);
-				const simd::vector4 half4 = _mm_set1_ps(0.5f);
-				const simd::vector4 zero4 = _mm_setzero_ps();
-				const simd::vector4 skybox_width = _mm_set1_ps(float(m_SkyboxWidth - 1));
-				const simd::vector4 skybox_height = _mm_set1_ps(float(m_SkyboxHeight - 1));
-				const __m128i invalid_geometry_id = _mm_set1_epi32(RTC_INVALID_GEOMETRY_ID);
-
-				for (int k = 0; k < PACKET_WIDTH; k += 4)
-				{
-					const __m128i mask = _mm_cmpgt_epi32(reinterpret_cast<const __m128i &>(*(packet.ray.id + k)), maxPixelID4);
-					const int pixel_mask = _mm_movemask_ps(_mm_castsi128_ps(mask));
-					if (pixel_mask == 15)
-						continue;
-
-					const __m128i invalid_mask = _mm_cmpeq_epi32(reinterpret_cast<const __m128i &>(*(packet.hit.geomID + k)), invalid_geometry_id);
-					if (_mm_movemask_ps(_mm_castsi128_ps(invalid_mask)) > 0)
-					{
-						const auto &dir_x = reinterpret_cast<const simd::vector4 &>(*(packet.ray.dir_x + k));
-						const auto &dir_y = reinterpret_cast<const simd::vector4 &>(*(packet.ray.dir_y + k));
-						const auto &dir_z = reinterpret_cast<const simd::vector4 &>(*(packet.ray.dir_z + k));
-
-						const simd::vector4 u4 = half4 * (one4 + rfw::simd::atan2(dir_x, dir_z * min_one4) * one_over_pi);
-						const simd::vector4 v4 = rfw::simd::acos(dir_y) * one_over_pi;
-
-						const auto p_u4 = _mm_round_ps((min(one4, max(zero4, u4)) * skybox_width).vec_4, _MM_FROUND_TO_NEAREST_INT);
-						const simd::vector4 p_v4 =
-							simd::vector4(_mm_round_ps((min(one4, max(zero4, v4)) * skybox_height).vec_4, _MM_FROUND_TO_NEAREST_INT)) * skybox_width;
-
-						const auto *pu = reinterpret_cast<const float *>(&p_u4);
-						const auto *pv = reinterpret_cast<const float *>(&p_v4);
-
-						for (int m = 0; m < 4; m++)
-						{
-							if (((pixel_mask >> m) & 1u) == 1)
-								continue;
-							m_Pixels[packet.ray.id[k + m]] = vec4(m_Skybox[int(pv[m]) + int(pu[m])], 0.0f);
-						}
-					}
-				}
-
 				for (int j = 0; j < PACKET_WIDTH; j++)
 				{
-					const int pixel_id = packet.ray.id[j];
+					const vec3 origin = vec3(packet.ray.org_x[j], packet.ray.org_y[j], packet.ray.org_z[j]);
+					const vec3 direction = vec3(packet.ray.dir_x[j], packet.ray.dir_y[j], packet.ray.dir_z[j]);
+
+					const int &pixel_id = packet.ray.id[j];
 					if (pixel_id >= maxPixelID)
 						continue;
 					if (packet.hit.geomID[j] == RTC_INVALID_GEOMETRY_ID)
+					{
+						const vec2 uv =
+							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
+								 acos(direction.y) * glm::one_over_pi<float>());
+						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
+												uv.y * static_cast<float>(m_SkyboxHeight - 1));
+						m_Pixels[pixel_id] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 						continue;
+					}
 
-					const int instID = packet.hit.instID[0][j];
-					const int primID = packet.hit.primID[j];
+					const int &instID = packet.hit.instID[0][j];
+					const int &primID = packet.hit.primID[j];
 
 					if (pixel_id == probe_id)
 					{
@@ -235,65 +227,82 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 						m_ProbedTriangle = primID;
 					}
 
-					const mat3 &invTransform = m_InverseMatrices[instID];
-					const Triangle *tri = &m_Meshes[m_InstanceMesh[instID]].triangles[primID];
-
+					const simd::matrix4 &normal_matrix = m_InverseMatrices[instID];
+					const Triangle &tri = m_Meshes[m_InstanceMesh[instID]].triangles[primID];
 					const vec3 bary = vec3(1.0f - packet.hit.u[j] - packet.hit.v[j], packet.hit.u[j], packet.hit.v[j]);
+					const vec3 p = origin + direction * packet.ray.tfar[j];
 
-					const vec3 N = invTransform * vec3(tri->Nx, tri->Ny, tri->Nz);
-					const vec3 iN = normalize(invTransform * (bary.z * tri->vN0 + bary.x * tri->vN1 + bary.y * tri->vN2));
-
-					const Material &material = m_Materials[tri->material];
-					vec3 color = material.getColor();
-
-					float tu, tv;
-					if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) || material.hasFlag(HasRoughnessMap) ||
-						material.hasFlag(HasAlphaMap) || material.hasFlag(HasSpecularityMap))
+					const auto &material = m_Materials[tri.material];
+					const auto shading_data = retrieve_material(tri, material, p, bary, normal_matrix);
+					if (any(greaterThan(shading_data.color, vec3(1))))
 					{
-						tu = bary.x * tri->u0 + bary.y * tri->u1 + bary.z * tri->u2;
-						tv = bary.x * tri->v0 + bary.y * tri->v1 + bary.z * tri->v2;
+						m_Pixels[pixel_id] = vec4(shading_data.color, 1.0f);
+						continue;
 					}
 
-					if (material.hasFlag(HasDiffuseMap))
+					RTCRay ray{};
+					ray.tnear = 1e-4f;
+					ray.org_x = p.x;
+					ray.org_y = p.y;
+					ray.org_z = p.z;
+
+					vec3 contrib = vec3(0.1f);
+					for (const auto &l : m_AreaLights)
 					{
-						const float u = (tu + material.uoffs0) * material.uscale0;
-						const float v = (tv + material.voffs0) * material.vscale0;
+						vec3 L = l.position - p;
+						const float sq_dist = dot(L, L);
+						const float dist = sqrt(sq_dist);
+						L = L / dist;
+						const float NdotL = dot(shading_data.iN, L);
+						const float LNdotL = -dot(l.normal, L);
 
-						float x = fmod(u, 1.0f);
-						float y = fmod(v, 1.0f);
+						if (NdotL <= 0 || LNdotL <= 0)
+							continue;
 
-						if (x < 0)
-							x = 1 + x;
-						if (y < 0)
-							y = 1 + y;
+						ray.tfar = dist;
+						ray.flags = 0;
+						ray.dir_x = L.x;
+						ray.dir_y = L.y;
+						ray.dir_z = L.z;
 
-						const auto &tex = m_Textures[material.texaddr0];
-
-						const uint ix = uint(x * (tex.width - 1));
-						const uint iy = uint(y * (tex.height - 1));
-						const auto texelID = static_cast<int>(iy * tex.width + ix);
-
-						switch (tex.type)
-						{
-						case (TextureData::FLOAT4):
-						{
-							color = color * vec3(reinterpret_cast<vec4 *>(tex.data)[texelID]);
-						}
-						case (TextureData::UINT):
-						{
-							// RGBA
-							const uint texel = reinterpret_cast<uint *>(tex.data)[texelID];
-							constexpr float s = 1.0f / 256.0f;
-
-							color = color * s * vec3(texel & 0xFFu, (texel >> 8u) & 0xFFu, (texel >> 16u) & 0xFFu);
-						}
-						}
+						rtcOccluded1(m_Scene, &shadow_context, &ray);
+						if (ray.tfar > 0)
+							contrib += l.radiance * l.area / sq_dist * NdotL * LNdotL;
 					}
 
-					m_Pixels[pixel_id] = vec4(color, 0.0f);
+					for (const auto &l : m_PointLights)
+					{
+						vec3 L = l.position - p;
+						const float sq_dist = dot(L, L);
+						const float dist = sqrt(sq_dist);
+						L = L / dist;
+						const float NdotL = dot(shading_data.iN, L);
+						if (NdotL <= 0)
+							continue;
+
+						ray.tfar = dist;
+						ray.flags = 0;
+						ray.dir_x = L.x;
+						ray.dir_y = L.y;
+						ray.dir_z = L.z;
+
+						rtcOccluded1(m_Scene, &shadow_context, &ray);
+						if (ray.tfar > 0)
+							contrib += l.radiance / sq_dist * NdotL;
+					}
+
+					// for (const auto &l : m_DirectionalLights)
+					//{
+					//}
+
+					// for (const auto &l : m_SpotLights)
+					//{
+					//}
+
+					m_Pixels[pixel_id] = vec4(shading_data.color * contrib, 1.0f);
 				}
 			}
-		}));
+		});
 	}
 
 	for (auto &handle : handles)
@@ -314,7 +323,8 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glFinish();
 }
 
-void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors)
+void Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials,
+							const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
 	m_Materials.resize(materials.size());
 	memcpy(m_Materials.data(), materials.data(), materials.size() * sizeof(Material));
@@ -358,13 +368,14 @@ void Context::set_instance(const size_t i, const size_t meshIdx, const mat4 &tra
 		auto instance = rtcGetGeometry(m_Scene, m_Instances[i]);
 		rtcSetGeometryInstancedScene(instance, m_Meshes[meshIdx].scene);
 		rtcSetGeometryTimeStepCount(instance, 1);
-		rtcSetGeometryTransform(rtcGetGeometry(m_Scene, m_Instances[i]), 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR, value_ptr(transform));
+		rtcSetGeometryTransform(rtcGetGeometry(m_Scene, m_Instances[i]), 0, RTC_FORMAT_FLOAT4X4_COLUMN_MAJOR,
+								value_ptr(transform));
 		rtcCommitGeometry(instance);
 	}
 
 	m_InstanceMesh[i] = uint(meshIdx);
 	m_InstanceMatrices[i] = transform;
-	m_InverseMatrices[i] = inverse_transform;
+	m_InverseMatrices[i] = mat4(inverse_transform);
 }
 
 void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
@@ -374,8 +385,9 @@ void Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t
 	m_SkyboxHeight = int(height);
 }
 
-void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-						 const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights)
+void Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
+						 const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
+						 const rfw::DeviceDirectionalLight *directionalLights)
 {
 	m_LightCount = lightCount;
 
@@ -425,3 +437,64 @@ void Context::update()
 void Context::set_probe_index(glm::uvec2 probePos) { m_ProbePos = probePos; }
 
 rfw::RenderStats Context::get_stats() const { return m_Stats; }
+
+Context::ShadingData Context::retrieve_material(const Triangle &tri, const Material &material, const glm::vec3 &p,
+												const glm::vec3 bary, const simd::matrix4 &normal_matrix) const
+{
+	ShadingData data{};
+	data.N = normalize(vec3((normal_matrix * simd::vector4(tri.Nx, tri.Ny, tri.Nz, 0.0f)).vec));
+
+	const vec3 iN = bary.x * tri.vN0 + bary.y * tri.vN1 + bary.z * tri.vN2;
+	const simd::vector4 vN_4 = normal_matrix * simd::vector4(iN.x, iN.y, iN.z, 0.0f);
+	data.iN = normalize(vec3(vN_4.vec));
+
+	createTangentSpace(iN, data.T, data.B);
+
+	data.color = material.getColor();
+
+	float tu = 0.0f, tv = 0.0f;
+	if (material.hasFlag(HasDiffuseMap) || material.hasFlag(HasNormalMap) || material.hasFlag(HasRoughnessMap) ||
+		material.hasFlag(HasAlphaMap) || material.hasFlag(HasSpecularityMap))
+	{
+		tu = bary.x * tri.u0 + bary.y * tri.u1 + bary.z * tri.u2;
+		tv = bary.x * tri.v0 + bary.y * tri.v1 + bary.z * tri.v2;
+	}
+
+	if (material.hasFlag(HasDiffuseMap))
+	{
+		const float u = (tu + material.uoffs0) * material.uscale0;
+		const float v = (tv + material.voffs0) * material.vscale0;
+
+		float tx = fmod(u, 1.0f);
+		float ty = fmod(v, 1.0f);
+
+		if (tx < 0.f)
+			tx = 1.f + tx;
+		if (ty < 0.f)
+			ty = 1.f + ty;
+
+		const auto &tex = m_Textures[material.texaddr0];
+
+		const uint ix = uint(tx * static_cast<float>(tex.width - 1));
+		const uint iy = uint(ty * static_cast<float>(tex.height - 1));
+		const auto texel_id = static_cast<int>(iy * tex.width + ix);
+
+		switch (tex.type)
+		{
+		case (TextureData::FLOAT4):
+		{
+			data.color = data.color * vec3(reinterpret_cast<vec4 *>(tex.data)[texel_id]);
+		}
+		case (TextureData::UINT):
+		{
+			// RGBA
+			const uint texel_color = reinterpret_cast<uint *>(tex.data)[texel_id];
+			constexpr float texture_scale = 1.0f / 256.0f;
+			data.color = data.color * texture_scale *
+						 vec3(texel_color & 0xFFu, (texel_color >> 8u) & 0xFFu, (texel_color >> 16u) & 0xFFu);
+		}
+		}
+	}
+
+	return data;
+}

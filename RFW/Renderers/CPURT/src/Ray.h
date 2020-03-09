@@ -31,46 +31,56 @@ template <int N> struct RayPacket
 			t[i] = 1e34f;
 	}
 
-	union {
+	union
+	{
 		float origin_x[N];
 		__m128 origin_x4[N / 4];
 	};
-	union {
+	union
+	{
 		float origin_y[N];
 		__m128 origin_y4[N / 4];
 	};
-	union {
+	union
+	{
 		float origin_z[N];
 		__m128 origin_z4[N / 4];
 	};
 
-	union {
+	union
+	{
 		float direction_x[N];
 		__m128 direction_x4[N / 4];
 	};
-	union {
+	union
+	{
 		float direction_y[N];
 		__m128 direction_y4[N / 4];
 	};
-	union {
+	union
+	{
 		float direction_z[N];
 		__m128 direction_z4[N / 4];
 	};
 
-	union {
+	union
+	{
 		int pixelID[N];
 		__m128 pixelID4[N / 4];
 	};
-	union {
+	union
+	{
 		int primID[N];
 		__m128i primID4[N / 4];
 	};
-	union {
+	union
+	{
 		int instID[N];
 		__m128i instID4[N / 4];
 	};
 
-	union {
+	union
+	{
 		float t[N];
 		__m128 t4[N / 4];
 	};
@@ -110,7 +120,9 @@ struct Ray
 	}
 
 	static Ray generateFromView(const CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3);
-	static RayPacket4 generateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng);
-	static RayPacket8 generateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng);
+	static RayPacket4 generate_ray4(const CameraParams &camera, const int x[4], const int y[4],
+								   rfw::utils::RandomGenerator *rng);
+	static RayPacket8 generate_ray8(const CameraParams &camera, const int x[8], const int y[8],
+								   rfw::utils::RandomGenerator *rng);
 };
 } // namespace cpurt

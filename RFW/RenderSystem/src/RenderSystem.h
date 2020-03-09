@@ -54,8 +54,10 @@ class RenderSystem
 		size_t materialIdx = 0;
 
 	  private:
-		ProbeResult(rfw::InstanceReference reference, int meshIdx, int primIdx, Triangle *t, size_t material, float dist)
-			: object(std::move(reference)), distance(dist), materialIdx(material), meshID(meshIdx), primID(primIdx), triangle(t)
+		ProbeResult(rfw::InstanceReference reference, int meshIdx, int primIdx, Triangle *t, size_t material,
+					float dist)
+			: object(std::move(reference)), distance(dist), materialIdx(material), meshID(meshIdx), primID(primIdx),
+			  triangle(t)
 		{
 		}
 
@@ -64,6 +66,7 @@ class RenderSystem
 		Triangle *triangle = nullptr;
 	};
 
+	RenderSystem(const RenderSystem &other) = delete;
 	RenderSystem();
 	~RenderSystem();
 
@@ -82,10 +85,12 @@ class RenderSystem
 
 	GeometryReference add_object(std::string fileName, int material = -1);
 	GeometryReference add_object(std::string fileName, bool normalize, int material = -1);
-	GeometryReference add_object(std::string fileName, bool normalize, const glm::mat4 &preTransform, int material = -1);
+	GeometryReference add_object(std::string fileName, bool normalize, const glm::mat4 &preTransform,
+								 int material = -1);
 	GeometryReference add_quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, uint material);
-	InstanceReference add_instance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f), glm::vec3 translation = glm::vec3(0.0f),
-								   float degrees = 1.0f, glm::vec3 axes = glm::vec3(1.0f));
+	InstanceReference add_instance(const rfw::GeometryReference &geometry, glm::vec3 scaling = glm::vec3(1.0f),
+								   glm::vec3 translation = glm::vec3(0.0f), float degrees = 1.0f,
+								   glm::vec3 axes = glm::vec3(1.0f));
 	void update_instance(const rfw::InstanceReference &instanceRef, const mat4 &transform);
 	void set_animation_to(const rfw::GeometryReference &instanceRef, float timeInSeconds);
 
@@ -95,7 +100,8 @@ class RenderSystem
 	void render_frame(const Camera &camera, RenderStatus status = Converge, bool toneMap = true);
 
 	LightReference add_point_light(const glm::vec3 &position, const glm::vec3 &radiance);
-	LightReference add_spot_light(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance, float outer_deg, const glm::vec3 &direction);
+	LightReference add_spot_light(const glm::vec3 &position, float inner_deg, const glm::vec3 &radiance,
+								  float outer_deg, const glm::vec3 &direction);
 	LightReference add_directional_light(const glm::vec3 &direction, const glm::vec3 &radiance);
 
 	LightReference get_area_light_ref(size_t index);

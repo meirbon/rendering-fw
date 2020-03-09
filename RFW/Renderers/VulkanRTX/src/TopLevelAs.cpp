@@ -94,7 +94,7 @@ void TopLevelAS::Build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 
 	auto commandBuffer = m_Device.createOneTimeCmdBuffer();
 	commandBuffer->buildAccelerationStructureNV(&buildInfo, m_InstanceBuffer, 0, update, m_Structure,
-												update ? m_Structure : nullptr, scratchBuffer, 0, m_Device.getLoader());
+												update ? m_Structure : nullptr, static_cast<vk::Buffer>(scratchBuffer), 0, m_Device.getLoader());
 
 	// Ensure that the build will be finished before using the AS using a barrier
 	vk::MemoryBarrier memoryBarrier = {vk::AccessFlagBits::eAccelerationStructureWriteNV |

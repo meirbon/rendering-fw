@@ -25,7 +25,7 @@ BottomLevelAS::BottomLevelAS(VulkanDevice device, const glm::vec4 *vertices, uin
 	m_Geometry.pNext = nullptr;
 	m_Geometry.geometryType = vk::GeometryTypeNV::eTriangles;
 	m_Geometry.geometry.triangles.pNext = nullptr;
-	m_Geometry.geometry.triangles.vertexData = m_Vertices;
+	m_Geometry.geometry.triangles.vertexData = static_cast<vk::Buffer>(m_Vertices);
 	m_Geometry.geometry.triangles.vertexOffset = 0;
 	m_Geometry.geometry.triangles.vertexCount = vertexCount;
 	m_Geometry.geometry.triangles.vertexStride = sizeof(glm::vec4);
@@ -33,7 +33,7 @@ BottomLevelAS::BottomLevelAS(VulkanDevice device, const glm::vec4 *vertices, uin
 
 	if (indexCount > 0)
 	{
-		m_Geometry.geometry.triangles.indexData = m_Indices;
+		m_Geometry.geometry.triangles.indexData = static_cast<vk::Buffer>(m_Indices);
 		m_Geometry.geometry.triangles.indexOffset = 0;
 		m_Geometry.geometry.triangles.indexCount = indexCount * 3;
 		m_Geometry.geometry.triangles.indexType = vk::IndexType::eUint32;
@@ -156,8 +156,8 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 	// Never compact BVHs that are supposed to be updated
 	if (!update && (m_Flags & vk::BuildAccelerationStructureFlagBitsNV::eAllowCompaction))
 	{
-		commandBuffer->buildAccelerationStructureNV(&buildInfo, nullptr, 0, update, m_Structure, nullptr, scratchBuffer,
-													0, m_Device.getLoader());
+		commandBuffer->buildAccelerationStructureNV(&buildInfo, nullptr, 0, update, m_Structure, nullptr,
+													static_cast<vk::Buffer>(scratchBuffer), 0, m_Device.getLoader());
 		// Create memory barrier for building AS to make sure it can only be used when ready
 		vk::MemoryBarrier memoryBarrier = {vk::AccessFlagBits::eAccelerationStructureWriteNV |
 											   vk::AccessFlagBits::eAccelerationStructureReadNV,
@@ -179,7 +179,7 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 		commandBuffer->endQuery(queryPool, 0);
 		commandBuffer.submit(computeQueue, true);
 
-		uint32_t size;
+		uint32_t size = 0;
 		CheckVK(m_Device->getQueryPoolResults(queryPool, 0, 1, sizeof(uint32_t), &size, sizeof(uint32_t),
 											  vk::QueryResultFlagBits::eWait));
 
@@ -235,8 +235,8 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 	else
 	{
 		commandBuffer->buildAccelerationStructureNV(&buildInfo, nullptr, 0, update, m_Structure,
-													update ? m_Structure : nullptr, scratchBuffer, 0,
-													m_Device.getLoader());
+													update ? m_Structure : nullptr,
+													static_cast<vk::Buffer>(scratchBuffer), 0, m_Device.getLoader());
 		// Create memory barrier for building AS to make sure it can only be used when ready
 		vk::MemoryBarrier memoryBarrier = {vk::AccessFlagBits::eAccelerationStructureWriteNV |
 											   vk::AccessFlagBits::eAccelerationStructureReadNV,

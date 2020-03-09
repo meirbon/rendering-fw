@@ -256,7 +256,7 @@ bool TopLevelBVH::is_occluded(const vec3 &origin, const vec3 &direction, float t
 {
 
 #if USE_TOP_MBVH
-	MBVHNode::traverse_mbvh_shadow(
+	return MBVHNode::traverse_mbvh_shadow(
 		origin, direction, t_min, t_max, mbvh_nodes.data(), prim_indices.data(), [&](const int instance) {
 #else
 	BVHNode::traverse_bvh_shadow(
@@ -271,8 +271,6 @@ bool TopLevelBVH::is_occluded(const vec3 &origin, const vec3 &direction, float t
 			return instance_meshes[instance]->bvh->traverse_shadow(new_origin, new_direction, t_min, t_max);
 #endif
 		});
-
-	return false;
 }
 
 int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z[4], float direction_x[4],

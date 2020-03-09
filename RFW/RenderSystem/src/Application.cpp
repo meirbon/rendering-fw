@@ -1,28 +1,28 @@
 #include "rfw.h"
 
-void rfw::Application::run(Application *app)
+void rfw::Application::run(Application &app)
 {
-	app->init(app->m_RS);
-	app->load_instances(app->m_RS->get_geometry(), app->m_RS);
+	app.init(app.m_RS);
+	app.load_instances(app.m_RS->get_geometry(), app.m_RS);
 
-	auto &rs = app->m_RS;
+	auto &rs = app.m_RS;
 
 	utils::Timer t;
-	while (!app->window.shouldClose())
+	while (!app.window.shouldClose())
 	{
-		app->window.pollEvents();
+		app.window.pollEvents();
 
 		rs->synchronize();
-		rs->render_frame(app->camera, app->status, true);
-		app->m_ImGuiContext.newFrame();
-		app->post_render(rs);
-		app->draw();
+		rs->render_frame(app.camera, app.status, true);
+		app.m_ImGuiContext.newFrame();
+		app.post_render(rs);
+		app.draw();
 		const float elapsed = t.elapsed();
 		t.reset();
-		app->update(rs, elapsed);
+		app.update(rs, elapsed);
 	}
 
-	app->cleanup();
+	app.cleanup();
 }
 
 rfw::Application::Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI, bool hidpi)

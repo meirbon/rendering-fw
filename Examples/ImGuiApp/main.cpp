@@ -15,7 +15,7 @@ using namespace utils;
 class App : public rfw::Application
 {
   public:
-	App(std::string renderer = "");
+	explicit App(const std::string &renderer = "");
 
   protected:
 	void init(std::unique_ptr<rfw::RenderSystem> &rs) override;
@@ -75,7 +75,7 @@ class App : public rfw::Application
 	bool followFocus = false;
 };
 
-App::App(std::string renderer) : Application(512, 512, "RenderingFW", renderer != "" ? renderer : VULKANRTX)
+App::App(const std::string &renderer) : Application(512, 512, "RenderingFW", !renderer.empty() ? renderer : EMBREE)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
 	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
@@ -377,7 +377,7 @@ void App::cleanup() { camera.serialize("camera.bin"); }
 
 int main(int argc, char *argv[])
 {
-	std::string renderer = "";
+	std::string renderer;
 
 	if (argc > 1)
 	{
@@ -397,6 +397,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	auto app = new App(renderer);
+	auto app = App(renderer);
 	rfw::Application::run(app);
 }

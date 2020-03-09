@@ -1,37 +1,22 @@
 project(ImGuiWrapper)
 
-set(SOURCES 
-	src/imconfig.h
-	src/imgui.cpp
-	src/imgui.h
-	src/imgui_demo.cpp
-	src/imgui_draw.cpp
-	src/imgui_internal.h
-	src/imgui_widgets.cpp
-	src/imstb_rectpack.h
-	src/imstb_textedit.h
-	src/imstb_truetype.h
-	src/imgui_impl_glfw.cpp
-	src/imgui_impl_glfw.h
-	src/imgui_impl_opengl3.cpp
-	src/imgui_impl_opengl3.h
-	src/imgui_impl_vulkan.cpp
-	src/imgui_impl_vulkan.h
-	wrapper/ImGuiContext.h
-	)
-
 if (APPLE)
-	set(SOURCES ${SOURCES} wrapper/ImGuiContext.mm src/imgui_impl_metal.h src/imgui_impl_metal.mm)
+	set(SOURCES wrapper/ImGuiContext.mm wrapper/imgui_impl_metal.h wrapper/imgui_impl_metal.mm)
 else(APPLE)
-	set(SOURCES ${SOURCES} wrapper/ImGuiContext.cpp)
+	set(SOURCES wrapper/ImGuiContext.cpp
+		wrapper/imgui_impl_glfw.cpp
+		wrapper/imgui_impl_opengl3.cpp
+		wrapper/imgui_impl_vulkan.cpp
+		)
 endif(APPLE)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 
+find_package(imgui CONFIG REQUIRED)
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(GLEW REQUIRED)
-set(LIBS glfw Vulkan::Vulkan GLEW::GLEW)
+set(LIBS imgui::imgui glfw Vulkan::Vulkan GLEW::GLEW)
 
 if (UNIX)
 	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")

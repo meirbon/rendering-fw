@@ -91,9 +91,11 @@ struct matrix4
 	matrix4() = default;
 	matrix4(glm::mat4 m) : matrix(m) {}
 
-	union {
+	union
+	{
 		glm::mat4 matrix;
-		union {
+		union
+		{
 			__m128 cols[4];
 			__m256 cols8[2];
 		};
@@ -754,7 +756,8 @@ struct matrix4
 
 struct vector4
 {
-	union {
+	union
+	{
 		glm::vec4 vec;
 		__m128 vec_4;
 	};
@@ -793,7 +796,8 @@ struct vector4
 	inline float dot(const vector4 &op) const { return vector4(_mm_dp_ps(vec_4, op.vec_4, 0xff))[0]; }
 	inline float length() const
 	{
-		union {
+		union
+		{
 			__m128 result4;
 			float result[4];
 		};
@@ -893,7 +897,8 @@ inline glm::vec4 operator*(const glm::vec4 &op, const matrix4 &mat)
 
 	__m128 f0 = _mm_movelh_ps(a0, a1);
 	__m128 f1 = _mm_movehl_ps(a1, a0);
-	union {
+	union
+	{
 		glm::vec4 f2v;
 		__m128 f2;
 	};
@@ -923,7 +928,8 @@ inline glm::vec4 operator*(const glm::vec4 &op, const matrix4 &mat)
 
 	__m128 f0 = _mm_movelh_ps(a0, a1);
 	__m128 f1 = _mm_movehl_ps(a1, a0);
-	union {
+	union
+	{
 		glm::vec4 f2v;
 		__m128 f2;
 	};
@@ -980,7 +986,8 @@ inline vector4 operator*(const vector4 &op, const matrix4 &mat)
 
 	__m128 f0 = _mm_movelh_ps(a0, a1);
 	__m128 f1 = _mm_movehl_ps(a1, a0);
-	union {
+	union
+	{
 		glm::vec4 f2v;
 		__m128 f2;
 	};
@@ -1006,7 +1013,8 @@ inline glm::vec4 operator*(const matrix4 &mat, const glm::vec4 &op)
 
 	__m128 a0 = _mm_add_ps(m0, m1);
 	__m128 a1 = _mm_add_ps(m2, m3);
-	union {
+	union
+	{
 		glm::vec4 a2v;
 		__m128 a2;
 	};
@@ -1030,7 +1038,8 @@ inline vector4 operator*(const matrix4 &mat, const vector4 &op)
 
 	__m128 a0 = _mm_add_ps(m0, m1);
 	__m128 a1 = _mm_add_ps(m2, m3);
-	union {
+	union
+	{
 		glm::vec4 a2v;
 		__m128 a2;
 	};
@@ -1092,7 +1101,8 @@ inline vector4 operator|(const __m128 &op1, const vector4 &op2) { return _mm_or_
 
 struct vector8
 {
-	union {
+	union
+	{
 		glm::vec4 vec[2];
 		__m128 vec_4[2];
 		vector4 vec4[2];
@@ -1860,6 +1870,14 @@ inline void sincos(const vector4 &op, vector4 *s, vector4 *c)
 	*s = _mm_xor_ps(xmm1, sign_bit_sin);
 	*c = _mm_xor_ps(xmm2, sign_bit_cos);
 }
+
+inline vector4 atan(const vector4 &x)
+{
+	constexpr float pi_div_4 = 0.78539816339744830962f;
+	const vector4 quad_pi_div_4 = vector4(pi_div_4);
+	return quad_pi_div_4 * x - x * (x.abs() - 1.0f) * (0.2447f + 0.0663f * x.abs());
+}
+
 inline vector4 atan2(const vector4 &x, const vector4 &y)
 {
 	const auto zero4 = vector4(_mm_setzero_ps());

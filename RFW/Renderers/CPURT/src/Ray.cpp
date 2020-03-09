@@ -46,7 +46,7 @@ cpurt::Ray cpurt::Ray::generateFromView(const cpurt::Ray::CameraParams &camera, 
 	return ray;
 }
 
-cpurt::RayPacket4 cpurt::Ray::generateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng)
+cpurt::RayPacket4 cpurt::Ray::generate_ray4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng)
 {
 	cpurt::RayPacket4 query = {};
 
@@ -164,7 +164,7 @@ cpurt::RayPacket4 cpurt::Ray::generateRay4(const CameraParams &camera, const int
 	return query;
 }
 
-cpurt::RayPacket8 cpurt::Ray::generateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng)
+cpurt::RayPacket8 cpurt::Ray::generate_ray8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng)
 {
 	cpurt::RayPacket8 query = {};
 

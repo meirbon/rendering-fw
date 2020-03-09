@@ -23,17 +23,19 @@ namespace rfw
 class Application
 {
   public:
-	static void run(Application *app);
+	static void run(Application &app);
 
 	Application(const Application &) = delete;
 	Application(Application &&) = delete;
 
   protected:
-	explicit Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI, bool hidpi = false);
+	explicit Application(size_t scrWidth, size_t scrHeight, std::string title, std::string renderAPI,
+						 bool hidpi = false);
 	~Application();
 
 	virtual void init(std::unique_ptr<rfw::RenderSystem> &rs) = 0;
-	virtual void load_instances(rfw::utils::ArrayProxy<GeometryReference> geometry, std::unique_ptr<rfw::RenderSystem> &rs) = 0;
+	virtual void load_instances(rfw::utils::ArrayProxy<GeometryReference> geometry,
+								std::unique_ptr<rfw::RenderSystem> &rs) = 0;
 
 	virtual void update(std::unique_ptr<rfw::RenderSystem> &rs, float dt) = 0;
 	virtual void post_render(std::unique_ptr<rfw::RenderSystem> &rs) = 0;

@@ -23,7 +23,8 @@ struct MBVHHit
 		result = glm::bvec4(false, false, false, false);
 	}
 
-	union {
+	union
+	{
 		simd::vector4 t_min;
 
 		glm::vec4 tminv;
@@ -56,39 +57,45 @@ class MBVHNode
 
 	~MBVHNode() = default;
 
-	union {
+	union
+	{
 		simd::vector4 bmin_x;
 		__m128 bminx_4;
 		glm::vec4 bminx4;
 		float bminx[4]{};
 	};
-	union {
+	union
+	{
 		simd::vector4 bmax_x;
 		__m128 bmaxx_4;
 		glm::vec4 bmaxx4;
 		float bmaxx[4]{};
 	};
 
-	union {
+	union
+	{
 		simd::vector4 bmin_y;
 		__m128 bminy_4;
 		glm::vec4 bminy4;
 		float bminy[4]{};
 	};
-	union {
+	union
+	{
 		simd::vector4 bmax_y;
 		__m128 bmaxy_4;
 		glm::vec4 bmaxy4;
 		float bmaxy[4]{};
 	};
 
-	union {
+	union
+	{
 		simd::vector4 bmin_z;
 		__m128 bminz_4;
 		glm::vec4 bminz4;
 		float bminz[4]{};
 	};
-	union {
+	union
+	{
 		simd::vector4 bmax_z;
 		__m128 bmaxz_4;
 		glm::vec4 bmaxz4;
@@ -117,12 +124,21 @@ class MBVHNode
 	{
 		bool valid = false;
 		MBVHTraversal todo[32];
-		int stackptr = 0;
-
-		todo[0].leftFirst = 0;
-		todo[0].count = -1;
+		int stackptr = -1;
 
 		const glm::vec3 dirInverse = 1.0f / dir;
+
+		MBVHHit hit = nodes[0].intersect(org, dirInverse, *t);
+		for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
+		{
+			const int idx = (hit.tmini[i] & 0b11);
+			if (hit.result[idx] == 1 && nodes[0].childs[idx] >= 0)
+			{
+				stackptr++;
+				todo[stackptr].leftFirst = nodes[0].childs[idx];
+				todo[stackptr].count = nodes[0].counts[idx];
+			}
+		}
 
 		while (stackptr >= 0)
 		{
@@ -144,7 +160,7 @@ class MBVHNode
 				continue;
 			}
 
-			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, *t);
+			hit = nodes[leftFirst].intersect(org, dirInverse, *t);
 			for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
 			{
 				const int idx = (hit.tmini[i] & 0b11);
@@ -168,14 +184,25 @@ class MBVHNode
 	{
 		int hitMask = 0;
 		MBVHTraversal todo[32];
-		int stackptr = 0;
+		int stackptr = -1;
 
 		const simd::vector4 inv_dir_x = simd::ONE4 / simd::vector4(dir_x);
 		const simd::vector4 inv_dir_y = simd::ONE4 / simd::vector4(dir_y);
 		const simd::vector4 inv_dir_z = simd::ONE4 / simd::vector4(dir_z);
 
-		todo[0].leftFirst = 0;
-		todo[0].count = -1;
+		MBVHHit hit = nodes[0].intersect4(
+			origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
+			reinterpret_cast<const float *>(&inv_dir_y), reinterpret_cast<const float *>(&inv_dir_z), t);
+		for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
+		{
+			const int idx = (hit.tmini[i] & 0b11);
+			if (hit.result[idx] == 1 && nodes[0].childs[idx] >= 0)
+			{
+				stackptr++;
+				todo[stackptr].leftFirst = nodes[0].childs[idx];
+				todo[stackptr].count = nodes[0].counts[idx];
+			}
+		}
 
 		while (stackptr >= 0)
 		{
@@ -197,9 +224,9 @@ class MBVHNode
 				continue;
 			}
 
-			const MBVHHit hit = nodes[leftFirst].intersect4(
-				origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
-				reinterpret_cast<const float *>(&inv_dir_y), reinterpret_cast<const float *>(&inv_dir_z), t);
+			hit = nodes[leftFirst].intersect4(origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
+											  reinterpret_cast<const float *>(&inv_dir_y),
+											  reinterpret_cast<const float *>(&inv_dir_z), t);
 			for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
 			{
 				const int idx = (hit.tmini[i] & 0b11);
@@ -220,12 +247,21 @@ class MBVHNode
 									 const MBVHNode *nodes, const uint *primIndices, const FUNC &func)
 	{
 		MBVHTraversal todo[32];
-		int stackptr = 0;
-
-		todo[0].leftFirst = 0;
-		todo[0].count = -1;
+		int stackptr = -1;
 
 		const glm::vec3 dirInverse = 1.0f / dir;
+
+		MBVHHit hit = nodes[0].intersect(org, dirInverse, tmax);
+		for (int i = 3; i >= 0; i--)
+		{ // reversed order, we want to check best nodes first
+			const int idx = (hit.tmini[i] & 0b11);
+			if (hit.result[idx] == 1 && nodes[0].childs[idx] >= 0)
+			{
+				stackptr++;
+				todo[stackptr].leftFirst = nodes[0].childs[idx];
+				todo[stackptr].count = nodes[0].counts[idx];
+			}
+		}
 
 		while (stackptr >= 0)
 		{
@@ -244,7 +280,7 @@ class MBVHNode
 				continue;
 			}
 
-			const MBVHHit hit = nodes[leftFirst].intersect(org, dirInverse, tmax);
+			hit = nodes[leftFirst].intersect(org, dirInverse, tmax);
 			for (int i = 3; i >= 0; i--)
 			{ // reversed order, we want to check best nodes first
 				const int idx = (hit.tmini[i] & 0b11);
@@ -261,10 +297,10 @@ class MBVHNode
 		return false;
 	}
 
-	void validate(const rfw::utils::ArrayProxy<MBVHNode> nodes, const rfw::utils::ArrayProxy<uint> primIDs,
-				  uint maxPoolPtr, uint maxPrimIndex) const;
+	void validate(rfw::utils::ArrayProxy<MBVHNode> nodes, rfw::utils::ArrayProxy<uint> primIDs, uint maxPoolPtr,
+				  uint maxPrimIndex) const;
 
-	void merge_node(const BVHNode &node, const rfw::utils::ArrayProxy<BVHNode> pool, int &numChildren);
+	void merge_node(const BVHNode &node, rfw::utils::ArrayProxy<BVHNode> pool, int &numChildren);
 };
 } // namespace bvh
 } // namespace rfw

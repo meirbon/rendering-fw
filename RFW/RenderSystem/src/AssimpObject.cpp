@@ -82,12 +82,14 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 	Assimp::Importer importer = {};
 
-	const aiScene *scene = importer.ReadFile(filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
-																  aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
-																  aiProcess_RemoveRedundantMaterials);
+	const aiScene *scene = importer.ReadFile(
+		filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
+							 aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
+							 aiProcess_RemoveRedundantMaterials);
 	if (!scene)
 	{
-		const std::string error = "Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
+		const std::string error =
+			"Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
 		WARNING(error.c_str());
 		throw LoadException(error);
 	}
@@ -232,9 +234,11 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	for (const auto &node : sceneNodes)
 	{
 		if (animNodeMeshes.find(node.name) != animNodeMeshes.end())
-			object.nodes.push_back(rfw::SceneNode(&object, node.name, node.childIndices, node.meshIDs, {0}, meshes, {}, node.transform));
+			object.nodes.push_back(
+				rfw::SceneNode(&object, node.name, node.childIndices, node.meshIDs, {0}, meshes, {}, node.transform));
 		else
-			object.nodes.push_back(rfw::SceneNode(&object, node.name, node.childIndices, node.meshIDs, {}, meshes, {}, node.transform));
+			object.nodes.push_back(
+				rfw::SceneNode(&object, node.name, node.childIndices, node.meshIDs, {}, meshes, {}, node.transform));
 	}
 
 	if (scene->HasAnimations())
@@ -337,10 +341,12 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 	// Update triangle data that only has to be calculated once
 	object.updateTriangles(matList);
 
-	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), object.vertices.size(), object.triangles.size());
+	utils::logger::log("Loaded file: %s with %u vertices and %u triangles", filename.data(), object.vertices.size(),
+					   object.triangles.size());
 }
 
-AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const mat4 &matrix, bool normalize, int material)
+AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uint ID, const mat4 &matrix,
+						   bool normalize, int material)
 	: m_File(filename.data()), m_ID(ID)
 {
 	std::string directory;
@@ -367,13 +373,15 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 	const mat3 matrix3x3 = mat3(matrix);
 
-	const aiScene *scene = importer.ReadFile(filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
-																  aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
-																  aiProcess_RemoveRedundantMaterials);
+	const aiScene *scene = importer.ReadFile(
+		filename.data(), (uint)aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices | aiProcess_Triangulate |
+							 aiProcess_CalcTangentSpace | aiProcess_GenUVCoords | aiProcess_FindInstances |
+							 aiProcess_RemoveRedundantMaterials);
 
 	if (!scene || scene->mNumMeshes == 0)
 	{
-		const std::string error = "Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
+		const std::string error =
+			"Could not load file: " + std::string(filename) + ", error: " + std::string(importer.GetErrorString());
 		WARNING(error.c_str());
 		throw LoadException(error);
 	}
@@ -410,9 +418,10 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				channel.scalingKeys.resize(nodeAnim->mNumScalingKeys);
 
 				for (uint j = 0; j < nodeAnim->mNumPositionKeys; j++)
-					channel.positionKeys.at(j) = {
-						nodeAnim->mPositionKeys[j].mTime,
-						vec3(nodeAnim->mPositionKeys[j].mValue.x, nodeAnim->mPositionKeys[j].mValue.y, nodeAnim->mPositionKeys[j].mValue.z)};
+					channel.positionKeys.at(j) = {nodeAnim->mPositionKeys[j].mTime,
+												  vec3(nodeAnim->mPositionKeys[j].mValue.x,
+													   nodeAnim->mPositionKeys[j].mValue.y,
+													   nodeAnim->mPositionKeys[j].mValue.z)};
 
 				for (uint j = 0; j < nodeAnim->mNumRotationKeys; j++)
 				{
@@ -422,8 +431,10 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 				}
 
 				for (uint j = 0; j < nodeAnim->mNumScalingKeys; j++)
-					channel.scalingKeys.at(j) = {nodeAnim->mScalingKeys[j].mTime, vec3(nodeAnim->mScalingKeys[j].mValue.x, nodeAnim->mScalingKeys[j].mValue.y,
-																					   nodeAnim->mScalingKeys[j].mValue.z)};
+					channel.scalingKeys.at(j) = {nodeAnim->mScalingKeys[j].mTime,
+												 vec3(nodeAnim->mScalingKeys[j].mValue.x,
+													  nodeAnim->mScalingKeys[j].mValue.y,
+													  nodeAnim->mScalingKeys[j].mValue.z)};
 			}
 
 			animation.meshChannels.resize(anim->mNumMeshChannels);
@@ -534,7 +545,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 
 			for (int i = 0, s = static_cast<int>(aiMesh->mNumVertices); i < s; i++)
 			{
-				m_BaseVertices.emplace_back(aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z, 1.0f);
+				m_BaseVertices.emplace_back(aiMesh->mVertices[i].x, aiMesh->mVertices[i].y, aiMesh->mVertices[i].z,
+											1.0f);
 				m_BaseNormals.emplace_back(aiMesh->mNormals[i].x, aiMesh->mNormals[i].y, aiMesh->mNormals[i].z, 0.0f);
 
 				if (aiMesh->HasTextureCoords(0))
@@ -546,7 +558,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			for (int i = 0, s = static_cast<int>(aiMesh->mNumFaces); i < s; i++)
 			{
 				m_MaterialIndices.emplace_back(matMapping[aiMesh->mMaterialIndex]);
-				m_Indices.emplace_back(aiMesh->mFaces[i].mIndices[0], aiMesh->mFaces[i].mIndices[1], aiMesh->mFaces[i].mIndices[2]);
+				m_Indices.emplace_back(aiMesh->mFaces[i].mIndices[0], aiMesh->mFaces[i].mIndices[1],
+									   aiMesh->mFaces[i].mIndices[2]);
 			}
 		}
 	}
@@ -709,8 +722,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 		{
 			const Texture &texture = matList->getTextures().at(texID);
 
-			const float Ta =
-				static_cast<float>(texture.width * texture.height) * abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
+			const float Ta = static_cast<float>(texture.width * texture.height) *
+							 abs((tri.u1 - tri.u0) * (tri.v2 - tri.v0) - (tri.u2 - tri.u0) * (tri.v1 - tri.v0));
 			const float Pa = length(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
 			tri.LOD = max(0.f, sqrt(0.5f * log2f(Ta / Pa)));
 		}
@@ -730,7 +743,8 @@ AssimpObject::AssimpObject(std::string_view filename, MaterialList *matList, uin
 			skinNodes.push_back(bone.nodeIndex);
 	}
 
-	DEBUG("Loaded file: %s with %u vertices and %u triangles", filename.data(), m_CurrentVertices.size(), m_Triangles.size());
+	DEBUG("Loaded file: %s with %u vertices and %u triangles", filename.data(), m_CurrentVertices.size(),
+		  m_Triangles.size());
 }
 
 void AssimpObject::set_time(const float timeInSeconds)
@@ -818,8 +832,8 @@ void AssimpObject::set_time(const float timeInSeconds)
 		// Set current data for this mesh to base data
 		for (const auto &bone : mesh.bones)
 		{
-			const simd::matrix4 skin =
-				m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() * m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
+			const simd::matrix4 skin = m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() *
+									   m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
 			const simd::matrix4 normal_matrix = skin.inversed().transposed();
 
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
@@ -859,8 +873,8 @@ void AssimpObject::set_time(const float timeInSeconds)
 		// Set current data for this mesh to base data
 		for (const auto &bone : mesh.bones)
 		{
-			const simd::matrix4 skin =
-				m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() * m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
+			const simd::matrix4 skin = m_SceneGraph[mesh.nodeIndex].combinedTransform.inversed() *
+									   m_SceneGraph[bone.nodeIndex].combinedTransform * bone.offsetMatrix;
 			const simd::matrix4 normal_matrix = skin.inversed().transposed();
 
 			for (int i = 0, s = int(bone.vertexIDs.size()); i < s; i++)
@@ -893,7 +907,7 @@ void AssimpObject::updateTriangles()
 	m_Triangles.resize(m_Indices.size());
 
 #if USE_PARALLEL_FOR
-	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
+	tbb::parallel_for(0, static_cast<int>(m_Meshes.size()), [&](int i) {
 		const auto &mesh = m_Meshes[i];
 
 		for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
@@ -954,7 +968,7 @@ void rfw::AssimpObject::updateTriangles(const std::vector<glm::vec2> &uvs)
 {
 	m_Triangles.resize(m_Indices.size());
 
-	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(m_Meshes.size()), [&](int i) {
+	tbb::parallel_for(0, static_cast<int>(m_Meshes.size()), [&](int i) {
 		const auto &mesh = m_Meshes[i];
 		for (size_t i = 0, s = mesh.faceCount; i < s; i++)
 		{
@@ -991,7 +1005,8 @@ void rfw::AssimpObject::updateTriangles(const std::vector<glm::vec2> &uvs)
 	});
 }
 
-size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage, std::map<std::string, uint> *nodeNameMapping)
+size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage,
+									   std::map<std::string, uint> *nodeNameMapping)
 {
 	// Get current index
 	const size_t currentNodeIndex = storage->size();
@@ -1030,7 +1045,8 @@ size_t rfw::AssimpObject::traverseNode(const aiNode *node, int parentIdx, std::v
 	return currentNodeIndex;
 }
 
-const std::vector<std::vector<int>> &rfw::AssimpObject::get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize)
+const std::vector<std::vector<int>> &rfw::AssimpObject::get_light_indices(const std::vector<bool> &matLightFlags,
+																		  bool reinitialize)
 {
 	// TODO: rewrite to initialize per mesh
 	if (reinitialize)

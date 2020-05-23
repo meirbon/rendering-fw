@@ -49,18 +49,16 @@ TopLevelAS::TopLevelAS(const VulkanDevice &dev, AccelerationStructureType type, 
 	m_ScratchSize = std::max(m_ScratchSize, memoryRequirements.memoryRequirements.size);
 
 	// Create result memory
-	m_Memory.allocate(m_ResultSize,
-					  vk::MemoryPropertyFlagBits::eHostCoherent | vk::MemoryPropertyFlagBits::eHostVisible,
-					  vk::BufferUsageFlagBits::eRayTracingNV);
+	m_Memory.allocate(m_ResultSize, vk::MemoryPropertyFlagBits::eDeviceLocal, vk::BufferUsageFlagBits::eRayTracingNV);
 	// bind the acceleration structure descriptor to the actual memory that will contain it
-	vk::BindAccelerationStructureMemoryInfoNV bindInfo;
+	VkBindAccelerationStructureMemoryInfoNV bindInfo;
 	bindInfo.pNext = nullptr;
 	bindInfo.accelerationStructure = m_Structure;
 	bindInfo.memory = m_Memory.getDeviceMemory();
 	bindInfo.memoryOffset = 0;
 	bindInfo.deviceIndexCount = 0;
 	bindInfo.pDeviceIndices = nullptr;
-	CheckVK(m_Device->bindAccelerationStructureMemoryNV(1, &bindInfo, m_Device.getLoader()));
+	CheckVK(m_Device.getLoader().vkBindAccelerationStructureMemoryNV(m_Device, 1, &bindInfo));
 }
 
 TopLevelAS::~TopLevelAS() { cleanup(); }
@@ -68,7 +66,7 @@ TopLevelAS::~TopLevelAS() { cleanup(); }
 void TopLevelAS::cleanup()
 {
 	if (m_Structure)
-		m_Device->destroyAccelerationStructureNV(m_Structure, nullptr, m_Device.getLoader());
+		m_Device.getLoader().vkDestroyAccelerationStructureNV(m_Device, m_Structure, nullptr);
 	m_Structure = nullptr;
 	m_Memory.cleanup();
 	m_InstanceBuffer.cleanup();
@@ -94,7 +92,8 @@ void TopLevelAS::Build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 
 	auto commandBuffer = m_Device.createOneTimeCmdBuffer();
 	commandBuffer->buildAccelerationStructureNV(&buildInfo, m_InstanceBuffer, 0, update, m_Structure,
-												update ? m_Structure : nullptr, static_cast<vk::Buffer>(scratchBuffer), 0, m_Device.getLoader());
+												update ? m_Structure : nullptr, static_cast<vk::Buffer>(scratchBuffer),
+												0, m_Device.getLoader());
 
 	// Ensure that the build will be finished before using the AS using a barrier
 	vk::MemoryBarrier memoryBarrier = {vk::AccessFlagBits::eAccelerationStructureWriteNV |
@@ -114,9 +113,9 @@ void TopLevelAS::updateInstances(const std::vector<GeometryInstance> &instances)
 	m_InstanceBuffer.copyToDevice(instances.data(), instances.size() * sizeof(GeometryInstance));
 }
 
-void TopLevelAS::build(const VmaBuffer<uint8_t>& scratchBuffer) { Build(false, scratchBuffer); }
+void TopLevelAS::build(const VmaBuffer<uint8_t> &scratchBuffer) { Build(false, scratchBuffer); }
 
-void TopLevelAS::rebuild(const VmaBuffer<uint8_t>& scratchBuffer) { Build(true, scratchBuffer); }
+void TopLevelAS::rebuild(const VmaBuffer<uint8_t> &scratchBuffer) { Build(true, scratchBuffer); }
 
 uint64_t TopLevelAS::getHandle()
 {

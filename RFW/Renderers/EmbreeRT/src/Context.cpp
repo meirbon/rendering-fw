@@ -5,12 +5,7 @@
 #include <utils/Timer.h>
 #include <utils/gl/CheckGL.h>
 
-#include <utils/Concurrency.h>
 #include <utils/Xor128.h>
-
-#ifdef _WIN32
-#include <ppl.h>
-#endif
 
 void createTangentSpace(const vec3 N, vec3 &T, vec3 &B)
 {
@@ -129,7 +124,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	m_Packets.resize(wTiles * hTiles);
 
-	utils::concurrency::parallel_for(0, hTiles, [&](int tile_y) {
+	tbb::parallel_for(0, hTiles, [&](int tile_y) {
 		for (int tile_x = 0; tile_x < wTiles; tile_x++)
 		{
 #if PACKET_WIDTH == 4

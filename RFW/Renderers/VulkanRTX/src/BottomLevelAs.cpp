@@ -96,8 +96,13 @@ BottomLevelAS::BottomLevelAS(VulkanDevice device, const glm::vec4 *vertices, uin
 #endif
 
 	// bind the acceleration structure descriptor to the actual memory that will contain it
-	vk::BindAccelerationStructureMemoryInfoNV bindInfo = {m_Structure, m_Memory, 0, 0, nullptr};
-	CheckVK(device->bindAccelerationStructureMemoryNV(1, &bindInfo, m_Device.getLoader()));
+	VkBindAccelerationStructureMemoryInfoNV bindInfo{};
+	bindInfo.accelerationStructure = m_Structure;
+	bindInfo.memory = m_Memory.getDeviceMemory();
+	bindInfo.deviceIndexCount = 0;
+	bindInfo.memoryOffset = 0;
+	bindInfo.pDeviceIndices = nullptr;
+	device.getLoader().vkBindAccelerationStructureMemoryNV(device, 1, &bindInfo);
 }
 
 BottomLevelAS::~BottomLevelAS() { cleanup(); }
@@ -106,7 +111,7 @@ void BottomLevelAS::cleanup()
 {
 	if (m_Structure)
 	{
-		m_Device->destroyAccelerationStructureNV(m_Structure, nullptr, m_Device.getLoader());
+		m_Device.getLoader().vkDestroyAccelerationStructureNV(m_Device, m_Structure, nullptr);
 		m_Structure = nullptr;
 	}
 
@@ -174,8 +179,10 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 		// Query for compacted size
 		commandBuffer->resetQueryPool(queryPool, 0, 1);
 		commandBuffer->beginQuery(queryPool, 0, vk::QueryControlFlags());
-		commandBuffer->writeAccelerationStructuresPropertiesNV(
-			1, &m_Structure, vk::QueryType::eAccelerationStructureCompactedSizeNV, queryPool, 0, m_Device.getLoader());
+		m_Device.getLoader().vkCmdWriteAccelerationStructuresPropertiesNV(
+			commandBuffer.getVkCommandBuffer(), 1, (const VkAccelerationStructureKHR *)(&m_Structure),
+			VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_NV, queryPool, 0);
+
 		commandBuffer->endQuery(queryPool, 0);
 		commandBuffer.submit(computeQueue, true);
 
@@ -191,8 +198,10 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 			accelerationStructureCreateInfo.compactedSize = size;
 			// Create AS handle
 			vk::AccelerationStructureNV compactedAS;
-			CheckVK(m_Device->createAccelerationStructureNV(&accelerationStructureCreateInfo, nullptr, &compactedAS,
-															m_Device.getLoader()));
+
+			CheckVK(m_Device.getLoader().vkCreateAccelerationStructureNV(
+				m_Device, (const VkAccelerationStructureCreateInfoNV *)&accelerationStructureCreateInfo, nullptr,
+				(VkAccelerationStructureNV *)(&compactedAS)));
 			// Get new memory requirements
 			vk::AccelerationStructureMemoryRequirementsInfoNV memoryRequirementsInfo = {
 				vk::AccelerationStructureMemoryRequirementsTypeNV::eObject, compactedAS};
@@ -212,7 +221,9 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 #endif
 			// bind the acceleration structure descriptor to the memory that will contain it
 			vk::BindAccelerationStructureMemoryInfoNV bindInfo = {compactedAS, newMemory, 0, 0, nullptr};
-			CheckVK(m_Device->bindAccelerationStructureMemoryNV(1, &bindInfo, m_Device.getLoader()));
+			CheckVK(m_Device.getLoader().vkBindAccelerationStructureMemoryNV(
+				m_Device, 1, (const VkBindAccelerationStructureMemoryInfoNV *)&bindInfo));
+
 			// submit copy & compact command to command buffer
 			commandBuffer.begin();
 			commandBuffer->copyAccelerationStructureNV(
@@ -224,7 +235,7 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 
 			// cleanup
 			m_Device->destroyQueryPool(queryPool);
-			m_Device->destroyAccelerationStructureNV(m_Structure, nullptr, m_Device.getLoader());
+			m_Device.getLoader().vkDestroyAccelerationStructureNV(m_Device, m_Structure, nullptr);
 			m_Memory.cleanup();
 
 			// Assign new AS to this object

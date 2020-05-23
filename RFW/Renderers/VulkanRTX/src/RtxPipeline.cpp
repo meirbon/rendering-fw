@@ -44,8 +44,8 @@ void RTXPipeline::ShaderBindingTableGenerator::generate(VulkanDevice &device, vk
 
 	// Fetch all the shader handles used in the pipeline, so that they can be written in the SBT
 	auto shaderHandleStorage = std::vector<uint8_t>(groupCount * m_ProgIdSize);
-	CheckVK(device->getRayTracingShaderGroupHandlesNV(rtPipeline, 0, groupCount, m_ProgIdSize * groupCount,
-													  shaderHandleStorage.data(), device.getLoader()));
+	CheckVK(device.getLoader().vkGetRayTracingShaderGroupHandlesNV(device, rtPipeline, 0, groupCount, m_ProgIdSize,
+																   shaderHandleStorage.data()));
 	std::vector<uint8_t> tempBuffer(m_SBTSize);
 	auto data = tempBuffer.data();
 

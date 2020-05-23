@@ -15,7 +15,8 @@
 
 using namespace vkc;
 
-QueueFamilyIndices::QueueFamilyIndices(vk::PhysicalDevice device, std::optional<vk::SurfaceKHR> surface) : hasSurface(surface.has_value())
+QueueFamilyIndices::QueueFamilyIndices(vk::PhysicalDevice device, std::optional<vk::SurfaceKHR> surface)
+	: hasSurface(surface.has_value())
 {
 	const auto queueFamilies = device.getQueueFamilyProperties();
 
@@ -52,7 +53,9 @@ QueueFamilyIndices::QueueFamilyIndices(vk::PhysicalDevice device, std::optional<
 
 bool QueueFamilyIndices::IsComplete() const
 {
-	return graphicsIdx.has_value() && computeIdx.has_value() && transferIdx.has_value() && hasSurface ? presentIdx.has_value() : true;
+	return graphicsIdx.has_value() && computeIdx.has_value() && transferIdx.has_value() && hasSurface
+			   ? presentIdx.has_value()
+			   : true;
 }
 
 std::unordered_set<uint32_t> vkc::QueueFamilyIndices::getUniqueQueueIds() const
@@ -77,8 +80,8 @@ std::unordered_set<uint32_t> vkc::QueueFamilyIndices::getUniqueQueueIds() const
 
 VulkanDevice::VulkanDevice(const VulkanDevice &rhs) : m_Members(rhs.m_Members) {}
 
-VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDevice, const std::vector<const char *> &extensions,
-						   std::optional<vk::SurfaceKHR> surface)
+VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDevice,
+						   const std::vector<const char *> &extensions, std::optional<vk::SurfaceKHR> surface)
 {
 	m_Members = std::make_shared<DeviceMembers>(physicalDevice, surface);
 
@@ -100,9 +103,10 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 	indexingFeatures.descriptorBindingVariableDescriptorCount = true;
 
 	std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos{};
-	std::set<uint32_t> uniqueQueueFamilies = {m_Members->m_Indices.graphicsIdx.value(), m_Members->m_Indices.computeIdx.value(),
-											  m_Members->m_Indices.transferIdx.value(),
-											  surface.has_value() ? m_Members->m_Indices.presentIdx.value() : m_Members->m_Indices.graphicsIdx.value()};
+	std::set<uint32_t> uniqueQueueFamilies = {
+		m_Members->m_Indices.graphicsIdx.value(), m_Members->m_Indices.computeIdx.value(),
+		m_Members->m_Indices.transferIdx.value(),
+		surface.has_value() ? m_Members->m_Indices.presentIdx.value() : m_Members->m_Indices.graphicsIdx.value()};
 
 	int i = 0;
 	for (const auto qfIdx : uniqueQueueFamilies)
@@ -167,7 +171,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 
 	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName);
 
-	m_Members->m_DynamicDispatcher = vk::DispatchLoaderDynamic(instance, m_Members->m_VkDevice);
+	m_Members->m_DynamicDispatcher.init(instance, m_Members->m_VkDevice);
 
 	VmaAllocatorCreateInfo allocCreateInfo{};
 	allocCreateInfo.physicalDevice = (VkPhysicalDevice)physicalDevice;
@@ -209,7 +213,8 @@ vk::CommandBuffer VulkanDevice::createCommandBuffer(vk::CommandBufferLevel level
 	return cmdBuffer;
 }
 
-std::vector<vk::CommandBuffer> VulkanDevice::createCommandBuffers(uint32_t count, vk::CommandBufferLevel level, QueueType type)
+std::vector<vk::CommandBuffer> VulkanDevice::createCommandBuffers(uint32_t count, vk::CommandBufferLevel level,
+																  QueueType type)
 {
 	vk::CommandBufferAllocateInfo commandBufferAllocInfo{};
 	commandBufferAllocInfo.setPNext(nullptr);
@@ -227,21 +232,24 @@ OneTimeCommandBuffer VulkanDevice::createOneTimeCmdBuffer(vk::CommandBufferLevel
 	return OneTimeCommandBuffer(*this, commandBuffer);
 }
 
-void VulkanDevice::submitCommandBuffer(vk::CommandBuffer cmdBuffer, vk::Queue queue, vk::Fence fence, vk::PipelineStageFlags waitStageMask,
-									   uint32_t waitSemaphoreCount, vk::Semaphore *waitSemaphores, uint32_t signalSemaphoreCount,
+void VulkanDevice::submitCommandBuffer(vk::CommandBuffer cmdBuffer, vk::Queue queue, vk::Fence fence,
+									   vk::PipelineStageFlags waitStageMask, uint32_t waitSemaphoreCount,
+									   vk::Semaphore *waitSemaphores, uint32_t signalSemaphoreCount,
 									   vk ::Semaphore *signalSemaphores)
 {
 	// submit build command to queue
-	vk::SubmitInfo submitInfo = vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, 1, &cmdBuffer, signalSemaphoreCount, signalSemaphores);
+	vk::SubmitInfo submitInfo = vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, 1, &cmdBuffer,
+											   signalSemaphoreCount, signalSemaphores);
 	queue.submit({submitInfo}, fence);
 }
 
-void VulkanDevice::submitCommandBuffers(uint32_t cmdBufferCount, vk::CommandBuffer *cmdBuffers, vk::Queue queue, vk::Fence fence,
-										vk::PipelineStageFlags waitStageMask, uint32_t waitSemaphoreCount, vk::Semaphore *waitSemaphores,
+void VulkanDevice::submitCommandBuffers(uint32_t cmdBufferCount, vk::CommandBuffer *cmdBuffers, vk::Queue queue,
+										vk::Fence fence, vk::PipelineStageFlags waitStageMask,
+										uint32_t waitSemaphoreCount, vk::Semaphore *waitSemaphores,
 										uint32_t signalSemaphoreCount, vk::Semaphore *signalSemaphores)
 {
-	vk::SubmitInfo submitInfo =
-		vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, cmdBufferCount, cmdBuffers, signalSemaphoreCount, signalSemaphores);
+	vk::SubmitInfo submitInfo = vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, cmdBufferCount,
+											   cmdBuffers, signalSemaphoreCount, signalSemaphores);
 	queue.submit({submitInfo}, fence);
 	queue.waitIdle();
 }
@@ -264,7 +272,8 @@ void VulkanDevice::freeCommandBuffers(const std::vector<vk::CommandBuffer> &cmdB
 
 void VulkanDevice::waitIdle() const { m_Members->m_VkDevice.waitIdle(); }
 
-std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Instance &instance, const std::vector<const char *> &extensions,
+std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Instance &instance,
+																		 const std::vector<const char *> &extensions,
 																		 std::optional<vk::SurfaceKHR> surface)
 {
 	const auto physicalDevices = instance.enumeratePhysicalDevices();

@@ -4,6 +4,7 @@
 
 #include <tiny_gltf.h>
 
+
 using namespace glm;
 
 rfw::SceneMesh::SceneMesh() { flags |= INITIAL_PRIM; }
@@ -25,7 +26,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 
 	if (flags & HAS_INDICES)
 	{
-		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int vIndex) {
+		tbb::parallel_for(0, static_cast<int>(vertexCount), [&](int vIndex) {
 			const uvec4 &j4 = joints[vIndex];
 			const vec4 &w4 = weights[vIndex];
 
@@ -46,7 +47,7 @@ void rfw::SceneMesh::setPose(const rfw::MeshSkin &skin)
 	}
 	else
 	{
-		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int t) {
+		tbb::parallel_for(0, static_cast<int>(faceCount), [&](int t) {
 			const auto i3 = t * 3;
 			auto &tri = triangles[t];
 
@@ -126,7 +127,7 @@ void rfw::SceneMesh::setPose(const std::vector<float> &wghts)
 	assert(wghts.size() == poses.size() - 1);
 	const auto weightCount = wghts.size();
 
-	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int i) {
+	tbb::parallel_for(0, static_cast<int>(vertexCount), [&](int i) {
 		const auto idx = i + vertexOffset;
 		object->vertices[idx] = vec4(poses[0].positions[i], 1.0f);
 		object->normals[idx] = poses[0].normals[i];
@@ -153,7 +154,7 @@ void rfw::SceneMesh::setTransform(const glm::mat4 &transform)
 	auto normals = getNormals();
 	const auto baseNormals = getBaseNormals();
 
-	rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(vertexCount), [&](int i) {
+	tbb::parallel_for(0, static_cast<int>(vertexCount), [&](int i) {
 		vertices[i] = (transform * baseVertices[i]).vec;
 		(transform * baseNormals[i]).store(value_ptr(normals[i]), normal_mask);
 	});
@@ -426,7 +427,7 @@ void rfw::SceneMesh::updateTriangles() const
 {
 	if (flags & SceneMesh::HAS_INDICES)
 	{
-		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
+		tbb::parallel_for(0, static_cast<int>(faceCount), [&](int i) {
 			const auto index = object->indices.at(i + faceOffset) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);
 
@@ -449,7 +450,7 @@ void rfw::SceneMesh::updateTriangles() const
 	}
 	else
 	{
-		rfw::utils::concurrency::parallel_for<int>(0, static_cast<int>(faceCount), [&](int i) {
+		tbb::parallel_for(0, static_cast<int>(faceCount), [&](int i) {
 			const auto idx = i * 3;
 			const uvec3 index = uvec3(idx + 0, idx + 1, idx + 2) + vertexOffset;
 			Triangle &tri = object->triangles.at(i + triangleOffset);

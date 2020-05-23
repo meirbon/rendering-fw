@@ -19,6 +19,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <tbb/tbb.h>
+
 #include <Structures.h>
 #include <RenderContext.h>
 #include <ContextExport.h>
@@ -37,7 +39,6 @@
 
 #include "utils/ArrayProxy.h"
 #include "utils/Averager.h"
-#include "utils/Concurrency.h"
 #include "utils/File.h"
 #include "utils/gl.h"
 #include "utils/LibExport.h"

@@ -4,8 +4,8 @@
 #define SKINNED_MESH 1
 #define CESIUMMAN 1
 #define POLLY 0
-#define PICA 1
-#define SPONZA 0
+#define PICA 0
+#define SPONZA 1
 #define PICA_LIGHTS 0
 #define DRAGON 0
 
@@ -47,6 +47,8 @@ class App : public rfw::Application
 #elif SPONZA
 	rfw::GeometryReference sponza;
 	rfw::InstanceReference sponzaInstance;
+	rfw::GeometryReference sponzaAreaLight;
+	rfw::InstanceReference sponzaAreaLightRef;
 #endif
 #if DRAGON
 	rfw::GeometryReference dragon;
@@ -104,6 +106,9 @@ void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
 	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 12.0f, 12.0f, lightMaterial);
 #elif SPONZA
 	sponza = rs->add_object("Models/sponza/sponza.obj");
+	auto material = rs->add_material(vec3(100), 1.0f);
+	sponzaAreaLight = rs->add_quad(vec3(0, -1, 0), vec3(0, 0, 0), 20.0f, 100.0f, material);
+	sponzaAreaLightRef = rs->add_instance(sponzaAreaLight, vec3(1), vec3(0, 60.0f, 0), 1.0f, vec3(1.0f));
 #endif
 #if PICA_LIGHTS
 	pointLight = rs->add_point_light(vec3(-15, 10, -5), vec3(20));

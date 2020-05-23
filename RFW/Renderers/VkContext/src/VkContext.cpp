@@ -107,7 +107,7 @@ void VkContext::init(std::shared_ptr<utils::Window> &window)
 	const auto device = pickPhysicalDevice();
 
 	m_Device = VulkanDevice(m_Instance, device, {VK_KHR_SWAPCHAIN_EXTENSION_NAME}, m_Surface);
-	m_LoaderDynamic = vk::DispatchLoaderDynamic(m_Instance, m_Device.getVkDevice());
+	m_LoaderDynamic.init(m_Instance, m_Device.getVkDevice());
 	setupDebugMessenger();
 
 	m_SwapChain = new SwapChain(m_Device, m_Surface);

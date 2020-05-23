@@ -118,7 +118,6 @@ uint MaterialList::add(const aiMaterial *aiMat, const std::string_view &basedir)
 		const std::string file = base + str.C_Str();
 
 		const uint idx = getTextureIndex(file);
-
 		switch (i)
 		{
 		case (0):

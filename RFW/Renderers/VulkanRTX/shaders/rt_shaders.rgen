@@ -172,7 +172,7 @@ void main()
 			0 /*sbtRecordStride*/,
 			0 /*missIndex*/,
 			O /*origin*/,
-			10 * camera.geometryEpsilon,
+			100 * camera.geometryEpsilon,
 			D.xyz /*direction*/,
 			D.w - 2.0 * camera.geometryEpsilon /*tmax*/,
 			1 /*payload location*/

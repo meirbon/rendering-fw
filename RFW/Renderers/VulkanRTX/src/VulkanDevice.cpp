@@ -152,7 +152,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 
 	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName);
 
-	m_Members->m_DynamicDispatcher = vk::DispatchLoaderDynamic(instance, m_Members->m_VkDevice);
+	m_Members->m_DynamicDispatcher.init(instance, m_Members->m_VkDevice);
 
 	VmaAllocatorCreateInfo allocCreateInfo{};
 	allocCreateInfo.physicalDevice = (VkPhysicalDevice)physicalDevice;
@@ -188,7 +188,7 @@ vk::CommandBuffer VulkanDevice::createCommandBuffer(vk::CommandBufferLevel level
 	commandBufferAllocInfo.setCommandPool(m_Members->m_CommandPools.at(m_Members->queueCmdPoolIndices[type]));
 	commandBufferAllocInfo.setLevel(level);
 	commandBufferAllocInfo.setCommandBufferCount(1);
-
+	
 	vk::CommandBuffer cmdBuffer;
 	CheckVK(m_Members->m_VkDevice.allocateCommandBuffers(&commandBufferAllocInfo, &cmdBuffer));
 	return cmdBuffer;

@@ -269,7 +269,7 @@ void main()
         }
 
         mapNormal = normalize(mapNormal);
-        normal = normalize(normal * T + mapNormal * B + mapNormal * normal);
+        normal = normalize(mapNormal.x * T + mapNormal.y * B + mapNormal.z * normal);
     }
 
     Color = vec4(normal, Pos.w);

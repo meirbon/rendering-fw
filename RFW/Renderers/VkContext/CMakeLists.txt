@@ -15,10 +15,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT)
 
 find_package(Threads REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
+find_package(Vulkan REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE GLEW::GLEW glfw Threads::Threads RenderSystem)
+target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan GLEW::GLEW glfw Threads::Threads RenderContext rfwMath rfwUtils)
 target_link_libraries(${PROJECT_NAME} PUBLIC unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)

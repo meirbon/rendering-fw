@@ -22,7 +22,7 @@
 
 #include <GL/glew.h>
 
-#include "../../../RenderSystem/utils/src/utils.h"
+#include <utils.h>
 #include <BlueNoise.h>
 #include <utils/gl/CheckGL.h>
 #include <utils/Timer.h>
@@ -114,7 +114,8 @@ struct Counters // 14 counters
 		probedTriid = 0;
 		probedDist = 0;
 		clampValue = ClampValue;
-		lightCounts = uvec4(lightCount.areaLightCount, lightCount.pointLightCount, lightCount.spotLightCount, lightCount.directionalLightCount);
+		lightCounts = uvec4(lightCount.areaLightCount, lightCount.pointLightCount, lightCount.spotLightCount,
+							lightCount.directionalLightCount);
 	}
 
 	uint pathLength;
@@ -154,13 +155,15 @@ class Context : public rfw::RenderContext
 
 	void cleanup() override;
 	void render_frame(const rfw::Camera &camera, rfw::RenderStatus status) override;
-	void set_materials(const std::vector<rfw::DeviceMaterial> &materials, const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
+	void set_materials(const std::vector<rfw::DeviceMaterial> &materials,
+					   const std::vector<rfw::MaterialTexIds> &texDescriptors) override;
 	void set_textures(const std::vector<rfw::TextureData> &textures) override;
 	void set_mesh(size_t index, const rfw::Mesh &mesh) override;
 	void set_instance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform) override;
 	void set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height) override;
-	void set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights, const rfw::DevicePointLight *pointLights,
-					const rfw::DeviceSpotLight *spotLights, const rfw::DeviceDirectionalLight *directionalLights) override;
+	void set_lights(rfw::LightCount lightCount, const rfw::DeviceAreaLight *areaLights,
+					const rfw::DevicePointLight *pointLights, const rfw::DeviceSpotLight *spotLights,
+					const rfw::DeviceDirectionalLight *directionalLights) override;
 	void get_probe_results(unsigned int *instanceIndex, unsigned int *primitiveIndex, float *distance) const override;
 	[[nodiscard]] rfw::AvailableRenderSettings get_settings() const override;
 	void set_setting(const rfw::RenderSetting &setting) override;

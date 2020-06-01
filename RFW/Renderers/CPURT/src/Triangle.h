@@ -2,7 +2,9 @@
 
 #include <glm/glm.hpp>
 #include "Ray.h"
-#include <rfw.h>
+
+#include <Structures.h>
+#include <bvh/BVH.h>
 
 #define EPSILON_TRIANGLE 0.0001f
 

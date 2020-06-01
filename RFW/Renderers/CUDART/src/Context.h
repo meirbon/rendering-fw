@@ -2,6 +2,8 @@
 
 #include "PCH.h"
 
+#include <memory>
+
 namespace rfw
 {
 
@@ -42,15 +44,15 @@ class CUDAContext : public RenderContext
 	bvh::TopLevelBVH m_TopLevelBVH = {};
 	std::vector<uint> m_InstanceMeshIDs;
 
-	std::vector<bvh::rfwMesh *> m_Meshes;
-	CUDABuffer<InstanceBVHDescriptor> *m_InstanceDescriptors = nullptr;
+	std::vector<std::unique_ptr<bvh::rfwMesh>> m_Meshes;
+	std::unique_ptr<CUDABuffer<InstanceBVHDescriptor>> m_InstanceDescriptors = nullptr;
 
-	std::vector<CUDABuffer<glm::vec4> *> m_MeshVertices;
-	std::vector<CUDABuffer<glm::uvec3> *> m_MeshIndices;
-	std::vector<CUDABuffer<rfw::DeviceTriangle> *> m_MeshTriangles;
-	std::vector<CUDABuffer<bvh::BVHNode> *> m_MeshBVHs;
-	std::vector<CUDABuffer<bvh::MBVHNode> *> m_MeshMBVHs;
-	std::vector<CUDABuffer<unsigned int> *> m_MeshBVHPrimIndices;
+	std::vector<std::unique_ptr<CUDABuffer<glm::vec4>>> m_MeshVertices;
+	std::vector<std::unique_ptr<CUDABuffer<glm::uvec3>>> m_MeshIndices;
+	std::vector<std::unique_ptr<CUDABuffer<rfw::DeviceTriangle>>> m_MeshTriangles;
+	std::vector<std::unique_ptr<CUDABuffer<bvh::BVHNode>>> m_MeshBVHs;
+	std::vector<std::unique_ptr<CUDABuffer<bvh::MBVHNode>>> m_MeshMBVHs;
+	std::vector<std::unique_ptr<CUDABuffer<unsigned int>>> m_MeshBVHPrimIndices;
 
 	// CUDABuffer<glm::vec4 *> *m_InstanceVertexPointers = nullptr;
 	// CUDABuffer<glm::uvec3 *> *m_InstanceIndexPointers = nullptr;
@@ -58,39 +60,38 @@ class CUDAContext : public RenderContext
 	// CUDABuffer<bvh::MBVHNode *> *m_InstanceMBVHPointers = nullptr;
 	// CUDABuffer<uint *> *m_InstancePrimIdPointers = nullptr;
 
-	CUDABuffer<bvh::BVHNode> *m_TopLevelCUDABVH = nullptr;
-	CUDABuffer<bvh::MBVHNode> *m_TopLevelCUDAMBVH = nullptr;
-	CUDABuffer<unsigned int> *m_TopLevelCUDAPrimIndices = nullptr;
-	CUDABuffer<bvh::AABB> *m_TopLevelCUDAABBs = nullptr;
-	CUDABuffer<glm::mat4> *m_CUDAInstanceTransforms = nullptr;
-	CUDABuffer<glm::mat4> *m_CUDAInverseTransforms = nullptr;
+	std::unique_ptr<CUDABuffer<bvh::BVHNode>> m_TopLevelCUDABVH = nullptr;
+	std::unique_ptr<CUDABuffer<bvh::MBVHNode>> m_TopLevelCUDAMBVH = nullptr;
+	std::unique_ptr<CUDABuffer<unsigned int>> m_TopLevelCUDAPrimIndices = nullptr;
+	std::unique_ptr<CUDABuffer<glm::mat4>> m_CUDAInstanceTransforms = nullptr;
+	std::unique_ptr<CUDABuffer<glm::mat4>> m_CUDAInverseTransforms = nullptr;
 
 	GLuint m_TargetID;
 	GLuint m_Width, m_Height;
 	bool m_InitializedGlew = false;
 	TextureInterop m_CUDASurface;
-	CUDABuffer<Counters> *m_Counters = nullptr;
-	CUDABuffer<glm::vec4> *m_FloatTextures = nullptr;
-	CUDABuffer<uint> *m_UintTextures = nullptr;
-	CUDABuffer<glm::vec3> *m_Skybox = nullptr;
+	std::unique_ptr<CUDABuffer<Counters>> m_Counters = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec4>> m_FloatTextures = nullptr;
+	std::unique_ptr<CUDABuffer<uint>> m_UintTextures = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec3>> m_Skybox = nullptr;
 
 	std::vector<rfw::TextureData> m_TexDescriptors;
-	CUDABuffer<uint *> *m_TextureBuffersPointers = nullptr;
+	std::unique_ptr<CUDABuffer<uint *>> m_TextureBuffersPointers = nullptr;
 
-	CUDABuffer<rfw::DeviceMaterial> *m_Materials = nullptr;
-	CUDABuffer<rfw::CameraView> *m_CameraView = nullptr;
-	CUDABuffer<glm::vec4> *m_Accumulator = nullptr;
-	CUDABuffer<glm::vec4> *m_PathStates = nullptr;
-	CUDABuffer<glm::vec4> *m_PathOrigins = nullptr;
-	CUDABuffer<glm::vec4> *m_PathDirections = nullptr;
-	CUDABuffer<glm::vec4> *m_PathThroughputs = nullptr;
-	CUDABuffer<PotentialContribution> *m_ConnectData = nullptr;
-	CUDABuffer<unsigned int> *m_BlueNoise = nullptr;
+	std::unique_ptr<CUDABuffer<rfw::DeviceMaterial>> m_Materials = nullptr;
+	std::unique_ptr<CUDABuffer<rfw::CameraView>> m_CameraView = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec4>> m_Accumulator = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec4>> m_PathStates = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec4>> m_PathOrigins = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec4>> m_PathDirections = nullptr;
+	std::unique_ptr<CUDABuffer<glm::vec4>> m_PathThroughputs = nullptr;
+	std::unique_ptr<CUDABuffer<PotentialContribution>> m_ConnectData = nullptr;
+	std::unique_ptr<CUDABuffer<unsigned int>> m_BlueNoise = nullptr;
 
-	CUDABuffer<rfw::DeviceAreaLight> *m_AreaLights = nullptr;
-	CUDABuffer<rfw::DevicePointLight> *m_PointLights = nullptr;
-	CUDABuffer<rfw::DeviceSpotLight> *m_SpotLights = nullptr;
-	CUDABuffer<rfw::DeviceDirectionalLight> *m_DirectionalLights = nullptr;
+	std::unique_ptr<CUDABuffer<rfw::DeviceAreaLight>> m_AreaLights = nullptr;
+	std::unique_ptr<CUDABuffer<rfw::DevicePointLight>> m_PointLights = nullptr;
+	std::unique_ptr<CUDABuffer<rfw::DeviceSpotLight>> m_SpotLights = nullptr;
+	std::unique_ptr<CUDABuffer<rfw::DeviceDirectionalLight>> m_DirectionalLights = nullptr;
 
 	unsigned int m_ProbedInstance = 0;
 	unsigned int m_ProbedPrim = 0;

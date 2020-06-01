@@ -1,16 +1,21 @@
 #pragma once
 
+#include <utils/gl/GLBuffer.h>
+#include <utils/gl/GLShader.h>
+#include <utils/gl/VertexArray.h>
+#include <utils/gl/GLTexture.h>
+
 namespace rfw
 {
 class GLMesh
 {
 	struct SubMesh
 	{
-		uint matID = 0;
-		uint first = 0;
-		uint last = 0;
-		uint count = 0;
-		utils::Buffer<uint, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> *indexBuffer = nullptr;
+		unsigned int matID = 0;
+		unsigned int first = 0;
+		unsigned int last = 0;
+		unsigned int count = 0;
+		utils::Buffer<unsigned int, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW> *indexBuffer = nullptr;
 	};
 
   public:
@@ -26,7 +31,8 @@ class GLMesh
 
 	utils::GLVertexArray vao;
 
-	void draw(utils::GLShader &shader, uint count, const DeviceMaterial *materials, const utils::GLTexture *textures) const;
+	void draw(utils::GLShader &shader, unsigned int count, const DeviceMaterial *materials,
+			  const utils::GLTexture *textures) const;
 
   private:
 	std::vector<SubMesh> meshes;

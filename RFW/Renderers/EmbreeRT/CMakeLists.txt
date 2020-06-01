@@ -18,7 +18,7 @@ find_library(EMBREE3 embree3)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OpenGL::GL ${EMBREE3})
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext rfwMath rfwUtils GLEW::GLEW OpenGL::GL ${EMBREE3})
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${EMBREE_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME} PRIVATE ${EMBREE_LIBRARY})

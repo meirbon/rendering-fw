@@ -1,7 +1,9 @@
-#include "BVH.h"
+#include <bvh/BVH.h>
 
 #include <utils/Timer.h>
 #include <utils/Logger.h>
+
+#include <rtbvh.hpp>
 
 using namespace glm;
 using namespace rfw;
@@ -12,55 +14,45 @@ namespace rfw::bvh
 
 #define EDGE_INTERSECTION 0
 
+MBVHTree::MBVHTree() { static_assert(sizeof(rtbvh::RTMBVHNode) == sizeof(MBVHNode)); }
+
 MBVHTree::MBVHTree(BVHTree *orgTree) { this->bvh = orgTree; }
+MBVHTree::~MBVHTree() { reset(); }
 
-void MBVHTree::construct_bvh(bool printBuildTime)
+void MBVHTree::reset()
 {
-	mbvh_nodes.clear();
-	// Worst case, this BVH becomes as big as the original
-	mbvh_nodes.resize(bvh->bvh_nodes.size());
-	if (bvh->aabbs.empty())
-		return;
-
-	utils::Timer t{};
-	pool_ptr.store(1);
-	MBVHNode &mRootNode = mbvh_nodes[0];
-
-	if (bvh->pool_ptr <= 4) // Original tree first in single MBVH node
+	if (instance.has_value())
 	{
-		int num_children = 0;
-		mRootNode.merge_node(bvh->bvh_nodes[0], bvh->bvh_nodes, num_children);
+		rtbvh::free_mbvh(instance.value());
+		instance = std::nullopt;
 	}
-	else
-	{
-		mRootNode.merge_nodes(bvh->bvh_nodes[0], bvh->bvh_nodes, mbvh_nodes.data(), pool_ptr);
-	}
+}
 
-	mbvh_nodes.resize(pool_ptr);
-	if (printBuildTime)
-		utils::logger::log("Building MBVH took: %f ms. Poolptr: %i", t.elapsed(), pool_ptr.load());
-
-#ifndef NDEBUG
-	mbvh_nodes[0].validate(mbvh_nodes, bvh->prim_indices, pool_ptr, bvh->face_count);
-#endif
+void MBVHTree::construct()
+{
+	reset();
+	instance = rtbvh::create_mbvh(bvh->instance.value());
 }
 
 void MBVHTree::refit(const glm::vec4 *vertices)
 {
 	bvh->refit(vertices);
-	construct_bvh();
+	reset();
+	instance = rtbvh::create_mbvh(bvh->instance.value());
 }
 
 void MBVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
 	bvh->refit(vertices, indices);
-	construct_bvh();
+	reset();
+	instance = rtbvh::create_mbvh(bvh->instance.value());
 }
 
 bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx,
 						glm::vec2 *bary)
 {
-	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx, mbvh_nodes.data(), bvh->prim_indices.data(),
+	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx,
+								   reinterpret_cast<const MBVHNode *>(instance.value().nodes), instance.value().indices,
 								   [&](uint primID) {
 									   const vec3 &p0 = bvh->p0s[primID];
 									   const vec3 &e1 = bvh->edge1s[primID];
@@ -106,7 +98,8 @@ bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_m
 
 bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx)
 {
-	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx, mbvh_nodes.data(), bvh->prim_indices.data(),
+	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx,
+								   reinterpret_cast<const MBVHNode *>(instance.value().nodes), instance.value().indices,
 								   [&](uint primID) {
 									   const vec3 &p0 = bvh->p0s[primID];
 									   const vec3 &e1 = bvh->edge1s[primID];
@@ -234,14 +227,16 @@ int MBVHTree::traverse4(const float origin_x[4], const float origin_y[4], const 
 		return storage_mask;
 	};
 
-	return MBVHNode::traverse_mbvh4(origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, primID, mbvh_nodes.data(),
-									bvh->prim_indices.data(), hit_mask, intersection);
+	return MBVHNode::traverse_mbvh4(origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, primID,
+									reinterpret_cast<const MBVHNode *>(instance.value().nodes),
+									instance.value().indices, hit_mask, intersection);
 }
 
 bool MBVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max)
 {
-	return MBVHNode::traverse_mbvh_shadow(origin, dir, t_min, t_max, mbvh_nodes.data(), bvh->prim_indices.data(),
-										  [&](uint primID) {
+	return MBVHNode::traverse_mbvh_shadow(origin, dir, t_min, t_max,
+										  reinterpret_cast<const MBVHNode *>(instance.value().nodes),
+										  instance.value().indices, [&](uint primID) {
 											  const vec3 &p0 = bvh->p0s[primID];
 											  const vec3 &e1 = bvh->edge1s[primID];
 											  const vec3 &e2 = bvh->edge2s[primID];
@@ -272,4 +267,5 @@ bool MBVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, fl
 										  });
 }
 
+AABB MBVHTree::get_aabb() const { return bvh->get_aabb(); }
 } // namespace rfw::bvh

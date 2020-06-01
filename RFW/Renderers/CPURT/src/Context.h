@@ -11,8 +11,6 @@
 
 #include <GL/glew.h>
 
-#include <rfw.h>
-
 #define PACKET_WIDTH 4
 
 namespace rfw

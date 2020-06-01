@@ -23,7 +23,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 target_compile_definitions(${PROJECT_NAME} PRIVATE RENDER_API_EXPORT)
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src ${CUDA_TOOLKIT_ROOT_DIR}/include RenderSystem ../RenderContext ../RenderSystem/src)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/assets/kernels)
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OptiX6 OptiX6u OptiX6prime ${CUDA_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext rfwMath rfwUtils GLEW::GLEW OptiX6 OptiX6u OptiX6prime ${CUDA_LIBRARIES})
 
 
 target_compile_options(${PROJECT_NAME} PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-expt-relaxed-constexpr>)

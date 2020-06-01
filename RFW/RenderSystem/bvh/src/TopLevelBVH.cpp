@@ -1,4 +1,9 @@
-#include "BVH.h"
+#include <bvh/BVH.h>
+
+#include <utils/Logger.h>
+#include <utils/Timer.h>
+
+#include <tbb/parallel_for.h>
 
 #define USE_TOP_MBVH 1
 #define USE_MBVH 1
@@ -20,23 +25,23 @@ void rfwMesh::set_geometry(const rfw::Mesh &mesh)
 
 	const bool rebuild = !bvh || (vertexCount != mesh.vertexCount);
 
-	vertexCount = int(mesh.vertexCount);
-	triangleCount = int(mesh.triangleCount);
+	vertexCount = static_cast<int>(mesh.vertexCount);
+	triangleCount = static_cast<int>(mesh.triangleCount);
 
-#if REFIT
 	if (rebuild) // Full rebuild of BVH
 	{
-		delete bvh;
-		delete mbvh;
+		const int vCount = static_cast<int>(mesh.vertexCount);
+		const int tCount = static_cast<int>(mesh.triangleCount);
 
 		if (mesh.hasIndices())
-			bvh = new BVHTree(mesh.vertices, int(mesh.vertexCount), mesh.indices, int(mesh.triangleCount));
+			bvh = std::make_unique<BVHTree>(mesh.vertices, vCount, mesh.indices, tCount);
 		else
-			bvh = new BVHTree(mesh.vertices, int(mesh.vertexCount));
+			bvh = std::make_unique<BVHTree>(mesh.vertices, vCount);
 
-		bvh->construct_bvh();
-		mbvh = new MBVHTree(bvh);
-		mbvh->construct_bvh();
+		bvh->construct(BVHTree::SpatialSAH);
+
+		mbvh = std::make_unique<MBVHTree>(bvh.get());
+		mbvh->construct();
 	}
 	else // Keep same BVH but refit nodes
 	{
@@ -45,147 +50,55 @@ void rfwMesh::set_geometry(const rfw::Mesh &mesh)
 		else
 			mbvh->refit(mesh.vertices);
 	}
-#else
-	delete bvh;
-	delete mbvh;
-
-	if (mesh.hasIndices())
-		bvh = new BVHTree(mesh.vertices, mesh.vertexCount, mesh.indices, mesh.triangleCount);
-	else
-		bvh = new BVHTree(mesh.vertices, mesh.vertexCount);
-
-	bvh->construct_bvh();
-	mbvh = new MBVHTree(bvh);
-	mbvh->construct_bvh();
-#endif
 }
 
 void TopLevelBVH::construct_bvh()
 {
-	bvh_nodes.clear();
-	AABB rootBounds = {};
-	for (const auto &aabb : instance_aabbs)
-		rootBounds.grow(aabb);
-
-	bvh_nodes.resize(aabbs.size() * 2);
-	prim_indices.resize(aabbs.size());
-	for (uint i = 0, s = static_cast<uint>(prim_indices.size()); i < s; i++)
-		prim_indices[i] = i;
-
-	pool_ptr.store(2);
-	bvh_nodes[0].bounds = rootBounds;
-	bvh_nodes[0].bounds.leftFirst = 0;
-	bvh_nodes[0].bounds.count = static_cast<int>(instance_aabbs.size());
-
-	// Use less split bins to speed up construction
-	// allow only 1 primitive per node as intersecting nodes is cheaper than intersecting bottom level BVHs
-	bvh_nodes[0].subdivide<7, 32, 1>(instance_aabbs.data(), bvh_nodes.data(), prim_indices.data(), 1, pool_ptr);
-	if (pool_ptr > 2)
+	if (bvh.has_value())
 	{
-		bvh_nodes[0].bounds.count = -1;
-		bvh_nodes[0].set_left_first(2);
-	}
-	else
-	{
-		bvh_nodes[0].bounds.count = static_cast<int>(instance_aabbs.size());
-		bvh_nodes[0].set_left_first(0);
-	}
-	bvh_nodes.resize(bvh_nodes.size());
-
-	mbvh_nodes.resize(bvh_nodes.size()); // We'll store at most the original nodes in terms of size
-	if (pool_ptr <= 4)
-	{
-		int num_children = 0;
-		mbvh_nodes[0].merge_node(bvh_nodes[0], bvh_nodes, num_children);
-	}
-	else
-	{
-		mpool_ptr.store(1);
-		mbvh_nodes[0].merge_nodes(bvh_nodes[0], bvh_nodes, mbvh_nodes.data(), mpool_ptr);
+		rtbvh::free_bvh(bvh.value());
+		bvh = std::nullopt;
 	}
 
-	mbvh_nodes.resize(mbvh_nodes.size());
+	bvh = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(instance_aabbs.data()), instance_aabbs.size(),
+							reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
+							rtbvh::BVHType::BinnedSAH);
+
+	if (mbvh.has_value())
+	{
+		rtbvh::free_mbvh(mbvh.value());
+		mbvh = std::nullopt;
+	}
+
+	mbvh = rtbvh::create_mbvh(bvh.value());
 }
 
 void TopLevelBVH::refit()
 {
 	if (count_changed)
 	{
-		bvh_nodes.clear();
-		AABB rootBounds = {};
-		for (const auto &aabb : instance_aabbs)
-			rootBounds.grow(aabb);
-
-		bvh_nodes.resize(aabbs.size() * 2);
-		prim_indices.resize(aabbs.size());
-		for (uint i = 0, s = static_cast<uint>(prim_indices.size()); i < s; i++)
-			prim_indices[i] = i;
-
-		pool_ptr.store(2);
-		bvh_nodes[0].bounds = rootBounds;
-		bvh_nodes[0].bounds.leftFirst = 0;
-		bvh_nodes[0].bounds.count = static_cast<int>(instance_aabbs.size());
-
-		// Use less split bins to speed up construction
-		// allow only 1 primitive per node as intersecting nodes is cheaper than intersecting bottom level BVHs
-		bvh_nodes[0].subdivide<7, 32, 1>(instance_aabbs.data(), bvh_nodes.data(), prim_indices.data(), 1, pool_ptr);
-		if (pool_ptr > 2)
+		if (bvh.has_value())
 		{
-			bvh_nodes[0].bounds.count = -1;
-			bvh_nodes[0].set_left_first(2);
+			rtbvh::free_bvh(bvh.value());
+			bvh = std::nullopt;
 		}
-		else
-		{
-			bvh_nodes[0].bounds.count = static_cast<int>(instance_aabbs.size());
-			bvh_nodes[0].set_left_first(0);
-		}
+
+		bvh = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(instance_aabbs.data()), instance_aabbs.size(),
+								reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
+								rtbvh::BVHType::BinnedSAH);
 	}
 	else
 	{
-		AABB rootBounds = {};
-		for (const auto &aabb : instance_aabbs)
-			rootBounds.grow(aabb);
-
-		bvh_nodes[0].refit(bvh_nodes.data(), prim_indices.data(), instance_aabbs.data());
+		rtbvh::refit(reinterpret_cast<const rtbvh::RTAABB *>(instance_aabbs.data()), bvh.value());
 	}
 
-	if (pool_ptr <= 4) // Original tree first in single MBVH node
+	if (mbvh.has_value())
 	{
-		mbvh_nodes.resize(1);
-		MBVHNode &mRootNode = mbvh_nodes[0];
-		const AABB invalidAABB = AABB();
-
-		for (int i = 0, s = pool_ptr; i < s; i++)
-		{
-			BVHNode &curNode = bvh_nodes[i];
-
-			if (curNode.is_leaf())
-			{
-				mRootNode.childs[i] = curNode.get_left_first();
-				mRootNode.counts[i] = curNode.get_count();
-				mRootNode.set_bounds(i, curNode.bounds);
-			}
-			else
-			{
-				mRootNode.childs[i] = 0;
-				mRootNode.counts[i] = 0;
-				mRootNode.set_bounds(i, invalidAABB);
-			}
-		}
-
-		for (int i = pool_ptr; i < 4; i++)
-		{
-			mRootNode.childs[i] = 0;
-			mRootNode.counts[i] = 0;
-			mRootNode.set_bounds(i, invalidAABB);
-		}
+		rtbvh::free_mbvh(mbvh.value());
+		mbvh = std::nullopt;
 	}
-	else
-	{
-		mpool_ptr.store(1);
-		mbvh_nodes.resize(bvh_nodes.size()); // We'll store at most the original nodes in terms of size
-		mbvh_nodes[0].merge_nodes(bvh_nodes[0], bvh_nodes, mbvh_nodes.data(), mpool_ptr);
-	}
+
+	mbvh = rtbvh::create_mbvh(bvh.value());
 }
 
 const rfw::Triangle *TopLevelBVH::intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID,
@@ -195,11 +108,12 @@ const rfw::Triangle *TopLevelBVH::intersect(const vec3 &origin, const vec3 &dire
 	const simd::vector4 dir = vec4(direction, 0.0f);
 
 #if USE_TOP_MBVH
-	if (MBVHNode::traverse_mbvh(origin, direction, t_min, t, instID, mbvh_nodes.data(), prim_indices.data(),
+	if (MBVHNode::traverse_mbvh(origin, direction, t_min, t, instID,
+								reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices,
 								[&](const int instance) {
 #else
-	if (BVHNode::traverse_bvh(origin, direction, t_min, t, instID, bvh_nodes.data(), prim_indices.data(),
-							  [&](const int instance) {
+	if (BVHNode::traverse_bvh(origin, direction, t_min, t, instID, reinterpret_cast<const BVHNode *>(bvh.value().nodes),
+							  bvh.value().indices, [&](const int instance) {
 #endif
 									const simd::vector4 new_origin = inverse_matrices[instance] * org;
 									const simd::vector4 new_direction = inverse_matrices[instance] * dir;
@@ -227,11 +141,12 @@ const rfw::Triangle *TopLevelBVH::intersect(const vec3 &origin, const vec3 &dire
 	const simd::vector4 dir = vec4(direction, 0.0f);
 
 #if USE_TOP_MBVH
-	if (MBVHNode::traverse_mbvh(origin, direction, t_min, t, instID, mbvh_nodes.data(), prim_indices.data(),
+	if (MBVHNode::traverse_mbvh(origin, direction, t_min, t, instID,
+								reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices,
 								[&](const int instance) {
 #else
-	if (BVHNode::traverse_bvh(origin, direction, t_min, t, instID, bvh_nodes.data(), prim_indices.data(),
-							  [&](const int instance) {
+	if (BVHNode::traverse_bvh(origin, direction, t_min, t, instID, reinterpret_cast<const BVHNode *>(bvh.value().nodes),
+							  bvh.value().indices, [&](const int instance) {
 #endif
 									const simd::vector4 new_origin = inverse_matrices[instance] * org;
 									const simd::vector4 new_direction = inverse_matrices[instance] * dir;
@@ -257,10 +172,12 @@ bool TopLevelBVH::is_occluded(const vec3 &origin, const vec3 &direction, float t
 
 #if USE_TOP_MBVH
 	return MBVHNode::traverse_mbvh_shadow(
-		origin, direction, t_min, t_max, mbvh_nodes.data(), prim_indices.data(), [&](const int instance) {
+		origin, direction, t_min, t_max, reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices,
+		[&](const int instance) {
 #else
-	BVHNode::traverse_bvh_shadow(
-		origin, direction, t_min, t_max, bvh_nodes.data(), prim_indices.data(), [&](const int instance) {
+	return BVHNode::traverse_bvh_shadow(
+		origin, direction, t_min, t_max, reinterpret_cast<const BVHNode *>(bvh.value().nodes), bvh.value().indices,
+		[&](const int instance) {
 #endif
 			const vec3 new_origin = inverse_matrices[instance] * vec4(origin, 1);
 			const vec3 new_direction = inverse_matrices[instance] * vec4(direction, 0);
@@ -352,7 +269,7 @@ int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z
 		const float *dy = reinterpret_cast<float *>(&new_direction_y);
 		const float *dz = reinterpret_cast<float *>(&new_direction_z);
 
-#if TOP_PACKET_MBVH
+#if PACKET_MBVH
 		return instance_meshes[instance]->mbvh->traverse4(ox, oy, oz, dx, dy, dz, t, primID, t_min, inst_mask);
 #else
 		return instance_meshes[instance]->bvh->traverse4(ox, oy, oz, dx, dy, dz, t, primID, t_min, inst_mask);
@@ -360,12 +277,14 @@ int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z
 	};
 
 	__m128 mask = _mm_setzero_ps();
-#if PACKET_MBVH
+#if TOP_PACKET_MBVH
 	return MBVHNode::traverse_mbvh4(origin_x, origin_y, origin_z, direction_x, direction_y, direction_z, t, instID,
-									mbvh_nodes.data(), prim_indices.data(), &mask, intersection);
+									reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices, &mask,
+									intersection);
 #else
 	return BVHNode::traverse_bvh4(origin_x, origin_y, origin_z, direction_x, direction_y, direction_z, t, instID,
-								  bvh_nodes.data(), prim_indices.data(), &mask, intersection);
+								  reinterpret_cast<const BVHNode *>(bvh.value().nodes), bvh.value().indices, &mask,
+								  intersection);
 #endif
 }
 
@@ -382,6 +301,7 @@ void TopLevelBVH::set_instance(size_t idx, glm::mat4 transform, rfwMesh *tree, A
 		matrices.push_back(m);
 		normal_matrices.push_back(m);
 		inverse_matrices.push_back(m);
+		centers.emplace_back();
 	}
 
 	aabbs[idx] = boundingBox;
@@ -390,6 +310,7 @@ void TopLevelBVH::set_instance(size_t idx, glm::mat4 transform, rfwMesh *tree, A
 	inverse_matrices[idx] = inverse(transform);
 	normal_matrices[idx] = mat4(transpose(inverse(mat3(transform))));
 	instance_aabbs[idx] = calculate_world_bounds(boundingBox, matrices[idx]);
+	centers[idx] = instance_aabbs[idx].center().vec;
 }
 
 AABB TopLevelBVH::calculate_world_bounds(const AABB &originalBounds, const simd::matrix4 &matrix)
@@ -427,6 +348,8 @@ const rfw::Triangle &TopLevelBVH::get_triangle(int instID, int primID) const
 }
 
 const rfw::simd::matrix4 &TopLevelBVH::get_normal_matrix(int instID) const { return normal_matrices[instID]; }
+
+const simd::matrix4 &TopLevelBVH::get_inverse_matrix(int instID) const { return inverse_matrices[instID]; }
 
 const rfw::simd::matrix4 &TopLevelBVH::get_instance_matrix(int instID) const { return matrices[instID]; }
 

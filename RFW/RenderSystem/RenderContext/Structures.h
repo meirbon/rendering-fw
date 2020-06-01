@@ -59,16 +59,9 @@ struct Triangle
 	glm::vec3 vertex2; // 156
 	float dummy3;	   // 160 bytes.
 
-	static float calculateArea(const glm::vec3 &v0, const glm::vec3 &v1, const glm::vec3 &v2)
-	{
-		const float a = length(v1 - v0);
-		const float b = length(v2 - v1);
-		const float c = length(v0 - v2);
-		const float s = (a + b + c) * 0.5f;
-		return sqrtf(s * (s - a) * (s - b) * (s - c)); // Heron's formula
-	}
+	static float calculateArea(const glm::vec3 &v0, const glm::vec3 &v1, const glm::vec3 &v2);
 
-	void updateArea() { area = calculateArea(vertex0, vertex1, vertex2); }
+	void updateArea();
 };
 
 enum MatPropFlags

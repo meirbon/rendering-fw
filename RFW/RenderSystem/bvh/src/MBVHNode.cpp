@@ -1,4 +1,4 @@
-#include "BVH.h"
+#include <bvh/BVH.h>
 
 #include <utils/Logger.h>
 
@@ -20,13 +20,13 @@ void MBVHNode::set_bounds(unsigned int nodeIdx, const vec3 &min, const vec3 &max
 
 void MBVHNode::set_bounds(unsigned int nodeIdx, const AABB &bounds)
 {
-	this->bminx[nodeIdx] = bounds.xMin;
-	this->bminy[nodeIdx] = bounds.yMin;
-	this->bminz[nodeIdx] = bounds.zMin;
+	this->bminx[nodeIdx] = bounds.bmin[0];
+	this->bminy[nodeIdx] = bounds.bmin[1];
+	this->bminz[nodeIdx] = bounds.bmin[2];
 
-	this->bmaxx[nodeIdx] = bounds.xMax;
-	this->bmaxy[nodeIdx] = bounds.yMax;
-	this->bmaxz[nodeIdx] = bounds.zMax;
+	this->bmaxx[nodeIdx] = bounds.bmax[0];
+	this->bmaxy[nodeIdx] = bounds.bmax[1];
+	this->bmaxz[nodeIdx] = bounds.bmax[2];
 }
 
 MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float rayt) const
@@ -40,7 +40,8 @@ MBVHHit MBVHNode::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, f
 
 	__m256 org_component = _mm256_set1_ps(org.x);
 	__m256 dir_component = _mm256_set1_ps(dirInverse.x);
-	union {
+	union
+	{
 		__m256 t1_2;
 		__m128 t[2];
 	};
@@ -137,7 +138,8 @@ MBVHHit MBVHNode::intersect4(const float origin_x[4], const float origin_y[4], c
 		__m256 org_component = _mm256_set1_ps(origin_x[i]);
 		__m256 dir_component = _mm256_set1_ps(inv_direction_x[i]);
 
-		union {
+		union
+		{
 			__m256 t1_2;
 			__m128 t[2];
 		};

@@ -93,7 +93,8 @@ struct Ray
 {
 	struct CameraParams
 	{
-		CameraParams(const rfw::CameraView &view, uint samples, float epsilon, uint width, uint height);
+		CameraParams(const rfw::CameraView &view, unsigned int samples, float epsilon, unsigned int width,
+					 unsigned int height);
 		glm::vec4 pos_lensSize;
 		glm::vec4 right_spreadAngle;
 		glm::vec4 up;
@@ -121,8 +122,8 @@ struct Ray
 
 	static Ray generateFromView(const CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3);
 	static RayPacket4 generate_ray4(const CameraParams &camera, const int x[4], const int y[4],
-								   rfw::utils::RandomGenerator *rng);
+									rfw::utils::RandomGenerator *rng);
 	static RayPacket8 generate_ray8(const CameraParams &camera, const int x[8], const int y[8],
-								   rfw::utils::RandomGenerator *rng);
+									rfw::utils::RandomGenerator *rng);
 };
 } // namespace cpurt

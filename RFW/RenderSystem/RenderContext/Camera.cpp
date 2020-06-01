@@ -1,6 +1,9 @@
-#include "rfw.h"
+#include "Camera.h"
+
+#include <utils/File.h>
 
 using namespace rfw;
+using namespace glm;
 
 const float Camera::DEFAULT_BRIGHTNESS = 0.05f;
 const float Camera::DEFAULT_CONTRAST = 1.f;

@@ -1,9 +1,5 @@
-//
-// Created by Mèir Noordermeer on 2019-08-20.
-//
+#pragma once
 
-#ifndef RENDERING_FW_UTILS_WINDOW_H
-#define RENDERING_FW_UTILS_WINDOW_H
 #include <GL/glew.h>
 
 #include <cstdarg>
@@ -167,8 +163,9 @@ enum Mousekey
 class Window
 {
   public:
-	Window(int width, int height, const char *title, bool resizable = false, bool hidpi = false, std::optional<std::pair<uint, uint>> glVersion = std::nullopt,
-		   std::optional<uint> msaa = std::nullopt)
+	Window(int width, int height, const char *title, bool resizable = false, bool hidpi = false,
+		   std::optional<std::pair<unsigned int, unsigned int>> glVersion = std::nullopt,
+		   std::optional<unsigned int> msaa = std::nullopt)
 	{
 		m_Flags[HIDPI] = hidpi;
 		if (glfwInit() != GLFW_TRUE)
@@ -362,14 +359,26 @@ class Window
 		return height;
 	}
 
-	inline void addMousePosCallback(std::function<void(double, double, double, double)> callback) { m_PosCallbacks.emplace_back(callback); }
-	inline void addKeysCallback(std::function<void(const std::vector<bool> &, const std::vector<bool> &)> callback) { m_KeysCallbacks.emplace_back(callback); }
-	inline void addScrollCallback(std::function<void(double, double)> callback) { m_ScrollCallbacks.emplace_back(callback); }
+	inline void addMousePosCallback(std::function<void(double, double, double, double)> callback)
+	{
+		m_PosCallbacks.emplace_back(callback);
+	}
+	inline void addKeysCallback(std::function<void(const std::vector<bool> &, const std::vector<bool> &)> callback)
+	{
+		m_KeysCallbacks.emplace_back(callback);
+	}
+	inline void addScrollCallback(std::function<void(double, double)> callback)
+	{
+		m_ScrollCallbacks.emplace_back(callback);
+	}
 	inline void addResizeCallback(std::function<void(int, int)> callback) { m_ResizeCallbacks.emplace_back(callback); }
 
 	std::vector<std::function<void(int, int)>> &getResizeCallbacks() { return m_ResizeCallbacks; }
 	std::vector<std::function<void(double, double, double, double)>> &getMousePosCallbacks() { return m_PosCallbacks; }
-	std::vector<std::function<void(const std::vector<bool> &, const std::vector<bool> &)>> &getKeysCallbacks() { return m_KeysCallbacks; }
+	std::vector<std::function<void(const std::vector<bool> &, const std::vector<bool> &)>> &getKeysCallbacks()
+	{
+		return m_KeysCallbacks;
+	}
 	std::vector<std::function<void(double, double)>> &getScrollCallbacks() { return m_ScrollCallbacks; }
 
 	[[nodiscard]] inline const std::vector<bool> &getKeys() const { return keys; }
@@ -449,8 +458,10 @@ class Window
 		for (auto &callback : win->m_ResizeCallbacks)
 			callback(width, height);
 	}
-	static void errorCallback(int code, const char *message) { std::cout << "GLFW Error: " << code << " :: " << message << std::endl; }
+	static void errorCallback(int code, const char *message)
+	{
+		std::cout << "GLFW Error: " << code << " :: " << message << std::endl;
+	}
 };
 
 } // namespace rfw::utils
-#endif // RENDERING_FW_UTILS_WINDOW_H

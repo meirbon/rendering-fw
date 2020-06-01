@@ -143,7 +143,8 @@ template <typename T> inline __host__ __device__ void swap(T &a, T &b)
 
 struct MBVHHit
 {
-	union {
+	union
+	{
 		glm::vec4 tmin;
 		glm::ivec4 tmini;
 	};
@@ -306,9 +307,13 @@ __host__ __device__ bool intersect_mbvh(const glm::vec3 &org, const glm::vec3 &d
 			const int idx = (hit.tmini[i] & 0b11);
 			if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] >= 0)
 			{
-				stackptr++;
-				todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];
-				todo[stackptr].count = nodes[leftFirst].counts[idx];
+				const int left_first = nodes[leftFirst].childs[idx];
+				if (left_first >= 0)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = left_first;
+					todo[stackptr].count = nodes[leftFirst].counts[idx];
+				}
 			}
 		}
 	}
@@ -419,9 +424,13 @@ __host__ __device__ bool intersect_mbvh_shadow(const glm::vec3 &org, const glm::
 			const int idx = (hit.tmini[i] & 0b11);
 			if (hit.result[idx] == 1 && nodes[leftFirst].childs[idx] >= 0)
 			{
-				stackptr++;
-				todo[stackptr].leftFirst = nodes[leftFirst].childs[idx];
-				todo[stackptr].count = nodes[leftFirst].counts[idx];
+				const int left_first = nodes[leftFirst].childs[idx];
+				if (left_first >= 0)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = left_first;
+					todo[stackptr].count = nodes[leftFirst].counts[idx];
+				}
 			}
 		}
 	}

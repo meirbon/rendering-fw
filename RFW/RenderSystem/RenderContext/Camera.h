@@ -37,7 +37,7 @@ class Camera
 	void reset();
 
 	[[nodiscard]] rfw::CameraView get_view() const;
-	[[nodiscard]] mat4 get_matrix(float near = 0.1f, float far = 1e10f) const;
+	[[nodiscard]] glm::mat4 get_matrix(float near = 0.1f, float far = 1e10f) const;
 	void resize(int w, int h);
 	void look_at(const glm::vec3 &O, const glm::vec3 &T); // position the camera at O, looking at T
 	void translate_relative(const glm::vec3 &T);		  // move camera relative to orientation

@@ -19,7 +19,7 @@ class Xor128 : public rfw::utils::RandomGenerator
 
 	unsigned int RandomUint() override final
 	{
-		uint t;
+		unsigned int t;
 		t = x ^ (x << 11);
 		x = y;
 		y = z;

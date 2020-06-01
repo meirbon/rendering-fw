@@ -1,9 +1,12 @@
-#include "BVH.h"
+#include <bvh/BVH.h>
 
 #include <utils/Timer.h>
 #include <utils/Logger.h>
 
 #include <atomic>
+#include <tbb/parallel_for.h>
+
+#include <rtbvh.hpp>
 
 using namespace glm;
 using namespace rfw;
@@ -13,90 +16,108 @@ using namespace simd;
 namespace rfw::bvh
 {
 
+BVHTree::BVHTree()
+{
+	static_assert(sizeof(rtbvh::RTAABB) == sizeof(AABB));
+	static_assert(sizeof(rtbvh::RTBVHNode) == sizeof(BVHNode));
+};
+
 BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount) : vertex_count(vertexCount), face_count(vertexCount / 3)
 {
 	indices = nullptr;
-	pool_ptr.store(0);
-	reset();
 	set_vertices(vertices);
 }
 
 BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount, const glm::uvec3 *indices, int faceCount)
 	: vertex_count(vertexCount), face_count(faceCount)
 {
-	pool_ptr.store(0);
-	reset();
 	set_vertices(vertices, indices);
 }
 
-void BVHTree::construct_bvh(bool printBuildTime)
-{
-	assert(vertices);
-
-	if (face_count > 0)
-	{
-		utils::Timer t = {};
-		pool_ptr = 2;
-		bvh_nodes.emplace_back();
-		bvh_nodes.emplace_back();
-
-		auto &rootNode = bvh_nodes[0];
-		rootNode.bounds.leftFirst = 0;
-		rootNode.bounds.count = static_cast<int>(face_count);
-		rootNode.calculate_bounds(aabbs.data(), prim_indices.data());
-
-		// rootNode.Subdivide(m_AABBs.data(), m_BVHPool.data(), m_PrimitiveIndices.data(), 1, m_PoolPtr);
-		rootNode.subdivide_mt<7, 64, 5>(aabbs.data(), bvh_nodes.data(), prim_indices.data(), building_threads, 1,
-										pool_ptr);
-
-		if (pool_ptr > 2)
-		{
-			rootNode.bounds.count = -1;
-			rootNode.set_left_first(2);
-		}
-		else
-		{
-			rootNode.bounds.count = static_cast<int>(face_count);
-			rootNode.set_left_first(0);
-		}
-
-		bvh_nodes.resize(pool_ptr);
-
-		if (printBuildTime)
-			utils::logger::log("Building BVH took: %f ms for %i triangles. Poolptr: %i", t.elapsed(), face_count,
-							   pool_ptr.load());
-	}
-}
+BVHTree::~BVHTree() { reset(); }
 
 void BVHTree::reset()
 {
-	bvh_nodes.clear();
-	if (face_count > 0)
+	if (instance.has_value())
 	{
-		prim_indices.clear();
-		prim_indices.reserve(face_count);
-		for (int i = 0; i < face_count; i++)
-			prim_indices.push_back(i);
-		bvh_nodes.resize(face_count * 2);
+		rtbvh::free_bvh(instance.value());
+		instance = std::nullopt;
+	}
+}
+
+void BVHTree::construct(Type type)
+{
+	reset();
+	std::vector<glm::vec4> centers(face_count);
+	const glm::vec4 *verts = vertices;
+
+	tbb::parallel_for(0, face_count, [&](int i) {
+		if (indices)
+		{
+			const auto i0 = indices[i].x;
+			const auto i1 = indices[i].y;
+			const auto i2 = indices[i].z;
+			centers[i] = (vertices[i0] + vertices[i1] + vertices[i2]) * (1.0f / 3.0f);
+		}
+		else
+		{
+			const auto i0 = i * 3 + 0;
+			const auto i1 = i * 3 + 1;
+			const auto i2 = i * 3 + 2;
+			centers[i] = (vertices[i0] + vertices[i1] + vertices[i2]) * (1.0f / 3.0f);
+		}
+	});
+
+	switch (type)
+	{
+	case Type::BinnedSAH:
+		instance = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), face_count,
+									 reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
+									 rtbvh::BVHType::BinnedSAH);
+		break;
+	case Type::LocallyOrderedClustering:
+		instance = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), face_count,
+									 reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
+									 rtbvh::BVHType::LocallyOrderedClustered);
+		break;
+	case Type::SpatialSAH:
+	{
+		const glm::vec4 *verts = vertices;
+		if (indices)
+		{
+			// Use inlined vertices instead of indexed
+			verts = splat_vertices.data();
+		}
+
+		instance =
+			rtbvh::create_spatial_bvh(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), face_count,
+									  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
+									  reinterpret_cast<const float *>(verts), sizeof(glm::vec4), 3 * sizeof(glm::vec4));
+		break;
+	}
+
+	default:
+		break;
 	}
 }
 
 void BVHTree::refit(const glm::vec4 *vertices)
 {
 	set_vertices(vertices);
-	aabb = bvh_nodes[0].refit(bvh_nodes.data(), prim_indices.data(), aabbs.data());
+	rtbvh::refit(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), instance.value());
 }
 
 void BVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
 	set_vertices(vertices, indices);
-	aabb = bvh_nodes[0].refit(bvh_nodes.data(), prim_indices.data(), aabbs.data());
+	rtbvh::refit(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), instance.value());
 }
 
 bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx,
 					   glm::vec2 *bary)
 {
-	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx, bvh_nodes.data(), prim_indices.data(),
+	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx,
+								 reinterpret_cast<const BVHNode *>(instance.value().nodes), instance.value().indices,
 								 [&](uint primID) {
 									 const vec3 &p0 = p0s[primID];
 									 const vec3 &e1 = edge1s[primID];
@@ -174,7 +195,8 @@ bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_mi
 		return false;
 	};
 
-	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx, bvh_nodes.data(), prim_indices.data(),
+	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx,
+								 reinterpret_cast<const BVHNode *>(instance.value().nodes), instance.value().indices,
 								 intersection);
 }
 int BVHTree::traverse4(const float origin_x[4], const float origin_y[4], const float origin_z[4], const float dir_x[4],
@@ -323,14 +345,16 @@ int BVHTree::traverse4(const float origin_x[4], const float origin_y[4], const f
 #endif
 	};
 
-	return BVHNode::traverse_bvh4(origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, primID, bvh_nodes.data(),
-								  prim_indices.data(), hit_mask, intersection);
+	return BVHNode::traverse_bvh4(origin_x, origin_y, origin_z, dir_x, dir_y, dir_z, t, primID,
+								  reinterpret_cast<const BVHNode *>(instance.value().nodes), instance.value().indices,
+								  hit_mask, intersection);
 }
 
 bool BVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max)
 {
-	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max, bvh_nodes.data(), prim_indices.data(),
-										[&](uint primID) {
+	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max,
+										reinterpret_cast<const BVHNode *>(instance.value().nodes),
+										instance.value().indices, [&](uint primID) {
 											const vec3 &p0 = p0s[primID];
 											const vec3 &e1 = edge1s[primID];
 											const vec3 &e2 = edge2s[primID];
@@ -366,8 +390,6 @@ void BVHTree::set_vertices(const glm::vec4 *verts)
 	vertices = verts;
 	indices = nullptr;
 
-	aabb = AABB::invalid();
-
 	// Recalculate data
 	aabbs.resize(face_count);
 	p0s.resize(face_count);
@@ -387,7 +409,6 @@ void BVHTree::set_vertices(const glm::vec4 *verts)
 		aabbs[i].grow(p1);
 		aabbs[i].grow(p2);
 		aabbs[i].offset_by(1e-5f);
-		aabb.grow(aabbs[i]);
 
 		p0s[i] = p0;
 		edge1s[i] = p1 - p0;
@@ -400,21 +421,23 @@ void BVHTree::set_vertices(const glm::vec4 *verts, const glm::uvec3 *ids)
 	vertices = verts;
 	indices = ids;
 
-	aabb = AABB::invalid();
-
 	// Recalculate data
 	aabbs.resize(face_count);
 	p0s.resize(face_count);
 	edge1s.resize(face_count);
 	edge2s.resize(face_count);
+	splat_vertices.resize(face_count * 3);
 
-	for (int i = 0; i < face_count; i++)
-	{
+	tbb::parallel_for(0, face_count, [&](int i) {
 		const uvec3 &idx = indices[i];
 
 		const vec3 p0 = vec3(vertices[idx.x]);
 		const vec3 p1 = vec3(vertices[idx.y]);
 		const vec3 p2 = vec3(vertices[idx.z]);
+
+		splat_vertices[i * 3 + 0] = vec4(p0, 1.0f);
+		splat_vertices[i * 3 + 1] = vec4(p1, 1.0f);
+		splat_vertices[i * 3 + 2] = vec4(p2, 1.0f);
 
 		aabbs[i] = AABB::invalid();
 		aabbs[i].grow(p0);
@@ -422,11 +445,12 @@ void BVHTree::set_vertices(const glm::vec4 *verts, const glm::uvec3 *ids)
 		aabbs[i].grow(p2);
 		aabbs[i].offset_by(1e-5f);
 
-		aabb.grow(aabbs[i]);
-
 		p0s[i] = p0;
 		edge1s[i] = p1 - p0;
 		edge2s[i] = p2 - p0;
-	}
+	});
 }
+
+AABB BVHTree::get_aabb() const { return reinterpret_cast<const BVHNode *>(instance.value().nodes)[0].bounds; }
+
 } // namespace rfw::bvh

@@ -13,8 +13,8 @@ struct rfwMesh
 
 	void set_geometry(const Mesh &mesh);
 
-	BVHTree *bvh = nullptr;
-	MBVHTree *mbvh = nullptr;
+	std::unique_ptr<BVHTree> bvh;
+	std::unique_ptr<MBVHTree> mbvh;
 
 	const rfw::Triangle *triangles = nullptr;
 	const glm::vec4 *vertices = nullptr;
@@ -34,11 +34,13 @@ class TopLevelBVH
 
 	rfwMesh &get_mesh(const int ID) { return *instance_meshes[ID]; }
 
-	const rfw::Triangle *intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, int *instID, glm::vec2 *bary, float t_min = 1e-5f) const;
-	const rfw::Triangle *intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, int *instID, float t_min = 1e-5f) const;
+	const rfw::Triangle *intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, int *instID,
+								   glm::vec2 *bary, float t_min = 1e-5f) const;
+	const rfw::Triangle *intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID, int *instID,
+								   float t_min = 1e-5f) const;
 
-	int intersect4(float origin_x[4], float origin_y[4], float origin_z[4], float dir_x[4], float dir_y[4], float dir_z[4], float t[4], int primID[4],
-				   int instID[4], float t_min) const;
+	int intersect4(float origin_x[4], float origin_y[4], float origin_z[4], float dir_x[4], float dir_y[4],
+				   float dir_z[4], float t[4], int primID[4], int instID[4], float t_min) const;
 
 	bool is_occluded(const vec3 &origin, const vec3 &direction, float t_max, float t_min = 1e-5f) const;
 
@@ -48,6 +50,7 @@ class TopLevelBVH
 
 	const Triangle &get_triangle(int instID, int primID) const;
 	const simd::matrix4 &get_normal_matrix(int instID) const;
+	const simd::matrix4 &get_inverse_matrix(int instID) const;
 	const simd::matrix4 &get_instance_matrix(int instID) const;
 
 	bool count_changed = true;
@@ -55,11 +58,12 @@ class TopLevelBVH
 	std::atomic_int pool_ptr = 0;
 	std::atomic_int mpool_ptr = 0;
 	std::atomic_int thread_count = 0;
-	std::vector<BVHNode> bvh_nodes;
-	std::vector<MBVHNode> mbvh_nodes;
+	std::optional<rtbvh::RTBVH> bvh = std::nullopt;
+	std::optional<rtbvh::RTMBVH> mbvh = std::nullopt;
+
 	std::vector<AABB> aabbs;
 	std::vector<AABB> instance_aabbs;
-	std::vector<uint> prim_indices;
+	std::vector<glm::vec4> centers;
 
 	// Instance data
 	std::vector<rfwMesh *> instance_meshes;

@@ -73,7 +73,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, m_PboID);
 	m_Pixels = static_cast<glm::vec4 *>(glMapBuffer(GL_PIXEL_UNPACK_BUFFER_ARB, GL_WRITE_ONLY_ARB));
 	if (m_Pixels == nullptr)
-		throw RfwException("Could not obtain pointer to pixel buffer.");
+		throw std::runtime_error("Could not obtain pointer to pixel buffer.");
 
 	const auto camParams = cpurt::Ray::CameraParams(camera.get_view(), 0, 1e-5f, m_Width, m_Height);
 
@@ -82,188 +82,164 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	const auto timer = utils::Timer();
 
-	const auto s = static_cast<int>(m_Pool.size());
-
 #if PACKET_WIDTH == 4
-	constexpr int TILE_WIDTH = 2;
-	constexpr int TILE_HEIGHT = 2;
+	constexpr int TILE_WIDTH = 4;
+	constexpr int TILE_HEIGHT = 1;
 #elif PACKET_WIDTH == 8
 	constexpr int TILE_WIDTH = 4;
 	constexpr int TILE_HEIGHT = 2;
 #endif
 
-	int wTiles = m_Width / TILE_WIDTH;
-	int hTiles = m_Height / TILE_HEIGHT;
-
-	if (m_Width % TILE_WIDTH)
-		wTiles = m_Width + (TILE_WIDTH - m_Width % TILE_WIDTH);
-	if (m_Height % TILE_WIDTH)
-		hTiles = m_Height + (TILE_HEIGHT - m_Height % TILE_HEIGHT);
-
-	m_Packets.resize(wTiles * hTiles);
-
 	const int probe_id = static_cast<int>(m_ProbePos.y * m_Width + m_ProbePos.x);
 	const int maxPixelID = m_Width * m_Height;
-	const auto threads = m_Pool.size();
-	const auto packetsPerThread = m_Packets.size() / threads;
-	std::vector<std::future<void>> handles(threads);
 
-	for (size_t i = 0; i < threads; i++)
-	{
-		handles[i] = m_Pool.push([&](int t_id) {
-			const int start = static_cast<int>(t_id * packetsPerThread);
-			const int end = static_cast<int>((t_id + 1) * packetsPerThread);
+	tbb::parallel_for(
+		tbb::blocked_range2d<int, int>(0, m_Height, 0, m_Width / 4), [&](const tbb::blocked_range2d<int, int> &r) {
+			const auto rows = r.rows();
+			const auto cols = r.cols();
 
-			for (int i = start; i < end; i++)
+			for (int y = rows.begin(); y < rows.end(); y++)
 			{
-				const int y = (i % wTiles) * TILE_HEIGHT;
-				const int x = (i / wTiles) * TILE_WIDTH;
-
-				auto &packet = m_Packets[i];
-
-#if PACKET_WIDTH == 4
-				const int x4[4] = {x, x + 1, x, x + 1};
-				const int y4[4] = {y, y, y + 1, y + 1};
-				packet = cpurt::Ray::generate_ray4(camParams, x4, y4, &m_RNGs[t_id]);
-#elif PACKET_WIDTH == 8
-				const int x8[8] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
-				const int y8[8] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1};
-				packet = cpurt::Ray::generate_ray8(camParams, x8, y8, &m_RNGs[t_id]);
-#endif
-
-				if (m_packet_traversal)
+				for (int x_4 = cols.begin(); x_4 < cols.end(); x_4++)
 				{
-					if (topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z, packet.direction_x,
-											   packet.direction_y, packet.direction_z, packet.t, packet.primID,
-											   packet.instID, 1e-5f) == 0)
+					const int x = x_4 * 4;
+
+					const int x4[4] = {x, x + 1, x + 2, x + 3};
+					const int y4[4] = {y, y, y, y};
+
+					auto packet = cpurt::Ray::generate_ray4(camParams, x4, y4, &m_RNGs[x_4 % m_Pool.size()]);
+
+					if (m_packet_traversal)
+					{
+						if (topLevelBVH.intersect4(packet.origin_x, packet.origin_y, packet.origin_z,
+												   packet.direction_x, packet.direction_y, packet.direction_z, packet.t,
+												   packet.primID, packet.instID, 1e-5f) == 0)
+						{
+							for (int instance = 0; instance < 4; instance++)
+							{
+								if (packet.pixelID[instance] >= maxPixelID)
+									continue;
+								const vec2 uv = vec2(
+									0.5f * (1.0f + atan(packet.direction_x[instance], -packet.direction_z[instance]) *
+													   glm::one_over_pi<float>()),
+									acos(packet.direction_y[instance]) * glm::one_over_pi<float>());
+								const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
+														uv.y * static_cast<float>(m_SkyboxHeight - 1));
+								m_Pixels[packet.pixelID[instance]] =
+									glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+							}
+
+							continue;
+						}
+					}
+					else
 					{
 						for (int instance = 0; instance < 4; instance++)
 						{
-							if (packet.pixelID[instance] >= maxPixelID)
-								continue;
-							const vec2 uv =
-								vec2(0.5f * (1.0f + atan(packet.direction_x[instance], -packet.direction_z[instance]) *
-														glm::one_over_pi<float>()),
-									 acos(packet.direction_y[instance]) * glm::one_over_pi<float>());
-							const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
-													uv.y * static_cast<float>(m_SkyboxHeight - 1));
-							m_Pixels[packet.pixelID[instance]] =
-								glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
+							const vec3 origin =
+								vec3(packet.origin_x[instance], packet.origin_y[instance], packet.origin_z[instance]);
+							const vec3 direction = vec3(packet.direction_x[instance], packet.direction_y[instance],
+														packet.direction_z[instance]);
+
+							topLevelBVH.intersect(origin, direction, &packet.t[instance], &packet.primID[instance],
+												  &packet.instID[instance]);
+						}
+					}
+
+					for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
+					{
+						const int pixelID = packet.pixelID[packet_id];
+						if (pixelID >= maxPixelID)
+							continue;
+
+						if (pixelID == probe_id)
+						{
+							m_ProbedDist = packet.t[packet_id];
+							m_ProbedInstance = packet.instID[packet_id];
+							m_ProbedTriangle = packet.primID[packet_id];
 						}
 
-						continue;
-					}
-				}
-				else
-				{
-					for (int instance = 0; instance < 4; instance++)
-					{
+						const float t = packet.t[packet_id];
 						const vec3 origin =
-							vec3(packet.origin_x[instance], packet.origin_y[instance], packet.origin_z[instance]);
-						const vec3 direction = vec3(packet.direction_x[instance], packet.direction_y[instance],
-													packet.direction_z[instance]);
+							vec3(packet.origin_x[packet_id], packet.origin_y[packet_id], packet.origin_z[packet_id]);
+						const vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id],
+													packet.direction_z[packet_id]);
 
-						topLevelBVH.intersect(origin, direction, &packet.t[instance], &packet.primID[instance],
-											  &packet.instID[instance]);
-					}
-				}
-
-				for (int packet_id = 0, s = TILE_WIDTH * TILE_HEIGHT; packet_id < s; packet_id++)
-				{
-					const int pixelID = packet.pixelID[packet_id];
-					if (pixelID >= maxPixelID)
-						continue;
-
-					if (pixelID == probe_id)
-					{
-						m_ProbedDist = packet.t[packet_id];
-						m_ProbedInstance = packet.instID[packet_id];
-						m_ProbedTriangle = packet.primID[packet_id];
-					}
-
-					const float t = packet.t[packet_id];
-					const vec3 origin =
-						vec3(packet.origin_x[packet_id], packet.origin_y[packet_id], packet.origin_z[packet_id]);
-					const vec3 direction = vec3(packet.direction_x[packet_id], packet.direction_y[packet_id],
-												packet.direction_z[packet_id]);
-
-					if (packet.instID[packet_id] < 0)
-					{
-						const vec2 uv =
-							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
-								 acos(direction.y) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
-												uv.y * static_cast<float>(m_SkyboxHeight - 1));
-						m_Pixels[pixelID] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
-						continue;
-					}
-
-					if (packet.primID[packet_id] < 0 || packet.instID[packet_id] < 0)
-					{
-						m_Pixels[pixelID] = glm::vec4(1, 0, 0, 0);
-						continue;
-					}
-
-					const vec3 p = origin + direction * t;
-					const Triangle &tri = topLevelBVH.get_triangle(packet.instID[packet_id], packet.primID[packet_id]);
-					const simd::matrix4 &matrix = topLevelBVH.get_instance_matrix(packet.instID[packet_id]);
-					const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(packet.instID[packet_id]);
-
-					const auto &material = m_Materials[tri.material];
-					const auto shading_data = retrieve_material(tri, material, p, matrix, normal_matrix);
-					if (any(greaterThan(shading_data.color, vec3(1))))
-					{
-						m_Pixels[pixelID] = vec4(shading_data.color, 1.0f);
-						continue;
-					}
-
-					vec3 contrib = vec3(0.1f);
-					for (const auto &l : m_AreaLights)
-					{
-						vec3 L = l.position - p;
-						const float sq_dist = dot(L, L);
-						const float dist = sqrt(sq_dist);
-						L = L / dist;
-						const float NdotL = dot(shading_data.iN, L);
-						const float LNdotL = -dot(l.normal, L);
-
-						if (NdotL <= 0 || LNdotL <= 0)
+						if (packet.instID[packet_id] < 0)
+						{
+							const vec2 uv =
+								vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
+									 acos(direction.y) * glm::one_over_pi<float>());
+							const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
+													uv.y * static_cast<float>(m_SkyboxHeight - 1));
+							m_Pixels[pixelID] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 							continue;
+						}
 
-						if (!topLevelBVH.is_occluded(p, L, dist - 2.0f * 1e-5f, 1e-4f))
-							contrib += l.radiance * l.area / sq_dist * NdotL * LNdotL;
-					}
-
-					for (const auto &l : m_PointLights)
-					{
-						vec3 L = l.position - p;
-						const float sq_dist = dot(L, L);
-						const float dist = sqrt(sq_dist);
-						L = L / dist;
-						const float NdotL = dot(shading_data.iN, L);
-						if (NdotL <= 0)
+						if (packet.primID[packet_id] < 0 || packet.instID[packet_id] < 0)
+						{
+							m_Pixels[pixelID] = glm::vec4(1, 0, 0, 0);
 							continue;
+						}
 
-						if (!topLevelBVH.is_occluded(p, L, dist - 2.0f * 1e-5f, 1e-4f))
-							contrib += l.radiance / sq_dist * NdotL;
+						const vec3 p = origin + direction * t;
+						const Triangle &tri =
+							topLevelBVH.get_triangle(packet.instID[packet_id], packet.primID[packet_id]);
+						const simd::matrix4 &matrix = topLevelBVH.get_instance_matrix(packet.instID[packet_id]);
+						const simd::matrix4 &normal_matrix = topLevelBVH.get_normal_matrix(packet.instID[packet_id]);
+
+						const auto &material = m_Materials[tri.material];
+						const auto shading_data = retrieve_material(tri, material, p, matrix, normal_matrix);
+						if (any(greaterThan(shading_data.color, vec3(1))))
+						{
+							m_Pixels[pixelID] = vec4(shading_data.color, 1.0f);
+							continue;
+						}
+
+						vec3 contrib = vec3(0.1f);
+						for (const auto &l : m_AreaLights)
+						{
+							vec3 L = l.position - p;
+							const float sq_dist = dot(L, L);
+							const float dist = sqrt(sq_dist);
+							L = L / dist;
+							const float NdotL = dot(shading_data.iN, L);
+							const float LNdotL = -dot(l.normal, L);
+
+							if (NdotL <= 0 || LNdotL <= 0)
+								continue;
+
+							if (!topLevelBVH.is_occluded(p, L, dist - 2.0f * 1e-5f, 1e-4f))
+								contrib += l.radiance * l.area / sq_dist * NdotL * LNdotL;
+						}
+
+						for (const auto &l : m_PointLights)
+						{
+							vec3 L = l.position - p;
+							const float sq_dist = dot(L, L);
+							const float dist = sqrt(sq_dist);
+							L = L / dist;
+							const float NdotL = dot(shading_data.iN, L);
+							if (NdotL <= 0)
+								continue;
+
+							if (!topLevelBVH.is_occluded(p, L, dist - 2.0f * 1e-5f, 1e-4f))
+								contrib += l.radiance / sq_dist * NdotL;
+						}
+
+						// for (const auto &l : m_DirectionalLights)
+						//{
+						//}
+
+						// for (const auto &l : m_SpotLights)
+						//{
+						//}
+
+						m_Pixels[pixelID] = vec4(shading_data.color * contrib, 1.0f);
 					}
-
-					// for (const auto &l : m_DirectionalLights)
-					//{
-					//}
-
-					// for (const auto &l : m_SpotLights)
-					//{
-					//}
-
-					m_Pixels[pixelID] = vec4(shading_data.color * contrib, 1.0f);
 				}
 			}
 		});
-	}
-
-	for (auto &handle : handles)
-		handle.get();
 
 	m_Stats.primaryTime = timer.elapsed();
 

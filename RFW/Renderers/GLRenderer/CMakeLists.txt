@@ -15,7 +15,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/sr
 
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext RenderSystem GLEW::GLEW OpenGL::GL)
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext rfwMath rfwUtils GLEW::GLEW OpenGL::GL)
 
 set_target_properties(${PROJECT_NAME}
 		PROPERTIES

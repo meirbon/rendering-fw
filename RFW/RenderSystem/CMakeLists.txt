@@ -11,6 +11,9 @@ endif ()
 
 add_subdirectory(utils)
 add_subdirectory(math)
+add_subdirectory(bvh)
+
+add_subdirectory(RenderContext)
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17)
 find_package(OpenGL REQUIRED)
@@ -38,10 +41,10 @@ if (UNIX)
 	target_compile_options(${PROJECT_NAME} PRIVATE "-fPIC")
 endif (UNIX)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext rfwUtils rfwMath rfwUtils
+target_link_libraries(${PROJECT_NAME} PUBLIC RenderContext rfwUtils rfwMath rfwUtils rfwBVH
 		${FREEIMAGE_LIBRARIES} glfw Threads::Threads
 		OpenGL::GL GLEW::GLEW ${CMAKE_DL_LIBS} Half ImGuiWrapper assimp::assimp)
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src)
+target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_SOURCE_DIR}/src rtbvh)
 target_include_directories(${PROJECT_NAME} PUBLIC assimp::assimp)
 
 set_target_properties(${PROJECT_NAME}

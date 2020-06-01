@@ -64,7 +64,6 @@ class Context : public RenderContext
 	std::vector<simd::matrix4> m_InstanceMatrices;
 	std::vector<simd::matrix4> m_InverseMatrices;
 
-	rfw::utils::ThreadPool m_Pool = {};
 	int m_SkyboxWidth = 0, m_SkyboxHeight = 0;
 	std::vector<glm::vec3> m_Skybox = {glm::vec3(0)};
 	glm::vec4 *m_Pixels = nullptr;

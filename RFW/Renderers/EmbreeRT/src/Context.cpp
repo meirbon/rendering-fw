@@ -40,7 +40,7 @@ Context::~Context()
 
 std::vector<rfw::RenderTarget> Context::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
-void Context::init(std::shared_ptr<rfw::utils::Window> &window) { throw std::runtime_error("Not supported (yet)."); }
+void Context::init(std::shared_ptr<rfw::utils::Window> &window) { utils::logger::err("Window not supported (yet)."); }
 
 void rtcErrorFunc(void *userPtr, enum RTCError code, const char *str)
 {
@@ -76,7 +76,9 @@ void Context::init(GLuint *glTextureID, uint width, uint height)
 
 		const auto error = glewInit();
 		if (error != GLEW_NO_ERROR)
-			throw std::runtime_error("Could not init GLEW.");
+		{
+			utils::logger::err("Could not init GLEW.");
+		}
 		m_InitializedGlew = true;
 		CheckGL();
 		glGenBuffers(1, &m_PboID);
@@ -114,65 +116,29 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 
 	auto timer = utils::Timer();
 
-	int wTiles = m_Width / TILE_WIDTH;
-	int hTiles = m_Height / TILE_HEIGHT;
-
-	if (m_Width % TILE_WIDTH)
-		wTiles = m_Width + (TILE_WIDTH - m_Width % TILE_WIDTH);
-	if (m_Height % TILE_WIDTH)
-		hTiles = m_Height + (TILE_HEIGHT - m_Height % TILE_HEIGHT);
-
-	m_Packets.resize(wTiles * hTiles);
-
-	tbb::parallel_for(0, hTiles, [&](int tile_y) {
-		for (int tile_x = 0; tile_x < wTiles; tile_x++)
-		{
-#if PACKET_WIDTH == 4
-			const int y = tile_y * TILE_HEIGHT;
-			const int x = tile_x * TILE_WIDTH;
-			const int tile_id = tile_y * wTiles + tile_x;
-
-			const int x4[4] = {x, x + 1, x, x + 1};
-			const int y4[4] = {y, y, y + 1, y + 1};
-			m_Packets[tile_id] = Ray::GenerateRay4(camParams, x4, y4, &m_Rng);
-#elif PACKET_WIDTH == 8
-
-			const int y = tile_y * TILE_HEIGHT;
-			const int x = tile_x * TILE_WIDTH;
-			const int tile_id = tile_y * wTiles + tile_x;
-
-			const int x8[8] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
-			const int y8[8] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1};
-			m_Packets[tile_id] = Ray::GenerateRay8(camParams, x8, y8, &m_Rng);
-#elif PACKET_WIDTH == 16
-			const int y = tile_y * TILE_HEIGHT;
-			const int x = tile_x * TILE_WIDTH;
-			const int tile_id = tile_y * wTiles + tile_x;
-
-			const int x16[16] = {x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3, x, x + 1, x + 2, x + 3};
-			const int y16[16] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1, y + 2, y + 2, y + 2, y + 2, y + 3, y + 3, y + 3, y + 3};
-
-			const int y16[16] = {y, y, y, y, y + 1, y + 1, y + 1, y + 1, y + 2, y + 2, y + 2, y + 2, y + 3, y + 3, y + 3, y + 3};
-			m_Packets[tile_id] = Ray::GenerateRay16(camParams, x16, y16, &m_Rng);
-#endif
-		}
-	});
-
-	const auto threads = m_Pool.size();
-	const auto packetsPerThread = m_Packets.size() / threads;
-
 	const int maxPixelID = m_Width * m_Height;
 	const __m128i maxPixelID4 = _mm_set1_epi32(maxPixelID - 1);
 	const __m256i maxPixelID8 = _mm256_set1_epi32(maxPixelID - 1);
 	const int probe_id = m_ProbePos.y * m_Width + m_ProbePos.x;
 
-	std::vector<std::future<void>> handles(threads);
+#if PACKET_WIDTH == 4
+	constexpr int TILE_WIDTH = 4;
+	constexpr int TILE_HEIGHT = 1;
+	const int x_offs[4] = {0, 1, 0, 1};
+	const int y_offs[4] = {0, 0, 1, 1};
+#elif PACKET_WIDTH == 8
+	constexpr int TILE_WIDTH = 4;
+	constexpr int TILE_HEIGHT = 2;
 
-	for (int i = 0, s = static_cast<int>(threads); i < s; i++)
-	{
-		handles[i] = m_Pool.push([packetsPerThread, maxPixelID, &probe_id, &maxPixelID4, &maxPixelID8, this](int tID) {
-			const int start = static_cast<int>(tID * packetsPerThread);
-			const int end = static_cast<int>((tID + 1) * packetsPerThread);
+	const int x_offs[8] = {0, 1, 2, 3, 0, 1, 2, 3};
+	const int y_offs[8] = {0, 0, 0, 0, 1, 1, 1, 1};
+#endif
+
+	tbb::parallel_for(
+		tbb::blocked_range2d<int, int>(0, m_Height / TILE_HEIGHT, 0, m_Width / TILE_WIDTH),
+		[&](const tbb::blocked_range2d<int, int> &r) {
+			const auto rows = r.rows();
+			const auto cols = r.cols();
 
 			RTCIntersectContext context, shadow_context;
 			rtcInitIntersectContext(&context);
@@ -180,128 +146,143 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 			context.flags = RTC_INTERSECT_CONTEXT_FLAG_COHERENT;
 			shadow_context.flags = RTC_INTERSECT_CONTEXT_FLAG_INCOHERENT;
 			int valid[PACKET_WIDTH];
-			memset(valid, -1, sizeof(valid));
 
-			for (int i = start; i < end; i++)
+			for (int y_l = rows.begin(); y_l < rows.end(); y_l++)
 			{
-				const auto &packet = m_Packets[i];
+				for (int x_l = cols.begin(); x_l < cols.end(); x_l++)
+				{
+					memset(valid, -1, sizeof(valid));
+
+					const int x = x_l * TILE_WIDTH;
+					const int y = y_l * TILE_HEIGHT;
+
+					int xs[PACKET_WIDTH];
+					int ys[PACKET_WIDTH];
+
+					for (int i = 0; i < PACKET_WIDTH; i++)
+					{
+						xs[i] = x + x_offs[i];
+						ys[i] = y + y_offs[i];
+					}
+
 #if PACKET_WIDTH == 4
-				rtcIntersect4(valid, m_Scene, &context, &m_Packets[i]);
+					auto packet = Ray::GenerateRay4(camParams, xs, ys, &m_Rng);
 #elif PACKET_WIDTH == 8
-				rtcIntersect8(valid, m_Scene, &context, &m_Packets[i]);
-#elif PACKET_WIDTH == 16
-				rtcIntersect16(valid, m_Scene, &context, &m_Packets[i]);
+					auto packet = Ray::GenerateRay8(camParams, xs, ys, &m_Rng);
 #endif
 
-				for (int j = 0; j < PACKET_WIDTH; j++)
-				{
-					const vec3 origin = vec3(packet.ray.org_x[j], packet.ray.org_y[j], packet.ray.org_z[j]);
-					const vec3 direction = vec3(packet.ray.dir_x[j], packet.ray.dir_y[j], packet.ray.dir_z[j]);
-
-					const int &pixel_id = packet.ray.id[j];
-					if (pixel_id >= maxPixelID)
-						continue;
-					if (packet.hit.geomID[j] == RTC_INVALID_GEOMETRY_ID)
+#if PACKET_WIDTH == 4
+					rtcIntersect4(valid, m_Scene, &context, &packet);
+#elif PACKET_WIDTH == 8
+					rtcIntersect8(valid, m_Scene, &context, &packet);
+#endif
+					for (int j = 0; j < PACKET_WIDTH; j++)
 					{
-						const vec2 uv =
-							vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
-								 acos(direction.y) * glm::one_over_pi<float>());
-						const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
-												uv.y * static_cast<float>(m_SkyboxHeight - 1));
-						m_Pixels[pixel_id] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
-						continue;
-					}
+						const vec3 origin = vec3(packet.ray.org_x[j], packet.ray.org_y[j], packet.ray.org_z[j]);
+						const vec3 direction = vec3(packet.ray.dir_x[j], packet.ray.dir_y[j], packet.ray.dir_z[j]);
 
-					const int &instID = packet.hit.instID[0][j];
-					const int &primID = packet.hit.primID[j];
-
-					if (pixel_id == probe_id)
-					{
-						m_ProbedDist = packet.ray.tfar[j];
-						m_ProbedInstance = instID;
-						m_ProbedTriangle = primID;
-					}
-
-					const simd::matrix4 &normal_matrix = m_InverseMatrices[instID];
-					const Triangle &tri = m_Meshes[m_InstanceMesh[instID]].triangles[primID];
-					const vec3 bary = vec3(1.0f - packet.hit.u[j] - packet.hit.v[j], packet.hit.u[j], packet.hit.v[j]);
-					const vec3 p = origin + direction * packet.ray.tfar[j];
-
-					const auto &material = m_Materials[tri.material];
-					const auto shading_data = retrieve_material(tri, material, p, bary, normal_matrix);
-					if (any(greaterThan(shading_data.color, vec3(1))))
-					{
-						m_Pixels[pixel_id] = vec4(shading_data.color, 1.0f);
-						continue;
-					}
-
-					RTCRay ray{};
-					ray.tnear = 1e-4f;
-					ray.org_x = p.x;
-					ray.org_y = p.y;
-					ray.org_z = p.z;
-
-					vec3 contrib = vec3(0.1f);
-					for (const auto &l : m_AreaLights)
-					{
-						vec3 L = l.position - p;
-						const float sq_dist = dot(L, L);
-						const float dist = sqrt(sq_dist);
-						L = L / dist;
-						const float NdotL = dot(shading_data.iN, L);
-						const float LNdotL = -dot(l.normal, L);
-
-						if (NdotL <= 0 || LNdotL <= 0)
+						const int &pixel_id = packet.ray.id[j];
+						if (pixel_id >= maxPixelID)
 							continue;
-
-						ray.tfar = dist;
-						ray.flags = 0;
-						ray.dir_x = L.x;
-						ray.dir_y = L.y;
-						ray.dir_z = L.z;
-
-						rtcOccluded1(m_Scene, &shadow_context, &ray);
-						if (ray.tfar > 0)
-							contrib += l.radiance * l.area / sq_dist * NdotL * LNdotL;
-					}
-
-					for (const auto &l : m_PointLights)
-					{
-						vec3 L = l.position - p;
-						const float sq_dist = dot(L, L);
-						const float dist = sqrt(sq_dist);
-						L = L / dist;
-						const float NdotL = dot(shading_data.iN, L);
-						if (NdotL <= 0)
+						if (packet.hit.geomID[j] == RTC_INVALID_GEOMETRY_ID)
+						{
+							const vec2 uv =
+								vec2(0.5f * (1.0f + atan(direction.x, -direction.z) * glm::one_over_pi<float>()),
+									 acos(direction.y) * glm::one_over_pi<float>());
+							const uvec2 pUv = uvec2(uv.x * static_cast<float>(m_SkyboxWidth - 1),
+													uv.y * static_cast<float>(m_SkyboxHeight - 1));
+							m_Pixels[pixel_id] = glm::vec4(m_Skybox[pUv.y * m_SkyboxWidth + pUv.x], 0.0f);
 							continue;
+						}
 
-						ray.tfar = dist;
-						ray.flags = 0;
-						ray.dir_x = L.x;
-						ray.dir_y = L.y;
-						ray.dir_z = L.z;
+						const int &instID = packet.hit.instID[0][j];
+						const int &primID = packet.hit.primID[j];
 
-						rtcOccluded1(m_Scene, &shadow_context, &ray);
-						if (ray.tfar > 0)
-							contrib += l.radiance / sq_dist * NdotL;
+						if (pixel_id == probe_id)
+						{
+							m_ProbedDist = packet.ray.tfar[j];
+							m_ProbedInstance = instID;
+							m_ProbedTriangle = primID;
+						}
+
+						const simd::matrix4 &normal_matrix = m_InverseMatrices[instID];
+						const Triangle &tri = m_Meshes[m_InstanceMesh[instID]].triangles[primID];
+						const vec3 bary =
+							vec3(1.0f - packet.hit.u[j] - packet.hit.v[j], packet.hit.u[j], packet.hit.v[j]);
+						const vec3 p = origin + direction * packet.ray.tfar[j];
+
+						const auto &material = m_Materials[tri.material];
+						const auto shading_data = retrieve_material(tri, material, p, bary, normal_matrix);
+						if (any(greaterThan(shading_data.color, vec3(1))))
+						{
+							m_Pixels[pixel_id] = vec4(shading_data.color, 1.0f);
+							continue;
+						}
+
+						RTCRay ray{};
+						ray.tnear = 1e-4f;
+						ray.org_x = p.x;
+						ray.org_y = p.y;
+						ray.org_z = p.z;
+
+						vec3 contrib = vec3(0.1f);
+						for (const auto &l : m_AreaLights)
+						{
+							vec3 L = l.position - p;
+							const float sq_dist = dot(L, L);
+							const float dist = sqrt(sq_dist);
+							L = L / dist;
+							const float NdotL = dot(shading_data.iN, L);
+							const float LNdotL = -dot(l.normal, L);
+
+							if (NdotL <= 0 || LNdotL <= 0)
+								continue;
+
+							ray.tfar = dist;
+							ray.flags = 0;
+							ray.dir_x = L.x;
+							ray.dir_y = L.y;
+							ray.dir_z = L.z;
+
+							rtcOccluded1(m_Scene, &shadow_context, &ray);
+							if (ray.tfar > 0)
+								contrib += l.radiance * l.area / sq_dist * NdotL * LNdotL;
+						}
+
+						for (const auto &l : m_PointLights)
+						{
+							vec3 L = l.position - p;
+							const float sq_dist = dot(L, L);
+							const float dist = sqrt(sq_dist);
+							L = L / dist;
+							const float NdotL = dot(shading_data.iN, L);
+							if (NdotL <= 0)
+								continue;
+
+							ray.tfar = dist;
+							ray.flags = 0;
+							ray.dir_x = L.x;
+							ray.dir_y = L.y;
+							ray.dir_z = L.z;
+
+							rtcOccluded1(m_Scene, &shadow_context, &ray);
+							if (ray.tfar > 0)
+								contrib += l.radiance / sq_dist * NdotL;
+						}
+
+						// for (const auto &l : m_DirectionalLights)
+						//{
+						//}
+
+						// for (const auto &l : m_SpotLights)
+						//{
+						//}
+
+						m_Pixels[pixel_id] = vec4(shading_data.color * contrib, 1.0f);
 					}
-
-					// for (const auto &l : m_DirectionalLights)
-					//{
-					//}
-
-					// for (const auto &l : m_SpotLights)
-					//{
-					//}
-
-					m_Pixels[pixel_id] = vec4(shading_data.color * contrib, 1.0f);
 				}
 			}
 		});
-	}
-
-	for (auto &handle : handles)
-		handle.get();
 
 	m_Stats.primaryTime = timer.elapsed();
 

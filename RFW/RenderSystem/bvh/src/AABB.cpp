@@ -1,6 +1,4 @@
-#include "BVH.h"
-
-#include <immintrin.h>
+#include <bvh/BVH.h>
 
 namespace rfw
 {
@@ -9,15 +7,20 @@ namespace bvh
 
 AABB::AABB()
 {
-	bmin4 = _mm_setr_ps(1e34f, 1e34f, 1e34f, 0);
-	bmax4 = _mm_setr_ps(-1e34f, -1e34f, -1e34f, 0);
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = 1e34f;
+		bmax[i] = -1e34f;
+	}
 };
 
 AABB::AABB(simd::vector4 mi, simd::vector4 ma)
 {
-	bmin4 = mi.vec_4;
-	bmax4 = ma.vec_4;
-	bmin[3] = bmax[3] = 0;
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = mi[i];
+		bmax[i] = ma[i];
+	}
 }
 
 AABB::AABB(glm::vec3 mi, glm::vec3 ma)
@@ -25,24 +28,13 @@ AABB::AABB(glm::vec3 mi, glm::vec3 ma)
 	bmin[0] = mi.x;
 	bmin[1] = mi.y;
 	bmin[2] = mi.z;
-	bmin[3] = 0;
 
 	bmax[0] = ma.x;
 	bmax[1] = ma.y;
 	bmax[2] = ma.z;
-	bmax[3] = 0;
 }
 
-AABB AABB::invalid()
-{
-	AABB aabb;
-	for (int i = 0; i < 4; i++)
-	{
-		aabb.bmin[i] = 1e34f;
-		aabb.bmax[i] = -1e34f;
-	}
-	return aabb;
-}
+AABB AABB::invalid() { return AABB(); }
 
 bool AABB::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *tmin, float *tmax, float t) const
 {
@@ -68,8 +60,11 @@ bool AABB::intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t
 	const simd::vector4 origin = simd::vector4(org.x, org.y, org.z, 0);
 	const simd::vector4 dir_inv = simd::vector4(dirInverse.x, dirInverse.y, dirInverse.z, 0);
 
-	const simd::vector4 t1 = (bmin4 - origin) * dir_inv;
-	const simd::vector4 t2 = (bmax4 - origin) * dir_inv;
+	const simd::vector4 mi = simd::vector4(bmin);
+	const simd::vector4 ma = simd::vector4(bmax);
+
+	const simd::vector4 t1 = (mi - origin) * dir_inv;
+	const simd::vector4 t2 = (ma - origin) * dir_inv;
 
 	const simd::vector4 tmin4 = min(t1, t2);
 	const simd::vector4 tmax4 = max(t1, t2);
@@ -167,24 +162,20 @@ int AABB::intersect8(const float origin_x[8], const float origin_y[8], const flo
 	return mask.move_mask();
 }
 
-void AABB::reset() { bmin4 = _mm_set_ps1(1e34f), bmax4 = _mm_set_ps1(-1e34f); }
+void AABB::reset()
+{
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = 1e34f;
+		bmax[i] = -1e34f;
+	}
+}
 
 bool AABB::contains(const simd::vector4 &p) const
 {
-	simd::vector4 va = p - simd::vector4(bmin4);
-	simd::vector4 vb = bmax4 - p;
+	simd::vector4 va = p - simd::vector4(bmin);
+	simd::vector4 vb = simd::vector4(bmax) - p;
 	return ((va[0] >= 0) && (va[1] >= 0) && (va[2] >= 0) && (vb[0] >= 0) && (vb[1] >= 0) && (vb[2] >= 0));
-}
-
-void AABB::grow_safe(const AABB &bb)
-{
-	xMin = glm::min(xMin, bb.xMin);
-	yMin = glm::min(yMin, bb.yMin);
-	zMin = glm::min(zMin, bb.zMin);
-
-	xMax = glm::max(xMax, bb.xMax);
-	yMax = glm::max(yMax, bb.yMax);
-	zMax = glm::max(zMax, bb.zMax);
 }
 
 void AABB::offset_by(const float offset)
@@ -207,20 +198,29 @@ void AABB::offset_by(const float mi, const float ma)
 
 void AABB::grow(const AABB &bb)
 {
-	bmin4 = _mm_min_ps(bmin4, bb.bmin4);
-	bmax4 = _mm_max_ps(bmax4, bb.bmax4);
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = glm::min(bmin[i], bb.bmin[i]);
+		bmax[i] = glm::max(bmax[i], bb.bmax[i]);
+	}
 }
 
 void AABB::grow(const simd::vector4 &p)
 {
-	bmin4 = _mm_min_ps(bmin4, p.vec_4);
-	bmax4 = _mm_max_ps(bmax4, p.vec_4);
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = glm::min(bmin[i], p[i]);
+		bmax[i] = glm::max(bmax[i], p[i]);
+	}
 }
 
 void AABB::grow(const simd::vector4 min4, const simd::vector4 max4)
 {
-	bmin4 = _mm_min_ps(bmin4, min4.vec_4);
-	bmax4 = _mm_max_ps(bmax4, max4.vec_4);
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = glm::min(bmin[i], min4[i]);
+		bmax[i] = glm::max(bmax[i], max4[i]);
+	}
 }
 
 void AABB::grow(const glm::vec3 &p) { grow(simd::vector4(p.x, p.y, p.z, 0)); }
@@ -228,30 +228,39 @@ void AABB::grow(const glm::vec3 &p) { grow(simd::vector4(p.x, p.y, p.z, 0)); }
 AABB AABB::union_of(const AABB &bb) const
 {
 	AABB r;
-	r.bmin4 = _mm_min_ps(bmin4, bb.bmin4);
-	r.bmax4 = _mm_max_ps(bmax4, bb.bmax4);
+	for (int i = 0; i < 3; i++)
+	{
+		r.bmin[i] = glm::min(bmin[i], bb.bmin[i]);
+		r.bmax[i] = glm::max(bmax[i], bb.bmax[i]);
+	}
 	return r;
 }
 
 AABB AABB::union_of(const AABB &a, const AABB &b)
 {
 	AABB r;
-	r.bmin4 = _mm_min_ps(a.bmin4, b.bmin4);
-	r.bmax4 = _mm_max_ps(a.bmax4, b.bmax4);
+	for (int i = 0; i < 3; i++)
+	{
+		r.bmin[i] = glm::min(a.bmin[i], b.bmin[i]);
+		r.bmax[i] = glm::max(a.bmax[i], b.bmax[i]);
+	}
 	return r;
 }
 
 AABB AABB::intersection(const AABB &bb) const
 {
 	AABB r;
-	r.bmin4 = _mm_max_ps(bmin4, bb.bmin4);
-	r.bmax4 = _mm_min_ps(bmax4, bb.bmax4);
+	for (int i = 0; i < 3; i++)
+	{
+		r.bmin[i] = glm::max(bmin[i], bb.bmin[i]);
+		r.bmax[i] = glm::min(bmax[i], bb.bmax[i]);
+	}
 	return r;
 }
 
 float AABB::volume() const
 {
-	const simd::vector4 length = simd::vector4(bmax4) - simd::vector4(bmin4);
+	const simd::vector4 length = simd::vector4(bmax) - simd::vector4(bmin);
 	return length[0] * length[1] * length[2];
 }
 
@@ -263,13 +272,13 @@ glm::vec3 AABB::centroid() const
 
 float AABB::area() const
 {
-	const simd::vector4 e = simd::vector4(bmax4) - simd::vector4(bmin4);
+	const simd::vector4 e = simd::vector4(bmax) - simd::vector4(bmin);
 	return max(0.0f, e[0] * e[1] + e[0] * e[2] + e[1] * e[2]);
 }
 
 glm::vec3 AABB::lengths() const
 {
-	simd::vector4 length = simd::vector4(bmax4) - simd::vector4(bmin4);
+	simd::vector4 length = simd::vector4(bmax) - simd::vector4(bmin);
 	return glm::vec3(length[0], length[1], length[2]);
 }
 
@@ -296,11 +305,14 @@ void AABB::set_bounds(const AABB &other)
 
 void AABB::set_bounds(const simd::vector4 min4, const simd::vector4 max4)
 {
-	bmin4 = min4.vec_4;
-	bmax4 = max4.vec_4;
+	for (int i = 0; i < 3; i++)
+	{
+		bmin[i] = min4[i];
+		bmax[i] = max4[i];
+	}
 }
 
-simd::vector4 AABB::center() const { return (simd::vector4(bmin4) + simd::vector4(bmax4)) * 0.5f; }
+simd::vector4 AABB::center() const { return (simd::vector4(bmin) + simd::vector4(bmax)) * 0.5f; }
 
 float AABB::center(unsigned int axis) const { return (bmin[axis] + bmax[axis]) * 0.5f; }
 

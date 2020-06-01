@@ -9,11 +9,12 @@ project(RenderingFW)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
 option(ENABLE_PROFILING "Enable profiling support for Visual Studio" OFF)
-option(ENABLE_CUDA "Enable compilation of CUDA-based renderers" OFF)
 
 find_package(CUDA)
 if (${CUDA_FOUND})
     option(ENABLE_CUDA "Enable compilation of CUDA-based renderers" ON)
+else (${CUDA_FOUND})
+    option(ENABLE_CUDA "Enable compilation of CUDA-based renderers" OFF)
 endif (${CUDA_FOUND})
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "Clang") # using Clang

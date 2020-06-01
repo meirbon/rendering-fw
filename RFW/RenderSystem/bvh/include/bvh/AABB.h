@@ -6,7 +6,7 @@ namespace rfw
 {
 namespace bvh
 {
-class AABB
+struct AABB
 {
   public:
 	AABB();
@@ -50,27 +50,8 @@ class AABB
 	[[nodiscard]] simd::vector4 center() const;
 	[[nodiscard]] float center(unsigned int axis) const;
 
-	struct
-	{
-		union {
-			__m128 bmin4;
-			float bmin[4];
-			struct
-			{
-				float xMin, yMin, zMin;
-				int leftFirst;
-			};
-		};
-		union {
-			__m128 bmax4;
-			float bmax[4];
-			struct
-			{
-				float xMax, yMax, zMax;
-				int count;
-			};
-		};
-	};
+	float bmin[3];
+	float bmax[3];
 };
 } // namespace bvh
 } // namespace rfw

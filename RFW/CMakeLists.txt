@@ -1,4 +1,3 @@
-add_subdirectory(RenderContext)
 add_subdirectory(RenderSystem)
 
 add_custom_target(Renderers)
@@ -23,3 +22,5 @@ endif ()
 if (APPLE)
 	add_subdirectory(Renderers/MetalRast)
 endif (APPLE)
+
+add_dependencies(Renderers RenderSystem)

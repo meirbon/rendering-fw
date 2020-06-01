@@ -17,14 +17,15 @@ using namespace rfw;
 
 struct InstanceBVHDescriptor
 {
-	const bvh::MBVHNode *mbvh;		 // 8
-	const uint *bvh_indices;		 // 16
-	const vec4 *vertices;			 // 24
-	const uvec3 *indices;			 // 32
-	const DeviceTriangle *triangles; // 36
-	mat4 instance_transform;   // 100
-	mat3x4 inverse_transform;  // 148
-	const bvh::BVHNode *bvh;		 // 156
+	const bvh::MBVHNode *mbvh;
+	const uint *bvh_indices;
+	const vec4 *vertices;
+	const uvec3 *indices;
+	const DeviceTriangle *triangles;
+	mat4 instance_transform;
+	mat4 inverse_transform;
+	mat3x4 normal_transform;
+	const bvh::BVHNode *bvh;
 
 	// glm::mat4 inverse_transform;  //
 };
@@ -67,17 +68,8 @@ enum IntersectionStage
 void setTopLevelBVH(rfw::bvh::BVHNode *ptr);
 void setTopLevelMBVH(rfw::bvh::MBVHNode *ptr);
 void setTopPrimIndices(uint *ptr);
-void setTopAABBs(rfw::bvh::AABB *ptr);
-// void setInstanceTransforms(glm::mat4 *ptr);
-// void setInverseTransforms(glm::mat4 *ptr);
 
 void setInstances(InstanceBVHDescriptor *ptr);
-
-// void setMeshBVHs(rfw::bvh::BVHNode **ptr);
-// void setMeshMBVHs(rfw::bvh::MBVHNode **ptr);
-// void setMeshBVHPrimIDs(uint **ptr);
-// void setMeshVertices(glm::vec4 **ptr);
-// void setMeshIndices(glm::uvec3 **ptr);
 
 void setCameraView(rfw::CameraView *ptr);
 void setCounters(Counters *ptr);
@@ -110,5 +102,6 @@ void InitCountersSubsequent();
 
 // Kernels
 cudaError blitBuffer(uint scrwidth, uint scrheight, const uint sampleID);
+cudaError intersectRays(IntersectionStage stage, const uint pathLength, const uint width, const uint height);
 cudaError intersectRays(IntersectionStage stage, const uint pathLength, const uint count);
 cudaError shadeRays(const uint pathLength, const uint count);

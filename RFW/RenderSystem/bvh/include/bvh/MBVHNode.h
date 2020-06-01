@@ -134,9 +134,13 @@ class MBVHNode
 			const int idx = (hit.tmini[i] & 0b11);
 			if (hit.result[idx] == 1 && nodes[0].childs[idx] >= 0)
 			{
-				stackptr++;
-				todo[stackptr].leftFirst = nodes[0].childs[idx];
-				todo[stackptr].count = nodes[0].counts[idx];
+				const int lf = nodes[0].childs[idx];
+				if (lf >= 0)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = lf;
+					todo[stackptr].count = nodes[0].counts[idx];
+				}
 			}
 		}
 
@@ -190,17 +194,21 @@ class MBVHNode
 		const simd::vector4 inv_dir_y = simd::ONE4 / simd::vector4(dir_y);
 		const simd::vector4 inv_dir_z = simd::ONE4 / simd::vector4(dir_z);
 
-		MBVHHit hit = nodes[0].intersect4(
-			origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
-			reinterpret_cast<const float *>(&inv_dir_y), reinterpret_cast<const float *>(&inv_dir_z), t);
+		MBVHHit hit = nodes[0].intersect4(origin_x, origin_y, origin_z, reinterpret_cast<const float *>(&inv_dir_x),
+										  reinterpret_cast<const float *>(&inv_dir_y),
+										  reinterpret_cast<const float *>(&inv_dir_z), t);
 		for (int i = 3; i >= 0; i--) // reversed order, we want to check best nodes first
 		{
 			const int idx = (hit.tmini[i] & 0b11);
 			if (hit.result[idx] == 1 && nodes[0].childs[idx] >= 0)
 			{
-				stackptr++;
-				todo[stackptr].leftFirst = nodes[0].childs[idx];
-				todo[stackptr].count = nodes[0].counts[idx];
+				const int lf = nodes[0].childs[idx];
+				if (lf >= 0)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = lf;
+					todo[stackptr].count = nodes[0].counts[idx];
+				}
 			}
 		}
 
@@ -257,9 +265,13 @@ class MBVHNode
 			const int idx = (hit.tmini[i] & 0b11);
 			if (hit.result[idx] == 1 && nodes[0].childs[idx] >= 0)
 			{
-				stackptr++;
-				todo[stackptr].leftFirst = nodes[0].childs[idx];
-				todo[stackptr].count = nodes[0].counts[idx];
+				const int lf = nodes[0].childs[idx];
+				if (lf >= 0)
+				{
+					stackptr++;
+					todo[stackptr].leftFirst = lf;
+					todo[stackptr].count = nodes[0].counts[idx];
+				}
 			}
 		}
 

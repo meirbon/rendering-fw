@@ -4,6 +4,8 @@
 
 #include <cassert>
 
+#include "CheckGL.h"
+
 namespace rfw::utils
 {
 

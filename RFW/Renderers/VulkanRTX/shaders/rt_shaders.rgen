@@ -1,6 +1,6 @@
 #version 460
 #extension GL_GOOGLE_include_directive : require
-#extension GL_NV_ray_tracing : require
+#extension GL_EXT_ray_tracing : require
 
 #include "../src/Bindings.h"
 #include "structures.glsl"
@@ -14,7 +14,7 @@ layout(push_constant) uniform State {
 };
 
 layout( set = 0, binding = rtACCUMULATION_BUFFER ) buffer accumulationBuffer { vec4 acPixels[]; };
-layout( set = 0, binding = rtACCELERATION_STRUCTURE ) uniform accelerationStructureNV scene;
+layout( set = 0, binding = rtACCELERATION_STRUCTURE ) uniform accelerationStructureEXT scene;
 layout( set = 0, binding = rtCAMERA ) uniform uniformCamera { CameraView camera; };
 
 layout( set = 0, binding = rtPATH_STATES ) buffer pathStates { vec4 data[]; } states[2];
@@ -24,8 +24,8 @@ layout( set = 0, binding = rtPATH_DIRECTIONS ) buffer pathDirections { vec4 data
 layout( set = 0, binding = rtPOTENTIAL_CONTRIBUTIONS ) buffer potentialContributionsBuffer { PotentialContribution potentialContributions[]; };
 layout( set = 0, binding = rtBLUENOISE ) buffer blueNoiseBuffer { int blueNoise[]; };
 
-layout( location = 0 ) rayPayloadNV vec4 hitData;
-layout( location = 1 ) rayPayloadNV int occluded;
+layout( location = 0 ) rayPayloadEXT vec4 hitData;
+layout( location = 1 ) rayPayloadEXT int occluded;
 
 float blueNoiseSampler(int x, int y, int sampleIdx, int sampleDimension)
 {
@@ -98,7 +98,7 @@ void GenerateEyeRay(inout vec3 O, inout vec3 D, const uint pixelIdx, const uint 
 
 void main()
 {
-	const int pathIdx = int( gl_LaunchIDNV.x );
+	const int pathIdx = int( gl_LaunchIDEXT.x );
 	if (pathIdx > pathCount) return; // Check bounds
 
 	const uint shadeBufferIndex = (pathLength % 2); // Buffers used to shade current rays
@@ -118,9 +118,9 @@ void main()
 		uint seed = WangHash( pathIdx * 16789 + samplesTaken * 1791 );
 		GenerateEyeRay(O, D, pixelIdx, sampleIdx, seed);
 
-		traceNV(
+		traceRayEXT(
 			scene,
-			gl_RayFlagsOpaqueNV,
+			gl_RayFlagsOpaqueEXT,
 			cullMask,
 			0 /*sbtRecordOffset*/,
 			0 /*sbtRecordStride*/,
@@ -141,9 +141,9 @@ void main()
 		const vec4 O = origins[shadeBufferIndex].data[pathIdx];
 		const vec4 D = directions[shadeBufferIndex].data[pathIdx];
 
-		traceNV(
+		traceRayEXT(
 			scene,
-			gl_RayFlagsOpaqueNV,
+			gl_RayFlagsOpaqueEXT,
 			cullMask,
 			0 /*sbtRecordOffset*/,
 			0 /*sbtRecordStride*/,
@@ -164,9 +164,9 @@ void main()
 
 		occluded = 1;
 
-		traceNV(
+		traceRayEXT(
 			scene,
-			gl_RayFlagsTerminateOnFirstHitNV | gl_RayFlagsOpaqueNV | gl_RayFlagsSkipClosestHitShaderNV,
+			gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT,
 			cullMask,
 			1 /*sbtRecordOffset*/,
 			0 /*sbtRecordStride*/,

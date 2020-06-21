@@ -9,58 +9,64 @@ struct GeometryInstance
 	float transform[12];				  // Transform matrix, containing only the top 3 rows
 	uint32_t instanceId : 24;			  // Instance index
 	uint32_t mask : 8;					  // Visibility mask
-	uint32_t instanceOffset : 24;		  // Index of the hit group which will be invoked when a ray hits the instance
+	uint32_t instanceOffset : 24;		  // Index of the hit group which will be iKHRoked when a ray hits the instance
 	uint32_t flags : 8;					  // Instance flags, such as culling
 	uint64_t accelerationStructureHandle; // Opaque handle of the bottom-level acceleration structure
 };
 
-enum AccelerationStructureType // See: https://devblogs.nvidia.com/rtx-best-practices/ for more info
+enum AccelerationStructureType // See: https://devblogs.KHRidia.com/rtx-best-practices/ for more info
 {
 	FastestBuild = 0, // Used for geometry like particles
 	FastRebuild = 1,  // Low level of detail objects unlikely to be hit, but need to updated frequently
 	FastestTrace = 2, // Best for static geometry, provides fastest trace possible
-	FastTrace = 3,	  // Good compromise between fast tracing and build times, best for geometry like player character etc.
+	FastTrace = 3, // Good compromise between fast tracing and build times, best for geometry like player character etc.
 };
 
 class TopLevelAS
 {
   public:
-	explicit TopLevelAS(const VulkanDevice &device, AccelerationStructureType type = FastestTrace, uint32_t instanceCount = 32);
+	explicit TopLevelAS(const VulkanDevice &device, AccelerationStructureType type = FastestTrace,
+						uint32_t instanceCount = 32);
 	~TopLevelAS();
 
 	void cleanup();
 
-	void updateInstances(const std::vector<GeometryInstance> &instances);
+	void updateInstances(const std::vector<vk::AccelerationStructureInstanceKHR> &instances);
 	void build(const VmaBuffer<uint8_t> &scratchBuffer);
 	void rebuild(const VmaBuffer<uint8_t> &scratchBuffer);
 
-	uint64_t getHandle();
+	vk::DeviceAddress getHandle();
 	[[nodiscard]] uint32_t get_instance_count() const;
 
-	[[nodiscard]] bool canUpdate() const { return uint(m_Flags & vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate) > 0; }
-	[[nodiscard]] vk::AccelerationStructureNV getAccelerationStructure() const { return m_Structure; }
-	[[nodiscard]] vk::WriteDescriptorSetAccelerationStructureNV getDescriptorBufferInfo() const;
-	Buffer<GeometryInstance> &getInstanceBuffer() { return m_InstanceBuffer; }
+	[[nodiscard]] bool canUpdate() const
+	{
+		return uint(m_Flags & vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate) > 0;
+	}
+	[[nodiscard]] vk::AccelerationStructureKHR getAccelerationStructure() const { return m_Structure; }
+	[[nodiscard]] vk::WriteDescriptorSetAccelerationStructureKHR getDescriptorBufferInfo() const;
+	VmaBuffer<vk::AccelerationStructureInstanceKHR> &getInstanceBuffer() { return m_InstanceBuffer; }
 
   private:
 	void Build(bool update, VmaBuffer<uint8_t> scratchBuffer);
 
-	// Converts desired type to vulkan build flags
-	static vk::BuildAccelerationStructureFlagsNV typeToFlags(AccelerationStructureType type)
+	// CoKHRerts desired type to vulkan build flags
+	static vk::BuildAccelerationStructureFlagsKHR typeToFlags(AccelerationStructureType type)
 	{
 		// Different version than bottom level AS, top level acceleration structure do not allow for compaction
 		switch (type)
 		{
 		case (FastestBuild):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastBuild;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild;
 		case (FastRebuild):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastBuild | vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate;
 		case (FastestTrace):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastTrace;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
 		case (FastTrace):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastTrace | vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate;
 		default:
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastTrace;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
 		}
 	}
 
@@ -68,17 +74,23 @@ class TopLevelAS
 	uint32_t m_InstanceCnt = 0;
 	vk::DeviceSize m_ResultSize{}, m_ScratchSize{};
 	AccelerationStructureType m_Type{};
-	vk::BuildAccelerationStructureFlagsNV m_Flags{};
-	vk::AccelerationStructureNV m_Structure{};
-	Buffer<uint8_t> m_Memory;
-	Buffer<GeometryInstance> m_InstanceBuffer;
+	vk::BuildAccelerationStructureFlagsKHR m_Flags{};
+
+	vk::AccelerationStructureCreateGeometryTypeInfoKHR m_GeometryTypeInfo{};
+	vk::AccelerationStructureGeometryInstancesDataKHR m_GeometryInstances{};
+	vk::AccelerationStructureGeometryKHR m_Geometry{};
+	vk::AccelerationStructureBuildOffsetInfoKHR m_Offset{};
+	vk::AccelerationStructureKHR m_Structure{};
+
+	VmaBuffer<uint8_t> m_Memory;
+	VmaBuffer<vk::AccelerationStructureInstanceKHR> m_InstanceBuffer;
 };
 
 class BottomLevelAS
 {
   public:
-	BottomLevelAS(VulkanDevice device, const glm::vec4 *vertices, uint32_t vertexCount, const glm::uvec3 *indices, uint32_t indexCount,
-				  AccelerationStructureType type);
+	BottomLevelAS(VulkanDevice device, const glm::vec4 *vertices, uint32_t vertexCount, const glm::uvec3 *indices,
+				  uint32_t indexCount, AccelerationStructureType type);
 	~BottomLevelAS();
 
 	void cleanup();
@@ -87,39 +99,70 @@ class BottomLevelAS
 	void build(const VmaBuffer<uint8_t> &scratchBuffer);
 	void rebuild(const VmaBuffer<uint8_t> &scratchBuffer);
 
-	uint64_t getHandle();
+	vk::DeviceAddress getHandle();
 	[[nodiscard]] uint32_t getVertexCount() const;
 
-	[[nodiscard]] bool canUpdate() const { return uint(m_Flags & vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate) > 0; }
-	[[nodiscard]] vk::AccelerationStructureNV getAccelerationStructure() const { return m_Structure; }
+	[[nodiscard]] bool canUpdate() const
+	{
+		return uint(m_Flags & vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate) > 0;
+	}
+	[[nodiscard]] vk::AccelerationStructureKHR getAccelerationStructure() const { return m_Structure; }
 
   private:
 	void build(bool update, VmaBuffer<uint8_t> scratchBuffer);
 
-	// Converts desired type to Vulkan build flags
-	static vk::BuildAccelerationStructureFlagsNV typeToFlags(AccelerationStructureType type)
+	// CoKHRerts desired type to Vulkan build flags
+	static vk::BuildAccelerationStructureFlagsKHR typeToFlags(AccelerationStructureType type)
 	{
+#if 1
 		switch (type)
 		{
 		case (FastestBuild):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastBuild;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild;
 		case (FastRebuild):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastBuild | vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate;
 		case (FastestTrace):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastTrace | vk::BuildAccelerationStructureFlagBitsNV::eAllowCompaction;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
 		case (FastTrace):
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastTrace | vk::BuildAccelerationStructureFlagBitsNV::eAllowUpdate;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate;
 		default:
-			return vk::BuildAccelerationStructureFlagBitsNV::ePreferFastTrace | vk::BuildAccelerationStructureFlagBitsNV::eAllowCompaction;
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace;
 		}
+#else
+		switch (type)
+		{
+		case (FastestBuild):
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild;
+		case (FastRebuild):
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastBuild |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate;
+		case (FastestTrace):
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowCompaction;
+		case (FastTrace):
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowUpdate;
+		default:
+			return vk::BuildAccelerationStructureFlagBitsKHR::ePreferFastTrace |
+				   vk::BuildAccelerationStructureFlagBitsKHR::eAllowCompaction;
+		}
+#endif
 	}
 
+	int m_PrimCount;
 	VulkanDevice m_Device;
 	vk::DeviceSize m_ResultSize, m_ScratchSize;
 	AccelerationStructureType m_Type;
-	vk::BuildAccelerationStructureFlagsNV m_Flags;
-	vk::GeometryNV m_Geometry;
-	vk::AccelerationStructureNV m_Structure;
+	vk::BuildAccelerationStructureFlagsKHR m_Flags{};
+	vk::GeometryFlagsKHR m_GeometryFlags{};
+	vk::GeometryTypeKHR m_GeometryType{};
+	vk::AccelerationStructureCreateGeometryTypeInfoKHR m_GeometryTypeInfo{};
+	vk::AccelerationStructureGeometryTrianglesDataKHR m_GeometryTriangles{};
+	vk::AccelerationStructureGeometryKHR m_Geometry{};
+	vk::AccelerationStructureBuildOffsetInfoKHR m_Offset{};
+	vk::AccelerationStructureKHR m_Structure{};
 
 	Buffer<uint8_t> m_Memory;
 	VmaBuffer<glm::vec4> m_Vertices;

@@ -21,7 +21,7 @@ void RTXPipeline::ShaderBindingTableGenerator::addHitGroup(uint32_t groupIdx,
 }
 
 vk::DeviceSize
-RTXPipeline::ShaderBindingTableGenerator::computeSBTSize(const vk::PhysicalDeviceRayTracingPropertiesNV &props)
+RTXPipeline::ShaderBindingTableGenerator::computeSBTSize(const vk::PhysicalDeviceRayTracingPropertiesKHR &props)
 {
 	// Size of a program identifier
 	m_ProgIdSize = props.shaderGroupHandleSize;
@@ -31,21 +31,22 @@ RTXPipeline::ShaderBindingTableGenerator::computeSBTSize(const vk::PhysicalDevic
 	m_MissEntrySize = getEntrySize(m_Miss);
 	m_HitGroupEntrySize = getEntrySize(m_HitGroup);
 
-	m_SBTSize = m_RayGenEntrySize * (vk::DeviceSize)m_RayGen.size() + m_MissEntrySize * (vk::DeviceSize)m_Miss.size() +
-				m_HitGroupEntrySize * (vk::DeviceSize)m_HitGroup.size();
+	m_SBTSize = m_RayGenEntrySize * static_cast<vk::DeviceSize>(m_RayGen.size()) +
+				m_MissEntrySize * static_cast<vk::DeviceSize>(m_Miss.size()) +
+				m_HitGroupEntrySize * static_cast<vk::DeviceSize>(m_HitGroup.size());
 	return m_SBTSize;
 }
 
 void RTXPipeline::ShaderBindingTableGenerator::generate(VulkanDevice &device, vk::Pipeline rtPipeline,
-														Buffer<uint8_t> *sbtBuffer)
+														Buffer<uint8_t> &sbtBuffer)
 {
 	uint32_t groupCount = static_cast<uint32_t>(m_RayGen.size()) + static_cast<uint32_t>(m_Miss.size()) +
 						  static_cast<uint32_t>(m_HitGroup.size());
 
 	// Fetch all the shader handles used in the pipeline, so that they can be written in the SBT
 	auto shaderHandleStorage = std::vector<uint8_t>(groupCount * m_ProgIdSize);
-	CheckVK(device.getLoader().vkGetRayTracingShaderGroupHandlesNV(device, rtPipeline, 0, groupCount, m_ProgIdSize,
-																   shaderHandleStorage.data()));
+	CheckVK(device.getLoader().vkGetRayTracingShaderGroupHandlesKHR(device, rtPipeline, 0, groupCount, m_ProgIdSize,
+																	shaderHandleStorage.data()));
 	std::vector<uint8_t> tempBuffer(m_SBTSize);
 	auto data = tempBuffer.data();
 
@@ -61,7 +62,7 @@ void RTXPipeline::ShaderBindingTableGenerator::generate(VulkanDevice &device, vk
 	offset = copyShaderData(rtPipeline, data, m_HitGroup, m_HitGroupEntrySize, shaderHandleStorage.data());
 
 	// unmap the SBT
-	sbtBuffer->copyToDevice(tempBuffer.data(), m_SBTSize);
+	sbtBuffer.copyToDevice(tempBuffer.data(), m_SBTSize);
 }
 
 void RTXPipeline::ShaderBindingTableGenerator::reset()
@@ -114,7 +115,7 @@ vk::DeviceSize RTXPipeline::ShaderBindingTableGenerator::copyShaderData(vk::Pipe
 	uint8_t *pData = outputData;
 	for (const auto &shader : shaders)
 	{
-		// Copy the shader identifier that was previously obtained with vkGetRayTracingShaderGroupHandlesNV
+		// Copy the shader identifier that was previously obtained with vkGetRayTracingShaderGroupHandlesKHR
 		memcpy(pData, shaderHandleStorage + shader.m_GroupIdx * m_ProgIdSize, m_ProgIdSize);
 
 		// Copy all its resources pointers or values in bulk
@@ -165,12 +166,9 @@ void RTXPipeline::cleanup()
 		m_Device->destroyPipeline(m_Pipeline);
 	if (m_Layout)
 		m_Device->destroyPipelineLayout(m_Layout);
-	if (SBTBuffer)
-		delete SBTBuffer;
 
 	m_Pipeline = nullptr;
 	m_Layout = nullptr;
-	SBTBuffer = nullptr;
 
 	m_SBTGenerator = {};
 	m_Generated = false;
@@ -179,13 +177,13 @@ void RTXPipeline::cleanup()
 uint32_t RTXPipeline::addEmptyHitGroup()
 {
 	assert(!m_Generated);
-	vk::RayTracingShaderGroupCreateInfoNV groupInfo{};
+	vk::RayTracingShaderGroupCreateInfoKHR groupInfo{};
 	groupInfo.setPNext(nullptr);
-	groupInfo.setType(vk::RayTracingShaderGroupTypeNV::eTrianglesHitGroup);
-	groupInfo.setGeneralShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setClosestHitShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setAnyHitShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setIntersectionShader(VK_SHADER_UNUSED_NV);
+	groupInfo.setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup);
+	groupInfo.setGeneralShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setClosestHitShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setAnyHitShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setIntersectionShader(VK_SHADER_UNUSED_KHR);
 
 	m_ShaderGroups.push_back(groupInfo);
 	const auto idx = m_CurrentGroupIdx;
@@ -197,14 +195,14 @@ uint32_t RTXPipeline::addEmptyHitGroup()
 uint32_t RTXPipeline::addHitGroup(const RTXHitGroup &hitGroup)
 {
 	assert(!m_Generated);
-	vk::RayTracingShaderGroupCreateInfoNV groupInfo{};
+	vk::RayTracingShaderGroupCreateInfoKHR groupInfo{};
 	groupInfo.setPNext(nullptr);
-	groupInfo.setType(vk::RayTracingShaderGroupTypeNV::eTrianglesHitGroup);
+	groupInfo.setType(vk::RayTracingShaderGroupTypeKHR::eTrianglesHitGroup);
 	if (hitGroup.generalShader)
 	{
 		vk::PipelineShaderStageCreateInfo stageCreate{};
 		stageCreate.setPNext(nullptr);
-		stageCreate.setStage(vk::ShaderStageFlagBits::eCallableNV);
+		stageCreate.setStage(vk::ShaderStageFlagBits::eCallableKHR);
 		stageCreate.setModule(*hitGroup.generalShader);
 		stageCreate.setPName("main");
 		stageCreate.setFlags(vk::PipelineShaderStageCreateFlags());
@@ -215,12 +213,12 @@ uint32_t RTXPipeline::addHitGroup(const RTXHitGroup &hitGroup)
 		groupInfo.setGeneralShader(shaderIdx);
 	}
 	else
-		groupInfo.setGeneralShader(VK_SHADER_UNUSED_NV);
+		groupInfo.setGeneralShader(VK_SHADER_UNUSED_KHR);
 	if (hitGroup.closestHitShader)
 	{
 		vk::PipelineShaderStageCreateInfo stageCreate{};
 		stageCreate.setPNext(nullptr);
-		stageCreate.setStage(vk::ShaderStageFlagBits::eClosestHitNV);
+		stageCreate.setStage(vk::ShaderStageFlagBits::eClosestHitKHR);
 		stageCreate.setModule(*hitGroup.closestHitShader);
 		stageCreate.setPName("main");
 		stageCreate.setFlags(vk::PipelineShaderStageCreateFlags());
@@ -231,12 +229,12 @@ uint32_t RTXPipeline::addHitGroup(const RTXHitGroup &hitGroup)
 		groupInfo.setClosestHitShader(shaderIdx);
 	}
 	else
-		groupInfo.setClosestHitShader(VK_SHADER_UNUSED_NV);
+		groupInfo.setClosestHitShader(VK_SHADER_UNUSED_KHR);
 	if (hitGroup.anyHitShader)
 	{
 		vk::PipelineShaderStageCreateInfo stageCreate{};
 		stageCreate.setPNext(nullptr);
-		stageCreate.setStage(vk::ShaderStageFlagBits::eAnyHitNV);
+		stageCreate.setStage(vk::ShaderStageFlagBits::eAnyHitKHR);
 		stageCreate.setModule(*hitGroup.anyHitShader);
 		stageCreate.setPName("main");
 		stageCreate.setFlags(vk::PipelineShaderStageCreateFlags());
@@ -247,12 +245,12 @@ uint32_t RTXPipeline::addHitGroup(const RTXHitGroup &hitGroup)
 		groupInfo.setAnyHitShader(shaderIdx);
 	}
 	else
-		groupInfo.setAnyHitShader(VK_SHADER_UNUSED_NV);
+		groupInfo.setAnyHitShader(VK_SHADER_UNUSED_KHR);
 	if (hitGroup.intersectionShader)
 	{
 		vk::PipelineShaderStageCreateInfo stageCreate{};
 		stageCreate.setPNext(nullptr);
-		stageCreate.setStage(vk::ShaderStageFlagBits::eIntersectionNV);
+		stageCreate.setStage(vk::ShaderStageFlagBits::eIntersectionKHR);
 		stageCreate.setModule(*hitGroup.intersectionShader);
 		stageCreate.setPName("main");
 		stageCreate.setFlags(vk::PipelineShaderStageCreateFlags());
@@ -263,7 +261,7 @@ uint32_t RTXPipeline::addHitGroup(const RTXHitGroup &hitGroup)
 		groupInfo.setIntersectionShader(shaderIdx);
 	}
 	else
-		groupInfo.setIntersectionShader(VK_SHADER_UNUSED_NV);
+		groupInfo.setIntersectionShader(VK_SHADER_UNUSED_KHR);
 
 	m_ShaderGroups.push_back(groupInfo);
 	const auto idx = m_CurrentGroupIdx;
@@ -277,7 +275,7 @@ uint32_t RTXPipeline::addRayGenShaderStage(vk::ShaderModule module)
 	assert(!m_Generated);
 	vk::PipelineShaderStageCreateInfo stageCreate{};
 	stageCreate.setPNext(nullptr);
-	stageCreate.setStage(vk::ShaderStageFlagBits::eRaygenNV);
+	stageCreate.setStage(vk::ShaderStageFlagBits::eRaygenKHR);
 	stageCreate.setModule(module);
 	stageCreate.setPName("main");
 	stageCreate.setFlags(vk::PipelineShaderStageCreateFlags());
@@ -286,13 +284,13 @@ uint32_t RTXPipeline::addRayGenShaderStage(vk::ShaderModule module)
 	m_ShaderStages.emplace_back(stageCreate);
 	const auto shaderIdx = static_cast<uint32_t>(m_ShaderStages.size() - 1);
 
-	vk::RayTracingShaderGroupCreateInfoNV groupInfo{};
+	vk::RayTracingShaderGroupCreateInfoKHR groupInfo{};
 	groupInfo.setPNext(nullptr);
-	groupInfo.setType(vk::RayTracingShaderGroupTypeNV::eGeneral);
+	groupInfo.setType(vk::RayTracingShaderGroupTypeKHR::eGeneral);
 	groupInfo.setGeneralShader(shaderIdx);
-	groupInfo.setClosestHitShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setAnyHitShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setIntersectionShader(VK_SHADER_UNUSED_NV);
+	groupInfo.setClosestHitShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setAnyHitShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setIntersectionShader(VK_SHADER_UNUSED_KHR);
 	m_ShaderGroups.emplace_back(groupInfo);
 
 	m_ShaderIndices.emplace_back(std::make_pair(RAYGEN, m_CurrentGroupIdx));
@@ -304,7 +302,7 @@ uint32_t RTXPipeline::addMissShaderStage(vk::ShaderModule module)
 {
 	vk::PipelineShaderStageCreateInfo stageCreate{};
 	stageCreate.setPNext(nullptr);
-	stageCreate.setStage(vk::ShaderStageFlagBits::eMissNV);
+	stageCreate.setStage(vk::ShaderStageFlagBits::eMissKHR);
 	stageCreate.setModule(module);
 	stageCreate.setPName("main");
 	stageCreate.setFlags(vk::PipelineShaderStageCreateFlags());
@@ -313,13 +311,13 @@ uint32_t RTXPipeline::addMissShaderStage(vk::ShaderModule module)
 	m_ShaderStages.emplace_back(stageCreate);
 	const auto shaderIdx = static_cast<uint32_t>(m_ShaderStages.size() - 1);
 
-	vk::RayTracingShaderGroupCreateInfoNV groupInfo{};
+	vk::RayTracingShaderGroupCreateInfoKHR groupInfo{};
 	groupInfo.setPNext(nullptr);
-	groupInfo.setType(vk::RayTracingShaderGroupTypeNV::eGeneral);
+	groupInfo.setType(vk::RayTracingShaderGroupTypeKHR::eGeneral);
 	groupInfo.setGeneralShader(shaderIdx);
-	groupInfo.setClosestHitShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setAnyHitShader(VK_SHADER_UNUSED_NV);
-	groupInfo.setIntersectionShader(VK_SHADER_UNUSED_NV);
+	groupInfo.setClosestHitShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setAnyHitShader(VK_SHADER_UNUSED_KHR);
+	groupInfo.setIntersectionShader(VK_SHADER_UNUSED_KHR);
 	m_ShaderGroups.emplace_back(groupInfo);
 
 	m_ShaderIndices.emplace_back(std::make_pair(MISS, m_CurrentGroupIdx));
@@ -368,20 +366,20 @@ void RTXPipeline::finalize()
 
 	CheckVK(m_Device->createPipelineLayout(&pipelineLayoutCreateInfo, nullptr, &m_Layout));
 
-	vk::RayTracingPipelineCreateInfoNV rayPipelineInfo{};
+	vk::RayTracingPipelineCreateInfoKHR rayPipelineInfo{};
 	rayPipelineInfo.setPNext(nullptr);
 	rayPipelineInfo.setFlags(vk::PipelineCreateFlags());
-	rayPipelineInfo.setStageCount((uint32_t)m_ShaderStages.size());
+	rayPipelineInfo.setStageCount(static_cast<uint32_t>(m_ShaderStages.size()));
 	rayPipelineInfo.setPStages(m_ShaderStages.data());
-	rayPipelineInfo.setGroupCount((uint32_t)m_ShaderGroups.size());
+	rayPipelineInfo.setGroupCount(static_cast<uint32_t>(m_ShaderGroups.size()));
 	rayPipelineInfo.setPGroups(m_ShaderGroups.data());
 	rayPipelineInfo.setMaxRecursionDepth(1);
 	rayPipelineInfo.setLayout(m_Layout);
 	rayPipelineInfo.setBasePipelineHandle(nullptr);
 	rayPipelineInfo.setBasePipelineIndex(0);
 
-	CheckVK(m_Device->createRayTracingPipelinesNV(nullptr, 1, &rayPipelineInfo, nullptr, &m_Pipeline,
-												  m_Device.getLoader()));
+	CheckVK(m_Device->createRayTracingPipelinesKHR(nullptr, 1, &rayPipelineInfo, nullptr, &m_Pipeline,
+												   m_Device.getLoader()));
 
 	for (const auto &shader : m_ShaderIndices)
 	{
@@ -403,13 +401,13 @@ void RTXPipeline::finalize()
 	}
 
 	vk::PhysicalDeviceProperties2 props;
-	vk::PhysicalDeviceRayTracingPropertiesNV rtProperties;
-	props.pNext = &rtProperties;
+	props.pNext = &m_RtProps;
 	m_Device.getPhysicalDevice().getProperties2(&props, m_Device.getLoader());
-	const auto sbtSize = m_SBTGenerator.computeSBTSize(rtProperties);
-	SBTBuffer = new Buffer<uint8_t>(m_Device, sbtSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-									vk::BufferUsageFlagBits::eRayTracingNV | vk::BufferUsageFlagBits::eTransferDst);
-	m_SBTGenerator.generate(m_Device, m_Pipeline, SBTBuffer);
+	const auto sbtSize = m_SBTGenerator.computeSBTSize(m_RtProps);
+	m_SBTBuffer = std::make_unique<Buffer<uint8_t>>(m_Device, sbtSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+													vk::BufferUsageFlagBits::eRayTracingKHR |
+														vk::BufferUsageFlagBits::eTransferDst);
+	m_SBTGenerator.generate(m_Device, m_Pipeline, *m_SBTBuffer);
 
 	m_Generated = true;
 }
@@ -429,21 +427,26 @@ void RTXPipeline::recordTraceCommand(vk::CommandBuffer cmdBuffer, uint32_t width
 	assert(m_Generated);
 
 	// Setup pipeline
-	cmdBuffer.bindPipeline(vk::PipelineBindPoint::eRayTracingNV, m_Pipeline, m_Device.getLoader());
+	cmdBuffer.bindPipeline(vk::PipelineBindPoint::eRayTracingKHR, m_Pipeline, m_Device.getLoader());
 	if (!m_DescriptorSets.empty())
-		cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eRayTracingNV, m_Layout, 0,
+		cmdBuffer.bindDescriptorSets(vk::PipelineBindPoint::eRayTracingKHR, m_Layout, 0,
 									 uint32_t(m_VkDescriptorSets.size()), m_VkDescriptorSets.data(), 0, nullptr);
 
-	const vk::Buffer shaderBindingTableBuffer = *SBTBuffer;
-	const auto rayGenOffset = m_SBTGenerator.getRayGenOffset();
-	const auto missOffset = m_SBTGenerator.getMissOffset();
-	const auto hitOffset = m_SBTGenerator.getHitGroupOffset();
-	const auto rayGenSize = m_SBTGenerator.getRayGenSectionSize();
-	const auto missSize = m_SBTGenerator.getMissSectionSize();
-	const auto hitSize = m_SBTGenerator.getHitGroupSectionSize();
+	const vk::Buffer sbt_buffer = m_SBTBuffer->get_buffer();
+
+	vk::DeviceSize progSize = m_RtProps.shaderGroupBaseAlignment; // Size of a program identifier
+	vk::DeviceSize rayGenOffset = m_SBTGenerator.getRayGenOffset();
+	vk::DeviceSize missOffset = m_SBTGenerator.getMissOffset();
+	vk::DeviceSize hitGroupOffset = m_SBTGenerator.getHitGroupOffset();
+	vk::DeviceSize sbtSize = m_SBTGenerator.computeSBTSize(m_RtProps);
+
+	// m_sbtBuffer holds all the shader handles: raygen, n-miss, hit...
+	const vk::StridedBufferRegionKHR raygenShaderBindingTable = {sbt_buffer, rayGenOffset, progSize, sbtSize};
+	const vk::StridedBufferRegionKHR missShaderBindingTable = {sbt_buffer, missOffset, progSize, sbtSize};
+	const vk::StridedBufferRegionKHR hitShaderBindingTable = {sbt_buffer, hitGroupOffset, progSize, sbtSize};
+	const vk::StridedBufferRegionKHR callableShaderBindingTable;
 
 	// Intersect rays
-	cmdBuffer.traceRaysNV(shaderBindingTableBuffer, rayGenOffset, shaderBindingTableBuffer, missOffset, missSize,
-						  shaderBindingTableBuffer, hitOffset, hitSize, nullptr, 0, 0, width, height, depth,
-						  m_Device.getLoader());
+	cmdBuffer.traceRaysKHR(raygenShaderBindingTable, missShaderBindingTable, hitShaderBindingTable,
+						   callableShaderBindingTable, width, height, depth, m_Device.getLoader());
 }

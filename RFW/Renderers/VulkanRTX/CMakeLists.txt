@@ -39,10 +39,9 @@ find_package(OpenGL REQUIRED)
 find_package(Threads REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(GLEW REQUIRED)
-find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan OpenGL::GL GLEW::GLEW glfw Threads::Threads RenderContext rfwMath rfwUtils)
-target_link_libraries(${PROJECT_NAME} PUBLIC unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
+target_link_libraries(${PROJECT_NAME} PUBLIC VMA)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_include_directories(${PROJECT_NAME} PUBLIC Vulkan::Vulkan ${Vulkan_INCLUDE_DIRS})

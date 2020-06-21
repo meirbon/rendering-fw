@@ -83,7 +83,7 @@ void ComputePipeline::finalize()
 
 	const auto computeCreateInfo =
 		vk::ComputePipelineCreateInfo(vk::PipelineCreateFlags(), m_ShaderStage, m_Layout, nullptr);
-	m_Pipeline = m_Device->createComputePipeline(nullptr, computeCreateInfo);
+	m_Pipeline = CheckVK(m_Device->createComputePipeline(nullptr, computeCreateInfo));
 
 	m_Generated = true;
 }

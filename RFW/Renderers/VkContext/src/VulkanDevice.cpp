@@ -169,7 +169,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 		i++;
 	}
 
-	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName);
+	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName.data());
 
 	m_Members->m_DynamicDispatcher.init(instance, m_Members->m_VkDevice);
 
@@ -296,7 +296,10 @@ std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Ins
 
 		const auto dExtensions = candidate.second.enumerateDeviceExtensionProperties();
 		for (const auto &ext : dExtensions)
-			requiredExtensions.erase(ext.extensionName);
+		{
+			const std::string name = ext.extensionName;
+			requiredExtensions.erase(name);
+		}
 
 		// Device supports every requested extension
 		if (requiredExtensions.empty())

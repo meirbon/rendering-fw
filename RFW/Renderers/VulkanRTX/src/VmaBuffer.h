@@ -24,7 +24,7 @@ template <typename T> class VmaBuffer
 		{
 			if (allocation)
 			{
-				vmaDestroyBuffer(allocator, (VkBuffer)buffer, allocation);
+				vmaDestroyBuffer(allocator, static_cast<VkBuffer>(buffer), allocation);
 				allocation = nullptr;
 				buffer = nullptr;
 				elements = 0;
@@ -83,6 +83,7 @@ template <typename T> class VmaBuffer
 		if (elementCount < m_Members->elements && !force)
 			return;
 
+		auto device = m_Members->device;
 		const auto memFlags = m_Members->memFlags;
 		const auto usageFlags = m_Members->usageFlags;
 		const auto usage = m_Members->usage;
@@ -90,7 +91,7 @@ template <typename T> class VmaBuffer
 
 		cleanup();
 		m_Members = std::make_shared<Members>();
-
+		m_Members->device = device;
 		m_Members->allocator = allocator;
 		m_Members->memFlags = memFlags;
 		m_Members->usageFlags = usageFlags;
@@ -122,11 +123,13 @@ template <typename T> class VmaBuffer
 		assert(m_Members);
 		assert(m_Members->device);
 		assert(m_Members->allocator);
+		auto device = m_Members->device;
 		cleanup();
 
 		if (elementCount < m_Members->elements)
 			return;
 
+		m_Members->device = device;
 		m_Members->elements = elementCount;
 		m_Members->usageFlags = usageFlags;
 		m_Members->memFlags = memFlags;
@@ -211,7 +214,8 @@ template <typename T> class VmaBuffer
 		auto cmdBuffer =
 			m_Members->device.createOneTimeCmdBuffer(vk::CommandBufferLevel::ePrimary, VulkanDevice::TRANSFER);
 		vk::BufferCopy copyRegion = vk::BufferCopy(0, 0, m_Members->elements * sizeof(T));
-		cmdBuffer->copyBuffer(static_cast<vk::Buffer>(m_Members->buffer), static_cast<vk::Buffer>(*buffer), 1, &copyRegion);
+		cmdBuffer->copyBuffer(static_cast<vk::Buffer>(m_Members->buffer), static_cast<vk::Buffer>(*buffer), 1,
+							  &copyRegion);
 
 		auto transferQueue = m_Members->device.getTransferQueue();
 		cmdBuffer.submit(transferQueue, true);
@@ -277,9 +281,19 @@ template <typename T> class VmaBuffer
 
 	[[nodiscard]] bool canMap() const
 	{
+		assert(m_Members);
 		VkMemoryPropertyFlags memFlags;
 		vmaGetMemoryTypeProperties(m_Members->allocator, m_Members->allocInfo.memoryType, &memFlags);
 		return (memFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+	}
+
+	[[nodiscard]] vk::Buffer get_buffer() const { return m_Members->buffer; }
+
+	[[nodiscard]] vk::DeviceAddress get_buffer_address() const
+	{
+		assert(m_Members);
+		return m_Members->device->getBufferAddressKHR(vk::BufferDeviceAddressInfo(m_Members->buffer),
+													  m_Members->device.getLoader());
 	}
 
   private:

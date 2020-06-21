@@ -1,5 +1,7 @@
 #pragma once
 
+#define VK_ENABLE_BETA_EXTENSIONS 1
+
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
@@ -190,17 +192,17 @@ class Context : public rfw::RenderContext
 	void createBuffers();
 	void initializeDescriptorSets();
 
-	vk::Instance m_VkInstance = nullptr;
-	vk::DebugUtilsMessengerEXT m_VkDebugMessenger = nullptr; // Debug validation messenger
+	vk::Instance m_VkInstance;
+	vk::DebugUtilsMessengerEXT m_VkDebugMessenger; // Debug validation messenger
 	vk::CommandBuffer m_BlitCommandBuffer;
-	std::vector<GeometryInstance> m_Instances;
+	std::vector<vk::AccelerationStructureInstanceKHR> m_Instances;
 	std::vector<bool> m_MeshChanged = std::vector<bool>(256);
 	std::vector<vk::DescriptorBufferInfo> m_TriangleBufferInfos;
-	std::vector<vkrtx::Mesh *> m_Meshes{};
+	std::vector<std::unique_ptr<vkrtx::Mesh>> m_Meshes{};
 	VulkanDevice m_Device;
 
 	// Frame data
-	InteropTexture *m_InteropTexture = nullptr;
+	std::unique_ptr<InteropTexture> m_InteropTexture;
 	uint32_t m_SamplesPP{};
 	uint32_t m_CurrentFrame = 0;
 	uint32_t m_ScrWidth = 0, m_ScrHeight = 0;
@@ -212,45 +214,45 @@ class Context : public rfw::RenderContext
 	bool m_FirstConvergingFrame = false;
 
 	// Uniform data
-	UniformObject<VkCamera> *m_UniformCamera{};
-	UniformObject<FinalizeParams> *m_UniformFinalizeParams{};
-	TopLevelAS *m_TopLevelAS = nullptr;
+	std::unique_ptr<UniformObject<VkCamera>> m_UniformCamera{};
+	std::unique_ptr<UniformObject<FinalizeParams>> m_UniformFinalizeParams{};
+	std::unique_ptr<TopLevelAS> m_TopLevelAS;
 
 	// Ray trace pipeline
-	DescriptorSet *rtDescriptorSet = nullptr;
-	RTXPipeline *rtPipeline = nullptr;
+	std::unique_ptr<DescriptorSet> rtDescriptorSet;
+	std::unique_ptr<RTXPipeline> rtPipeline;
 
 	// Shade pipeline
-	DescriptorSet *shadeDescriptorSet = nullptr;
-	ComputePipeline *shadePipeline = nullptr;
+	std::unique_ptr<DescriptorSet> shadeDescriptorSet;
+	std::unique_ptr<ComputePipeline> shadePipeline;
 
 	// finalize pipeline
-	DescriptorSet *finalizeDescriptorSet = nullptr;
-	ComputePipeline *finalizePipeline = nullptr;
+	std::unique_ptr<DescriptorSet> finalizeDescriptorSet;
+	std::unique_ptr<ComputePipeline> finalizePipeline;
 
 	// Storage buffers
-	VmaBuffer<mat4> *m_InvTransformsBuffer = nullptr;
+	std::unique_ptr<VmaBuffer<mat4>> m_InvTransformsBuffer;
 	std::vector<mat4> m_InvTransforms;
 
 	std::vector<rfw::TextureData> m_TexDescriptors;
 	std::vector<size_t> m_InstanceMeshIndices;
-	VmaBuffer<uint> *m_RGBA32Buffer = nullptr;
-	VmaBuffer<glm::vec4> *m_RGBA128Buffer = nullptr;
+	std::unique_ptr<VmaBuffer<uint>> m_RGBA32Buffer;
+	std::unique_ptr<VmaBuffer<glm::vec4>> m_RGBA128Buffer;
 	Counters m_HostCounters;
-	VmaBuffer<uint8_t> *m_ScratchBuffer;
-	VmaBuffer<Counters> *m_Counters = nullptr;
-	VmaBuffer<rfw::DeviceMaterial> *m_Materials = nullptr;
-	VmaBuffer<rfw::DeviceAreaLight> *m_AreaLightBuffer = nullptr;
-	VmaBuffer<rfw::DevicePointLight> *m_PointLightBuffer = nullptr;
-	VmaBuffer<rfw::DeviceSpotLight> *m_SpotLightBuffer = nullptr;
-	VmaBuffer<rfw::DeviceDirectionalLight> *m_DirectionalLightBuffer = nullptr;
-	VmaBuffer<uint> *m_BlueNoiseBuffer = nullptr;
-	VmaBuffer<glm::vec4> *m_CombinedStateBuffer[2] = {nullptr, nullptr};
-	VmaBuffer<glm::vec4> *m_AccumulationBuffer = nullptr;
-	VmaBuffer<PotentialContribution> *m_PotentialContributionBuffer = nullptr;
+	std::unique_ptr<VmaBuffer<uint8_t>> m_ScratchBuffer;
+	std::unique_ptr<VmaBuffer<Counters>> m_Counters;
+	std::unique_ptr<VmaBuffer<rfw::DeviceMaterial>> m_Materials;
+	std::unique_ptr<VmaBuffer<rfw::DeviceAreaLight>> m_AreaLightBuffer;
+	std::unique_ptr<VmaBuffer<rfw::DevicePointLight>> m_PointLightBuffer;
+	std::unique_ptr<VmaBuffer<rfw::DeviceSpotLight>> m_SpotLightBuffer;
+	std::unique_ptr<VmaBuffer<rfw::DeviceDirectionalLight>> m_DirectionalLightBuffer;
+	std::unique_ptr<VmaBuffer<uint>> m_BlueNoiseBuffer;
+	std::unique_ptr<VmaBuffer<glm::vec4>> m_CombinedStateBuffer[2] = {nullptr, nullptr};
+	std::unique_ptr<VmaBuffer<glm::vec4>> m_AccumulationBuffer;
+	std::unique_ptr<VmaBuffer<PotentialContribution>> m_PotentialContributionBuffer;
 
-	Image *m_SkyboxImage = nullptr;
-	Image *m_OffscreenImage = nullptr; // Off-screen render image
+	std::unique_ptr<Image> m_SkyboxImage;
+	std::unique_ptr<Image> m_OffscreenImage; // Off-screen render image
 	glm::uvec2 m_ProbePos = glm::uvec2(0);
 	unsigned int m_ProbedInstance = 0;
 	unsigned int m_ProbedTriangle = 0;

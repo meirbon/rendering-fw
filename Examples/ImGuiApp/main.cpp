@@ -1,10 +1,10 @@
 #include <RenderSystem.h>
 #include <Application.h>
 
-#define SKINNED_MESH 1
+#define SKINNED_MESH 0
 #define CESIUMMAN 1
 #define POLLY 0
-#define PICA 1
+#define PICA 0
 #define SPONZA 0
 #define PICA_LIGHTS 0
 #define DRAGON 0

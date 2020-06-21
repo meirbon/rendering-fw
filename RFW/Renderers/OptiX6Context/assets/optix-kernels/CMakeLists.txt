@@ -10,7 +10,7 @@ include_directories(${ABSOLUTE_PATH})
 get_filename_component(ABSOLUTE_PATH "../../src" ABSOLUTE)
 include_directories(${ABSOLUTE_PATH})
 
-set(ARCHES "50" "52" "60" "61" "70" "75")
+set(ARCHES "52" "60" "61" "70" "75")
 set(DEPS "")
 
 foreach (ARCH ${ARCHES})

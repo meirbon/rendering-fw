@@ -290,6 +290,14 @@ template <typename T> class Buffer
 	[[nodiscard]] vk::DeviceSize getSize() const { return m_Members->m_Elements * sizeof(T); }
 	[[nodiscard]] vk::MemoryPropertyFlags getMemoryProperties() const { return m_Members->m_MemFlags; }
 	[[nodiscard]] vk::BufferUsageFlags getBufferUsageFlags() const { return m_Members->m_UsageFlags; }
+
+	[[nodiscard]] vk::Buffer get_buffer() const { return m_Members->m_Buffer; }
+
+	[[nodiscard]] vk::DeviceAddress get_buffer_address() const
+	{
+		return m_Members->m_Device->getBufferAddressKHR(vk::BufferDeviceAddressInfo(m_Members->m_Buffer),
+														m_Members->m_Device.getLoader());
+	}
 };
 
 template <typename T, typename B>

@@ -5,11 +5,14 @@
 #ifdef NDEBUG
 constexpr std::array<const char *, 0> VALIDATION_LAYERS = {};
 #else
-constexpr std::array<const char *, 1> VALIDATION_LAYERS = {"VK_LAYER_LUNARG_standard_validation"};
+constexpr std::array<const char *, 1> VALIDATION_LAYERS = {"VK_LAYER_KHRONOS_validation"};
 #endif
-const std::vector<const char *> DEVICE_EXTENSIONS = {VK_NV_RAY_TRACING_EXTENSION_NAME,
-													 VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
-													 VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME};
+const std::vector<const char *> DEVICE_EXTENSIONS = {
+	VK_KHR_RAY_TRACING_EXTENSION_NAME,			 VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME,
+	VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME,	 VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+	VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+	VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME,
+};
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
 													VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -29,6 +32,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 		break;
 	case (VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT):
 		severity = "ERROR";
+		break;
+	case VK_DEBUG_UTILS_MESSAGE_SEVERITY_FLAG_BITS_MAX_ENUM_EXT:
 		break;
 	default:
 		break;
@@ -50,8 +55,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 	}
 
 #ifndef NDEBUG
-//	rfw::utils::logger::log("Vulkan Validation Layer: [Severity: %s] [Type: %s] : %s\n", severity, type,
-//pCallbackData->pMessage);
+	rfw::utils::logger::log("Vulkan Validation Layer: [Severity: %s] [Type: %s] : %s\n", severity, type,
+							pCallbackData->pMessage);
 #endif
 	return VK_FALSE;
 }
@@ -114,7 +119,7 @@ void vkrtx::Context::init(GLuint *glTextureID, uint width, uint height)
 	if (!m_InteropTexture)
 	{
 		// Create a bigger buffer than needed to prevent reallocating often
-		m_InteropTexture = new InteropTexture(m_Device, *glTextureID, m_ScrWidth, m_ScrHeight);
+		m_InteropTexture = std::make_unique<InteropTexture>(m_Device, *glTextureID, m_ScrWidth, m_ScrHeight);
 		auto cmdBuffer = m_Device.createOneTimeCmdBuffer();
 		auto queue = m_Device.getGraphicsQueue();
 		m_InteropTexture->transitionImageToInitialState(cmdBuffer, queue);
@@ -137,77 +142,15 @@ void vkrtx::Context::cleanup()
 	glFlush(), glFinish();
 
 	m_Device->waitIdle();
-
-	// delete m_CounterTransferBuffer;
-	// m_CounterTransferBuffer = nullptr;
-
-	delete rtPipeline;
-	rtPipeline = nullptr;
-	delete rtDescriptorSet;
-	rtDescriptorSet = nullptr;
-	delete shadePipeline;
-	shadePipeline = nullptr;
-	delete shadeDescriptorSet;
-	shadeDescriptorSet = nullptr;
-	delete finalizePipeline;
-	finalizePipeline = nullptr;
-	delete finalizeDescriptorSet;
-	finalizeDescriptorSet = nullptr;
-	if (m_BlitCommandBuffer)
-		m_Device.freeCommandBuffer(m_BlitCommandBuffer);
-	m_BlitCommandBuffer = nullptr;
-	delete m_TopLevelAS;
-	m_TopLevelAS = nullptr;
-	for (auto *mesh : m_Meshes)
-		delete mesh;
-	m_Meshes.clear();
-	delete m_OffscreenImage;
-	m_OffscreenImage = nullptr;
-	delete m_InvTransformsBuffer;
-	m_InvTransformsBuffer = nullptr;
-	delete m_AreaLightBuffer;
-	m_AreaLightBuffer = nullptr;
-	delete m_PointLightBuffer;
-	m_PointLightBuffer = nullptr;
-	delete m_SpotLightBuffer;
-	m_SpotLightBuffer = nullptr;
-	delete m_DirectionalLightBuffer;
-	m_DirectionalLightBuffer = nullptr;
-	delete m_BlueNoiseBuffer;
-	m_BlueNoiseBuffer = nullptr;
-	delete m_CombinedStateBuffer[0];
-	m_CombinedStateBuffer[0] = nullptr;
-	delete m_CombinedStateBuffer[1];
-	m_CombinedStateBuffer[1] = nullptr;
-	delete m_ScratchBuffer;
-	m_ScratchBuffer = nullptr;
-	delete m_Counters;
-	m_Counters = nullptr;
-	delete m_SkyboxImage;
-	m_SkyboxImage = nullptr;
-	delete m_UniformCamera;
-	m_UniformCamera = nullptr;
-	delete m_UniformFinalizeParams;
-	m_UniformFinalizeParams = nullptr;
-	delete m_AccumulationBuffer;
-	m_AccumulationBuffer = nullptr;
-	delete m_PotentialContributionBuffer;
-	m_PotentialContributionBuffer = nullptr;
-	delete m_Materials;
-	m_Materials = nullptr;
-	delete m_InteropTexture;
-	m_InteropTexture = nullptr;
 	if (m_VkDebugMessenger)
 		m_VkInstance.destroyDebugUtilsMessengerEXT(m_VkDebugMessenger, nullptr, m_Device.getLoader());
 	m_VkDebugMessenger = nullptr;
-
-	// Vulkan device & Vulkan instance automatically get freed when this class gets destroyed
 }
 
 void vkrtx::Context::render_frame(const rfw::Camera &cam, rfw::RenderStatus status)
 {
 	// Ensure OpenGL finished
-	glFinish();
+	// glFinish();
 
 	using namespace rfw;
 	const auto view = cam.get_view();
@@ -382,7 +325,14 @@ void vkrtx::Context::render_frame(const rfw::Camera &cam, rfw::RenderStatus stat
 
 	t.reset();
 	m_Device.submitCommandBuffer(m_BlitCommandBuffer, queue);
-	queue.waitIdle();
+	try
+	{
+		queue.waitIdle();
+	}
+	catch (const std::exception &e)
+	{
+		FAILURE("%s", e.what());
+	}
 	m_Stats.finalizeTime = t.elapsed();
 	cmdBuffer.begin();
 }
@@ -390,7 +340,6 @@ void vkrtx::Context::render_frame(const rfw::Camera &cam, rfw::RenderStatus stat
 void vkrtx::Context::set_materials(const std::vector<rfw::DeviceMaterial> &materials,
 								   const std::vector<rfw::MaterialTexIds> &texDescriptors)
 {
-	delete m_Materials;
 	std::vector<rfw::DeviceMaterial> materialData(materials.size());
 	materialData.resize(materials.size());
 	memcpy(materialData.data(), materials.data(), materials.size() * sizeof(rfw::DeviceMaterial));
@@ -423,7 +372,7 @@ void vkrtx::Context::set_materials(const std::vector<rfw::DeviceMaterial> &mater
 			mat.amapaddr = m_TexDescriptors[ids.texture[10]].texAddr;
 	}
 
-	m_Materials = new VmaBuffer<rfw::DeviceMaterial>(
+	m_Materials = std::make_unique<VmaBuffer<rfw::DeviceMaterial>>(
 		m_Device, materialData.size(), vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	m_Materials->copyToDevice(materialData.data(), materialData.size() * sizeof(rfw::DeviceMaterial));
@@ -437,11 +386,6 @@ void vkrtx::Context::set_materials(const std::vector<rfw::DeviceMaterial> &mater
 void vkrtx::Context::set_textures(const std::vector<rfw::TextureData> &textures)
 {
 	m_TexDescriptors = textures;
-
-	delete m_RGBA32Buffer;
-	delete m_RGBA128Buffer;
-	m_RGBA32Buffer = nullptr;
-	m_RGBA128Buffer = nullptr;
 
 	size_t uintTexelCount = 0;
 	size_t floatTexelCount = 0;
@@ -504,10 +448,10 @@ void vkrtx::Context::set_textures(const std::vector<rfw::TextureData> &textures)
 	uintTexelCount = glm::max(uintTexelCount, size_t(1));
 	floatTexelCount = glm::max(floatTexelCount, size_t(1));
 
-	m_RGBA32Buffer = new VmaBuffer<uint>(
+	m_RGBA32Buffer = std::make_unique<VmaBuffer<uint>>(
 		m_Device, uintTexelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
-	m_RGBA128Buffer = new VmaBuffer<glm::vec4>(
+	m_RGBA128Buffer = std::make_unique<VmaBuffer<glm::vec4>>(
 		m_Device, floatTexelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -526,7 +470,7 @@ void vkrtx::Context::set_mesh(size_t index, const rfw::Mesh &mesh)
 	{
 		while (index >= m_Meshes.size())
 		{
-			m_Meshes.push_back(new Mesh(m_Device));
+			m_Meshes.push_back(std::make_unique<Mesh>(m_Device));
 			m_MeshChanged.push_back(false);
 		}
 	}
@@ -535,7 +479,7 @@ void vkrtx::Context::set_mesh(size_t index, const rfw::Mesh &mesh)
 	m_MeshChanged[index] = true;
 }
 
-void vkrtx::Context::set_instance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &inverse_transform)
+void vkrtx::Context::set_instance(size_t index, size_t meshIdx, const mat4 &transform, const mat3 &iKHRerse_transform)
 {
 	if (index >= m_Instances.size())
 	{
@@ -545,30 +489,30 @@ void vkrtx::Context::set_instance(size_t index, size_t meshIdx, const mat4 &tran
 
 		if (m_InvTransformsBuffer->getElementCount() < m_Instances.size())
 		{
-			delete m_InvTransformsBuffer;
-			m_InvTransformsBuffer =
-				new VmaBuffer<mat4>(m_Device, m_Instances.size() + (m_Instances.size() % 32),
-									vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
-									vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
-									VMA_MEMORY_USAGE_CPU_TO_GPU);
+			m_InvTransformsBuffer = std::make_unique<VmaBuffer<mat4>>(
+				m_Device, m_Instances.size() + (m_Instances.size() % 32),
+				vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
+				vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst,
+				VMA_MEMORY_USAGE_CPU_TO_GPU);
 		}
 	}
 
 	m_InstanceMeshIndices.at(index) = meshIdx;
 	auto &curInstance = m_Instances.at(index);
-
-	curInstance.instanceId = static_cast<uint32_t>(index);
+	curInstance.instanceShaderBindingTableRecordOffset = 0;
+	curInstance.instanceCustomIndex = static_cast<uint32_t>(index);
 	curInstance.mask = 0xFF;
-	curInstance.instanceOffset = 0;
-	curInstance.flags = static_cast<uint32_t>(vk::GeometryInstanceFlagBitsNV::eTriangleCullDisable);
+	curInstance.instanceShaderBindingTableRecordOffset = 0;
+	curInstance.flags = static_cast<uint32_t>(vk::GeometryInstanceFlagBitsKHR::eTriangleCullDisable);
 
 	// Update matrix
 	const auto tmpTransform = transpose(transform);
-	memcpy(curInstance.transform, value_ptr(tmpTransform), sizeof(curInstance.transform));
-	m_InvTransforms[index] = mat4(inverse_transform);
+	memcpy(curInstance.transform.matrix.data(), value_ptr(tmpTransform),
+		   sizeof(curInstance.transform.matrix.size() * sizeof(float)));
+	m_InvTransforms[index] = mat4(iKHRerse_transform);
 
 	// Update acceleration structure handle
-	curInstance.accelerationStructureHandle = m_Meshes.at(meshIdx)->accelerationStructure->getHandle();
+	curInstance.accelerationStructureReference = m_Meshes.at(meshIdx)->accelerationStructure->getHandle();
 }
 
 void vkrtx::Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width, size_t height)
@@ -577,13 +521,12 @@ void vkrtx::Context::set_sky(const std::vector<glm::vec3> &pixels, size_t width,
 	for (uint i = 0; i < (width * height); i++)
 		data[i] = glm::vec4(pixels[i].x, pixels[i].y, pixels[i].z, 0.0f);
 
-	delete m_SkyboxImage;
 	// Create a Vulkan image that can be sampled
-	m_SkyboxImage =
-		new Image(m_Device, vk::ImageType::e2D, vk::Format::eR32G32B32A32Sfloat,
-				  vk::Extent3D(static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1),
-				  vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst,
-				  vk::MemoryPropertyFlagBits::eDeviceLocal, Image::SKYDOME);
+	m_SkyboxImage = std::make_unique<Image>(
+		m_Device, vk::ImageType::e2D, vk::Format::eR32G32B32A32Sfloat,
+		vk::Extent3D(static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1), vk::ImageTiling::eOptimal,
+		vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst,
+		vk::MemoryPropertyFlagBits::eDeviceLocal, Image::SKYDOME);
 
 	vk::ImageSubresourceRange range{};
 	range.aspectMask = vk::ImageAspectFlagBits::eColor;
@@ -613,32 +556,28 @@ void vkrtx::Context::set_lights(rfw::LightCount lightCount, const rfw::DeviceAre
 
 	if (m_AreaLightBuffer->getElementCount() < lightCount.areaLightCount)
 	{
-		delete m_AreaLightBuffer;
-		m_AreaLightBuffer = new VmaBuffer<rfw::DeviceAreaLight>(
+		m_AreaLightBuffer = std::make_unique<VmaBuffer<rfw::DeviceAreaLight>>(
 			m_Device, m_LightCounts.areaLightCount,
 			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 	if (m_PointLightBuffer->getElementCount() < lightCount.pointLightCount)
 	{
-		delete m_PointLightBuffer;
-		m_PointLightBuffer = new VmaBuffer<rfw::DevicePointLight>(
+		m_PointLightBuffer = std::make_unique<VmaBuffer<rfw::DevicePointLight>>(
 			m_Device, m_LightCounts.pointLightCount,
 			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 	if (m_SpotLightBuffer->getElementCount() < lightCount.spotLightCount)
 	{
-		delete m_SpotLightBuffer;
-		m_SpotLightBuffer = new VmaBuffer<rfw::DeviceSpotLight>(
+		m_SpotLightBuffer = std::make_unique<VmaBuffer<rfw::DeviceSpotLight>>(
 			m_Device, lightCount.spotLightCount,
 			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 	}
 	if (m_DirectionalLightBuffer->getElementCount() < lightCount.directionalLightCount)
 	{
-		delete m_DirectionalLightBuffer;
-		m_DirectionalLightBuffer = new VmaBuffer<rfw::DeviceDirectionalLight>(
+		m_DirectionalLightBuffer = std::make_unique<VmaBuffer<rfw::DeviceDirectionalLight>>(
 			m_Device, lightCount.directionalLightCount,
 			vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 			vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -682,11 +621,11 @@ void vkrtx::Context::update()
 			continue;
 
 		auto &instance = m_Instances.at(i);
-		auto *mesh = m_Meshes.at(meshIdx);
+		const auto &mesh = m_Meshes.at(meshIdx);
 
 		// Update acceleration structure handle
-		instance.accelerationStructureHandle = mesh->accelerationStructure->getHandle();
-		assert(instance.accelerationStructureHandle);
+		instance.accelerationStructureReference = mesh->accelerationStructure->getHandle();
+		assert(instance.accelerationStructureReference);
 	}
 
 	bool triangleBuffersDirty = false;						// Initially we presume triangle buffers are up to date
@@ -696,7 +635,7 @@ void vkrtx::Context::update()
 		m_TriangleBufferInfos.resize(m_Instances.size());
 		for (uint i = 0; i < m_Instances.size(); i++)
 		{
-			const auto *mesh = m_Meshes.at(m_InstanceMeshIndices.at(i));
+			const auto &mesh = m_Meshes.at(m_InstanceMeshIndices.at(i));
 			m_TriangleBufferInfos.at(i) = mesh->triangles.getDescriptorBufferInfo();
 		}
 	}
@@ -707,7 +646,7 @@ void vkrtx::Context::update()
 			const auto meshIdx = m_InstanceMeshIndices.at(i);
 			if (m_MeshChanged.at(meshIdx))
 			{
-				const auto *mesh = m_Meshes.at(m_InstanceMeshIndices.at(i));
+				const auto &mesh = m_Meshes.at(m_InstanceMeshIndices.at(i));
 				m_TriangleBufferInfos.at(i) = mesh->triangles.getDescriptorBufferInfo();
 				triangleBuffersDirty = true; // Set triangle buffer write flag
 			}
@@ -724,14 +663,13 @@ void vkrtx::Context::update()
 	assert(m_InvTransformsBuffer->getElementCount() >= m_InvTransforms.size());
 
 	m_InvTransformsBuffer->copyToDevice(m_InvTransforms.data(),
-										m_InvTransforms.size() * sizeof(mat4)); // Update inverse transforms
+										m_InvTransforms.size() * sizeof(mat4)); // Update iKHRerse transforms
 	shadeDescriptorSet->bind(cINVERSE_TRANSFORMS, {m_InvTransformsBuffer->getDescriptorBufferInfo()});
 
 	if (m_TopLevelAS->get_instance_count() !=
 		m_Instances.size()) // Recreate top level AS in case our number of instances changed
 	{
-		delete m_TopLevelAS;
-		m_TopLevelAS = new TopLevelAS(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
+		m_TopLevelAS = std::make_unique<TopLevelAS>(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
 		m_TopLevelAS->updateInstances(m_Instances);
 		m_TopLevelAS->build(*m_ScratchBuffer);
 
@@ -739,8 +677,7 @@ void vkrtx::Context::update()
 	}
 	else if (!m_TopLevelAS->canUpdate()) // Recreate top level AS in case it cannot be updated
 	{
-		delete m_TopLevelAS;
-		m_TopLevelAS = new TopLevelAS(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
+		m_TopLevelAS = std::make_unique<TopLevelAS>(m_Device, FastTrace, static_cast<uint32_t>(m_Instances.size()));
 		m_TopLevelAS->updateInstances(m_Instances);
 		m_TopLevelAS->build(*m_ScratchBuffer);
 
@@ -766,14 +703,15 @@ void vkrtx::Context::initRenderer()
 #ifndef NDEBUG
 	createDebugReportCallback();
 #endif
-	createCommandBuffers();								   // Initialize blit buffers
-	m_TopLevelAS = new TopLevelAS(m_Device, FastestTrace); // Create a top level AS, Vulkan doesn't like unbound buffers
-	createDescriptorSets();								   // Create bindings for shaders
-	createBuffers();									   // Create uniforms like our camera
-	createRayTracingPipeline();							   // Create ray intersection pipeline
-	createShadePipeline();								   // Create compute pipeline; wavefront shading
-	createFinalizePipeline();							   // Create compute pipeline; plot accumulation buffer to image
-	m_TopLevelAS->build(*m_ScratchBuffer);				   // build top level AS
+	createCommandBuffers(); // Initialize blit buffers
+	m_TopLevelAS = std::make_unique<TopLevelAS>(
+		m_Device, FastestTrace);		   // Create a top level AS, Vulkan doesn't like unbound buffers
+	createDescriptorSets();				   // Create bindings for shaders
+	createBuffers();					   // Create uniforms like our camera
+	createRayTracingPipeline();			   // Create ray intersection pipeline
+	createShadePipeline();				   // Create compute pipeline; wavefront shading
+	createFinalizePipeline();			   // Create compute pipeline; plot accumulation buffer to image
+	m_TopLevelAS->build(*m_ScratchBuffer); // build top level AS
 
 	// Set initial sky box, Vulkan does not like having unbound buffers
 	auto dummy = glm::vec3(0.0f);
@@ -832,7 +770,7 @@ void vkrtx::Context::setupValidationLayers(vk::InstanceCreateInfo &createInfo)
 	};
 
 	bool layersFound = true;
-	for (auto layer : VALIDATION_LAYERS)
+	for (const char *layer : VALIDATION_LAYERS)
 	{
 		if (!hasLayer(layer))
 		{
@@ -877,7 +815,7 @@ void vkrtx::Context::createDevice()
 {
 	// Start with application defined required extensions
 	std::vector<const char *> dev_extensions = DEVICE_EXTENSIONS;
-	for (const auto ext : InteropTexture::getRequiredExtensions())
+	for (const auto *const ext : InteropTexture::getRequiredExtensions())
 		dev_extensions.push_back(ext);
 
 	// Retrieve a physical device that supports our requested extensions
@@ -907,28 +845,23 @@ void vkrtx::Context::resizeBuffers()
 	if (oldPixelCount >= newPixelCount)
 		return; // No need to resize buffers
 
-	delete m_CombinedStateBuffer[0];
-	delete m_CombinedStateBuffer[1];
-	delete m_AccumulationBuffer;
-	delete m_PotentialContributionBuffer;
-
 	const auto limits = m_Device.getPhysicalDevice().getProperties().limits;
 
 	// Create 2 path trace state buffers, these buffers are ping-ponged every path iteration
 	const auto combinedAlignedSize = newPixelCount * 4 + ((newPixelCount * 4) % limits.minStorageBufferOffsetAlignment);
 	m_CombinedStateBuffer[0] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+		std::make_unique<VmaBuffer<glm::vec4>>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 	m_CombinedStateBuffer[1] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+		std::make_unique<VmaBuffer<glm::vec4>>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// Accumulation buffer for rendered image
-	m_AccumulationBuffer = new VmaBuffer<glm::vec4>(
+	m_AccumulationBuffer = std::make_unique<VmaBuffer<glm::vec4>>(
 		m_Device, newPixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 	// Shadow ray buffer
-	m_PotentialContributionBuffer = new VmaBuffer<PotentialContribution>(
+	m_PotentialContributionBuffer = std::make_unique<VmaBuffer<PotentialContribution>>(
 		m_Device, MAXPATHLENGTH * newPixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
@@ -963,7 +896,7 @@ void vkrtx::Context::resizeBuffers()
 
 void vkrtx::Context::createRayTracingPipeline()
 {
-	rtPipeline = new RTXPipeline(m_Device);
+	rtPipeline = std::make_unique<RTXPipeline>(m_Device);
 	// Setup ray generation shader
 	const auto rgenShader = Shader(m_Device, "rt_shaders.rgen");
 	const auto chitShader = Shader(m_Device, "rt_shaders.rchit");
@@ -977,17 +910,17 @@ void vkrtx::Context::createRayTracingPipeline()
 	rtPipeline->addMissShaderStage(missShader);
 	rtPipeline->addMissShaderStage(shadowShader);
 	rtPipeline->addEmptyHitGroup();
-	rtPipeline->addPushConstant(vk::PushConstantRange(vk::ShaderStageFlagBits::eRaygenNV, 0, 3 * sizeof(uint32_t)));
+	rtPipeline->addPushConstant(vk::PushConstantRange(vk::ShaderStageFlagBits::eRaygenKHR, 0, 3 * sizeof(uint32_t)));
 	rtPipeline->setMaxRecursionDepth(5u);
-	rtPipeline->addDescriptorSet(rtDescriptorSet);
+	rtPipeline->addDescriptorSet(rtDescriptorSet.get());
 	rtPipeline->finalize();
 }
 
 void vkrtx::Context::createShadePipeline()
 {
 	auto computeShader = Shader(m_Device, "rt_shade.comp");
-	shadePipeline = new ComputePipeline(m_Device, computeShader);
-	shadePipeline->addDescriptorSet(shadeDescriptorSet);
+	shadePipeline = std::make_unique<ComputePipeline>(m_Device, computeShader);
+	shadePipeline->addDescriptorSet(shadeDescriptorSet.get());
 	shadePipeline->addPushConstant(vk::PushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, sizeof(uint32_t) * 2));
 	shadePipeline->finalize();
 }
@@ -995,31 +928,32 @@ void vkrtx::Context::createShadePipeline()
 void vkrtx::Context::createFinalizePipeline()
 {
 	auto computeShader = Shader(m_Device, "rt_finalize.comp");
-	finalizePipeline = new ComputePipeline(m_Device, computeShader);
-	finalizePipeline->addDescriptorSet(finalizeDescriptorSet);
+	finalizePipeline = std::make_unique<ComputePipeline>(m_Device, computeShader);
+	finalizePipeline->addDescriptorSet(finalizeDescriptorSet.get());
 	finalizePipeline->finalize();
 }
 
 void vkrtx::Context::createDescriptorSets()
 {
-	rtDescriptorSet = new DescriptorSet(m_Device);
-	shadeDescriptorSet = new DescriptorSet(m_Device);
-	finalizeDescriptorSet = new DescriptorSet(m_Device);
+	rtDescriptorSet = std::make_unique<DescriptorSet>(m_Device);
+	shadeDescriptorSet = std::make_unique<DescriptorSet>(m_Device);
+	finalizeDescriptorSet = std::make_unique<DescriptorSet>(m_Device);
 
-	rtDescriptorSet->addBinding(rtACCELERATION_STRUCTURE, 1, vk::DescriptorType::eAccelerationStructureNV,
-								vk::ShaderStageFlagBits::eRaygenNV | vk::ShaderStageFlagBits::eClosestHitNV);
-	rtDescriptorSet->addBinding(rtCAMERA, 1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eRaygenNV);
+	rtDescriptorSet->addBinding(rtACCELERATION_STRUCTURE, 1, vk::DescriptorType::eAccelerationStructureKHR,
+								vk::ShaderStageFlagBits::eRaygenKHR | vk::ShaderStageFlagBits::eClosestHitKHR);
+	rtDescriptorSet->addBinding(rtCAMERA, 1, vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eRaygenKHR);
 	rtDescriptorSet->addBinding(rtPATH_STATES, 2, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
+								vk::ShaderStageFlagBits::eRaygenKHR);
 	rtDescriptorSet->addBinding(rtPATH_ORIGINS, 2, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
+								vk::ShaderStageFlagBits::eRaygenKHR);
 	rtDescriptorSet->addBinding(rtPATH_DIRECTIONS, 2, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
+								vk::ShaderStageFlagBits::eRaygenKHR);
 	rtDescriptorSet->addBinding(rtPOTENTIAL_CONTRIBUTIONS, 1, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
+								vk::ShaderStageFlagBits::eRaygenKHR);
 	rtDescriptorSet->addBinding(rtACCUMULATION_BUFFER, 1, vk::DescriptorType::eStorageBuffer,
-								vk::ShaderStageFlagBits::eRaygenNV);
-	rtDescriptorSet->addBinding(rtBLUENOISE, 1, vk::DescriptorType::eStorageBuffer, vk::ShaderStageFlagBits::eRaygenNV);
+								vk::ShaderStageFlagBits::eRaygenKHR);
+	rtDescriptorSet->addBinding(rtBLUENOISE, 1, vk::DescriptorType::eStorageBuffer,
+								vk::ShaderStageFlagBits::eRaygenKHR);
 	rtDescriptorSet->finalize();
 
 	const auto limits = m_Device.getPhysicalDevice().getProperties().limits;
@@ -1093,17 +1027,19 @@ void vkrtx::Context::recordCommandBuffers()
 
 void vkrtx::Context::createBuffers()
 {
-	m_ScratchBuffer = new VmaBuffer<uint8_t>(m_Device, 65336, vk::MemoryPropertyFlagBits::eDeviceLocal,
-											 vk::BufferUsageFlagBits::eRayTracingNV, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_ScratchBuffer = std::make_unique<VmaBuffer<uint8_t>>(m_Device, 65336, vk::MemoryPropertyFlagBits::eDeviceLocal,
+														   vk::BufferUsageFlagBits::eRayTracingKHR |
+															   vk::BufferUsageFlagBits::eShaderDeviceAddressKHR,
+														   VMA_MEMORY_USAGE_GPU_ONLY);
 
 	const auto pixelCount = static_cast<vk::DeviceSize>(m_ScrWidth * m_ScrHeight);
-	m_InvTransformsBuffer = new VmaBuffer<mat4>(
+	m_InvTransformsBuffer = std::make_unique<VmaBuffer<mat4>>(
 		m_Device, 32, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-	m_UniformCamera = new UniformObject<VkCamera>(m_Device);
-	m_UniformFinalizeParams = new UniformObject<FinalizeParams>(m_Device);
-	m_Counters = new VmaBuffer<Counters>(
+	m_UniformCamera = std::make_unique<UniformObject<VkCamera>>(m_Device);
+	m_UniformFinalizeParams = std::make_unique<UniformObject<FinalizeParams>>(m_Device);
+	m_Counters = std::make_unique<VmaBuffer<Counters>>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferSrc |
 			vk::BufferUsageFlagBits::eTransferDst,
@@ -1115,51 +1051,52 @@ void vkrtx::Context::createBuffers()
 	shadeDescriptorSet->bind(cCOUNTERS, {m_Counters->getDescriptorBufferInfo()});
 	shadeDescriptorSet->bind(fUNIFORM_CONSTANTS, {m_UniformFinalizeParams->getDescriptorBufferInfo()});
 
-	m_Materials = new VmaBuffer<rfw::DeviceMaterial>(
+	m_Materials = std::make_unique<VmaBuffer<rfw::DeviceMaterial>>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer);
 
 	// Texture buffers
-	m_RGBA32Buffer =
-		new VmaBuffer<uint>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
-							vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
-	m_RGBA128Buffer =
-		new VmaBuffer<glm::vec4>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst);
+	m_RGBA32Buffer = std::make_unique<VmaBuffer<uint>>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
+													   vk::BufferUsageFlagBits::eStorageBuffer |
+														   vk::BufferUsageFlagBits::eTransferDst);
+	m_RGBA128Buffer = std::make_unique<VmaBuffer<glm::vec4>>(m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal,
+															 vk::BufferUsageFlagBits::eStorageBuffer |
+																 vk::BufferUsageFlagBits::eTransferDst);
 
 	// Wavefront buffers
-	m_AccumulationBuffer = new VmaBuffer<glm::vec4>(m_Device, pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
-													vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
-	m_PotentialContributionBuffer = new VmaBuffer<PotentialContribution>(
+	m_AccumulationBuffer =
+		std::make_unique<VmaBuffer<glm::vec4>>(m_Device, pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+	m_PotentialContributionBuffer = std::make_unique<VmaBuffer<PotentialContribution>>(
 		m_Device, MAXPATHLENGTH * pixelCount, vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	const auto limits = m_Device.getPhysicalDevice().getProperties().limits;
 	const auto combinedAlignedSize = pixelCount * 4 + ((pixelCount * 4) % limits.minStorageBufferOffsetAlignment);
 	m_CombinedStateBuffer[0] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+		std::make_unique<VmaBuffer<glm::vec4>>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 	m_CombinedStateBuffer[1] =
-		new VmaBuffer<glm::vec4>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
-								 vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
+		std::make_unique<VmaBuffer<glm::vec4>>(m_Device, combinedAlignedSize, vk::MemoryPropertyFlagBits::eDeviceLocal,
+											   vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_GPU_ONLY);
 
 	// Light buffers
-	m_AreaLightBuffer = new VmaBuffer<rfw::DeviceAreaLight>(
+	m_AreaLightBuffer = std::make_unique<VmaBuffer<rfw::DeviceAreaLight>>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_PointLightBuffer = new VmaBuffer<rfw::DevicePointLight>(
+	m_PointLightBuffer = std::make_unique<VmaBuffer<rfw::DevicePointLight>>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_SpotLightBuffer = new VmaBuffer<rfw::DeviceSpotLight>(
+	m_SpotLightBuffer = std::make_unique<VmaBuffer<rfw::DeviceSpotLight>>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
-	m_DirectionalLightBuffer = new VmaBuffer<rfw::DeviceDirectionalLight>(
+	m_DirectionalLightBuffer = std::make_unique<VmaBuffer<rfw::DeviceDirectionalLight>>(
 		m_Device, 1, vk::MemoryPropertyFlagBits::eDeviceLocal | vk::MemoryPropertyFlagBits::eHostVisible,
 		vk::BufferUsageFlagBits::eStorageBuffer, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
 	// Blue Noise
 	const auto blueNoise = createBlueNoiseBuffer();
-	m_BlueNoiseBuffer = new VmaBuffer<uint>(
+	m_BlueNoiseBuffer = std::make_unique<VmaBuffer<uint>>(
 		m_Device, 65536 * 5, vk::MemoryPropertyFlagBits::eDeviceLocal,
 		vk::BufferUsageFlagBits::eStorageBuffer | vk::BufferUsageFlagBits::eTransferDst, VMA_MEMORY_USAGE_GPU_ONLY);
 	m_BlueNoiseBuffer->copyToDevice(blueNoise.data(), m_BlueNoiseBuffer->getSize());
@@ -1188,7 +1125,7 @@ void vkrtx::Context::initializeDescriptorSets()
 
 	if (m_Meshes.empty())
 	{
-		m_Meshes.push_back(new vkrtx::Mesh(m_Device)); // Make sure at least 1 mesh exists
+		m_Meshes.push_back(std::make_unique<vkrtx::Mesh>(m_Device)); // Make sure at least 1 mesh exists
 		m_MeshChanged.push_back(false);
 	}
 	if (m_TriangleBufferInfos.size() != m_Meshes.size()) // Recreate triangle buffer info for all

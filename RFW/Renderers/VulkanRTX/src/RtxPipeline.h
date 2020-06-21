@@ -1,4 +1,5 @@
 #pragma once
+#pragma once
 
 #include <vulkan/vulkan.hpp>
 #include "VulkanDevice.h"
@@ -41,11 +42,11 @@ class RTXPipeline
 		void addHitGroup(uint32_t groupIdx, const std::vector<unsigned char> &inlineData);
 
 		/// Compute the size of the SBT based on the set of programs and hit groups it contains
-		vk::DeviceSize computeSBTSize(const vk::PhysicalDeviceRayTracingPropertiesNV &props);
+		vk::DeviceSize computeSBTSize(const vk::PhysicalDeviceRayTracingPropertiesKHR &props);
 
 		// build the SBT and store it into sbtBuffer, which has to be preallocated on the upload heap.
 		// Access to the ray tracing pipeline object is required to fetch program identifiers using their names
-		void generate(VulkanDevice &device, vk::Pipeline rtPipeline, Buffer<uint8_t> *sbtBuffer);
+		void generate(VulkanDevice &device, vk::Pipeline rtPipeline, Buffer<uint8_t> &sbtBuffer);
 
 		void reset(); /// reset the sets of programs and hit groups
 
@@ -90,8 +91,8 @@ class RTXPipeline
 		// number of parameters of their root signature
 		vk::DeviceSize getEntrySize(const std::vector<SBTEntry> &entries);
 
-		std::vector<SBTEntry> m_RayGen;   // Ray generation shader entries
-		std::vector<SBTEntry> m_Miss;	 // Miss shader entries
+		std::vector<SBTEntry> m_RayGen;	  // Ray generation shader entries
+		std::vector<SBTEntry> m_Miss;	  // Miss shader entries
 		std::vector<SBTEntry> m_HitGroup; /// Hit group entries
 
 		// For each category, the size of an entry in the SBT depends on the maximum number of resources
@@ -151,17 +152,18 @@ class RTXPipeline
 	std::vector<const DescriptorSet *> m_DescriptorSets;
 	std::vector<vk::DescriptorSet> m_VkDescriptorSets;
 	std::vector<vk::PipelineShaderStageCreateInfo> m_ShaderStages;
-	std::vector<vk::RayTracingShaderGroupCreateInfoNV> m_ShaderGroups;
+	std::vector<vk::RayTracingShaderGroupCreateInfoKHR> m_ShaderGroups;
+
 	uint32_t m_CurrentGroupIdx = 0;
 	uint32_t m_MaxRecursionDepth = 5;
 
 	// Pipeline
+	vk::PhysicalDeviceRayTracingPropertiesKHR m_RtProps;
 	vk::Pipeline m_Pipeline = nullptr;
 	vk::PipelineLayout m_Layout = nullptr;
-	Buffer<uint8_t> *SBTBuffer = nullptr;
+	std::unique_ptr<Buffer<uint8_t>> m_SBTBuffer = nullptr;
 
 	std::vector<vk::PushConstantRange> m_PushConstants;
-
 	ShaderBindingTableGenerator m_SBTGenerator;
 };
 } // namespace vkrtx

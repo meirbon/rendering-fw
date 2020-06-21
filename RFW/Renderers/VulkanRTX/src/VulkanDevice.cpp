@@ -2,7 +2,8 @@
 
 using namespace vkrtx;
 
-QueueFamilyIndices::QueueFamilyIndices(vk::PhysicalDevice device, std::optional<vk::SurfaceKHR> surface) : hasSurface(surface.has_value())
+QueueFamilyIndices::QueueFamilyIndices(vk::PhysicalDevice device, std::optional<vk::SurfaceKHR> surface)
+	: hasSurface(surface.has_value())
 {
 	const auto queueFamilies = device.getQueueFamilyProperties();
 
@@ -33,7 +34,9 @@ QueueFamilyIndices::QueueFamilyIndices(vk::PhysicalDevice device, std::optional<
 
 bool QueueFamilyIndices::IsComplete() const
 {
-	return graphicsIdx.has_value() && computeIdx.has_value() && transferIdx.has_value() && hasSurface ? presentIdx.has_value() : true;
+	return graphicsIdx.has_value() && computeIdx.has_value() && transferIdx.has_value() && hasSurface
+			   ? presentIdx.has_value()
+			   : true;
 }
 
 std::unordered_set<uint32_t> vkrtx::QueueFamilyIndices::getUniqueQueueIds() const
@@ -58,8 +61,8 @@ std::unordered_set<uint32_t> vkrtx::QueueFamilyIndices::getUniqueQueueIds() cons
 
 VulkanDevice::VulkanDevice(const VulkanDevice &rhs) : m_Members(rhs.m_Members) {}
 
-VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDevice, const std::vector<const char *> &extensions,
-						   std::optional<vk::SurfaceKHR> surface)
+VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDevice,
+						   const std::vector<const char *> &extensions, std::optional<vk::SurfaceKHR> surface)
 {
 	m_Members = std::make_shared<DeviceMembers>(physicalDevice, surface);
 
@@ -67,8 +70,18 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 
 	const auto deviceFeatures = physicalDevice.getFeatures();
 
+	vk::PhysicalDeviceBufferDeviceAddressFeaturesKHR bufferFeatures{};
+	bufferFeatures.setPNext(nullptr);
+	bufferFeatures.setBufferDeviceAddress(true);
+
+	vk::PhysicalDeviceRayTracingFeaturesKHR rtFeatures{};
+	rtFeatures.setPNext(&bufferFeatures);
+	rtFeatures.setRayQuery(true);
+	rtFeatures.setRayTracing(true);
+	rtFeatures.setRayTracingIndirectAccelerationStructureBuild(true);
+	
 	vk::PhysicalDeviceDescriptorIndexingFeaturesEXT indexingFeatures{};
-	indexingFeatures.pNext = nullptr;
+	indexingFeatures.pNext = &rtFeatures;
 	vk::PhysicalDeviceFeatures2 deviceFeatures2{};
 	deviceFeatures2.pNext = &indexingFeatures;
 	physicalDevice.getFeatures2(&deviceFeatures2);
@@ -76,14 +89,26 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 		!indexingFeatures.descriptorBindingVariableDescriptorCount)
 		FAILURE("Device does not support runtimeDescriptorArray, descriptorBindingPartiallyBound or "
 				"descriptorBindingVariableDescriptorCount  which are needed for the Vulkan render core.");
+
+	if (!bufferFeatures.bufferDeviceAddress)
+	{
+		FAILURE("Device does not support buffer device address which is needed for ray tracing.");
+	}
+
+	if (!rtFeatures.rayQuery || !rtFeatures.rayTracing)
+	{
+		FAILURE("Device does not support ray tracing or querying");
+	}
+
 	indexingFeatures.runtimeDescriptorArray = true; // Enable feature
 	indexingFeatures.descriptorBindingPartiallyBound = true;
 	indexingFeatures.descriptorBindingVariableDescriptorCount = true;
 
 	std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos{};
-	std::set<uint32_t> uniqueQueueFamilies = {m_Members->m_Indices.graphicsIdx.value(), m_Members->m_Indices.computeIdx.value(),
-											  m_Members->m_Indices.transferIdx.value(),
-											  surface.has_value() ? m_Members->m_Indices.presentIdx.value() : m_Members->m_Indices.graphicsIdx.value()};
+	std::set<uint32_t> uniqueQueueFamilies = {
+		m_Members->m_Indices.graphicsIdx.value(), m_Members->m_Indices.computeIdx.value(),
+		m_Members->m_Indices.transferIdx.value(),
+		surface.has_value() ? m_Members->m_Indices.presentIdx.value() : m_Members->m_Indices.graphicsIdx.value()};
 
 	uint i = 0;
 	for (const auto qfIdx : uniqueQueueFamilies)
@@ -150,14 +175,16 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 		i++;
 	}
 
-	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName);
+	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName.data());
 
 	m_Members->m_DynamicDispatcher.init(instance, m_Members->m_VkDevice);
 
 	VmaAllocatorCreateInfo allocCreateInfo{};
-	allocCreateInfo.physicalDevice = (VkPhysicalDevice)physicalDevice;
-	allocCreateInfo.device = (VkDevice)m_Members->m_VkDevice;
-	allocCreateInfo.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+	allocCreateInfo.physicalDevice = static_cast<VkPhysicalDevice>(physicalDevice);
+	allocCreateInfo.device = static_cast<VkDevice>(m_Members->m_VkDevice);
+	allocCreateInfo.instance = instance;
+	allocCreateInfo.flags |=
+		VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT | VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
 	// More memory usage, but provides better performance
 	// allocCreateInfo.flags = VmaPoolCreateFlagBits::VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT;
 	vmaCreateAllocator(&allocCreateInfo, &m_Members->allocator);
@@ -188,13 +215,14 @@ vk::CommandBuffer VulkanDevice::createCommandBuffer(vk::CommandBufferLevel level
 	commandBufferAllocInfo.setCommandPool(m_Members->m_CommandPools.at(m_Members->queueCmdPoolIndices[type]));
 	commandBufferAllocInfo.setLevel(level);
 	commandBufferAllocInfo.setCommandBufferCount(1);
-	
+
 	vk::CommandBuffer cmdBuffer;
 	CheckVK(m_Members->m_VkDevice.allocateCommandBuffers(&commandBufferAllocInfo, &cmdBuffer));
 	return cmdBuffer;
 }
 
-std::vector<vk::CommandBuffer> VulkanDevice::createCommandBuffers(uint32_t count, vk::CommandBufferLevel level, QueueType type)
+std::vector<vk::CommandBuffer> VulkanDevice::createCommandBuffers(uint32_t count, vk::CommandBufferLevel level,
+																  QueueType type)
 {
 	vk::CommandBufferAllocateInfo commandBufferAllocInfo{};
 	commandBufferAllocInfo.setPNext(nullptr);
@@ -212,38 +240,51 @@ OneTimeCommandBuffer VulkanDevice::createOneTimeCmdBuffer(vk::CommandBufferLevel
 	return OneTimeCommandBuffer(*this, commandBuffer);
 }
 
-void VulkanDevice::submitCommandBuffer(vk::CommandBuffer cmdBuffer, vk::Queue queue, vk::Fence fence, vk::PipelineStageFlags waitStageMask,
-									   uint32_t waitSemaphoreCount, vk::Semaphore *waitSemaphores, uint32_t signalSemaphoreCount,
+void VulkanDevice::submitCommandBuffer(vk::CommandBuffer cmdBuffer, vk::Queue queue, vk::Fence fence,
+									   vk::PipelineStageFlags waitStageMask, uint32_t waitSemaphoreCount,
+									   vk::Semaphore *waitSemaphores, uint32_t signalSemaphoreCount,
 									   vk ::Semaphore *signalSemaphores)
 {
-	// submit build command to queue
-	vk::SubmitInfo submitInfo = vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, 1, &cmdBuffer, signalSemaphoreCount, signalSemaphores);
-	queue.submit({submitInfo}, fence);
+	try
+	{
+		// submit build command to queue
+		vk::SubmitInfo submitInfo = vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, 1, &cmdBuffer,
+												   signalSemaphoreCount, signalSemaphores);
+		queue.submit({submitInfo}, fence);
+	}
+	catch (const std::exception &e)
+	{
+		FAILURE("%s", e.what());
+	}
 }
 
-void VulkanDevice::submitCommandBuffers(uint32_t cmdBufferCount, vk::CommandBuffer *cmdBuffers, vk::Queue queue, vk::Fence fence,
-										vk::PipelineStageFlags waitStageMask, uint32_t waitSemaphoreCount, vk::Semaphore *waitSemaphores,
+void VulkanDevice::submitCommandBuffers(uint32_t cmdBufferCount, vk::CommandBuffer *cmdBuffers, vk::Queue queue,
+										vk::Fence fence, vk::PipelineStageFlags waitStageMask,
+										uint32_t waitSemaphoreCount, vk::Semaphore *waitSemaphores,
 										uint32_t signalSemaphoreCount, vk::Semaphore *signalSemaphores)
 {
-	vk::SubmitInfo submitInfo =
-		vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, cmdBufferCount, cmdBuffers, signalSemaphoreCount, signalSemaphores);
+	vk::SubmitInfo submitInfo = vk::SubmitInfo(waitSemaphoreCount, waitSemaphores, &waitStageMask, cmdBufferCount,
+											   cmdBuffers, signalSemaphoreCount, signalSemaphores);
 	queue.submit({submitInfo}, fence);
 	queue.waitIdle();
 }
 
 void VulkanDevice::freeCommandBuffer(vk::CommandBuffer cmdBuffer, QueueType type)
 {
-	m_Members->m_VkDevice.freeCommandBuffers(m_Members->m_CommandPools.at(m_Members->queueCmdPoolIndices[type]), {cmdBuffer});
+	m_Members->m_VkDevice.freeCommandBuffers(m_Members->m_CommandPools.at(m_Members->queueCmdPoolIndices[type]),
+											 {cmdBuffer});
 }
 
 void VulkanDevice::freeCommandBuffers(const std::vector<vk::CommandBuffer> &cmdBuffers, QueueType type)
 {
-	m_Members->m_VkDevice.freeCommandBuffers(m_Members->m_CommandPools.at(m_Members->queueCmdPoolIndices[type]), cmdBuffers);
+	m_Members->m_VkDevice.freeCommandBuffers(m_Members->m_CommandPools.at(m_Members->queueCmdPoolIndices[type]),
+											 cmdBuffers);
 }
 
 void VulkanDevice::waitIdle() const { m_Members->m_VkDevice.waitIdle(); }
 
-std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Instance &instance, const std::vector<const char *> &extensions,
+std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Instance &instance,
+																		 const std::vector<const char *> &extensions,
 																		 std::optional<vk::SurfaceKHR> surface)
 {
 	const auto physicalDevices = instance.enumeratePhysicalDevices();
@@ -253,11 +294,13 @@ std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Ins
 
 	// Retrieve score for every device
 	for (const auto &pDevice : physicalDevices)
-		candidates.insert(std::make_pair(VulkanDevice::rateDevice(pDevice, surface), pDevice));
+		candidates.insert(std::make_pair(rateDevice(pDevice, surface), pDevice));
 
 	// Early out if we have no valid candidates
 	if (candidates.empty())
 		return std::nullopt;
+
+	std::set<std::string> missing;
 
 	// Iterate over candidates till we find one that supports ray tracing
 	for (const auto &candidate : candidates)
@@ -266,12 +309,16 @@ std::optional<vk::PhysicalDevice> VulkanDevice::pickDeviceWithExtensions(vk::Ins
 
 		const auto dExtensions = candidate.second.enumerateDeviceExtensionProperties();
 		for (const auto &ext : dExtensions)
-			requiredExtensions.erase(ext.extensionName);
+			requiredExtensions.erase(std::string(ext.extensionName.data()));
 
 		// Device supports every requested extension
 		if (requiredExtensions.empty())
 			return std::make_optional(candidate.second);
+		missing = std::move(requiredExtensions);
 	}
+
+	for (const auto &ext : missing)
+		WARNING("Could not find extension: %s", ext.data());
 
 	// No supported device found
 	return std::nullopt;

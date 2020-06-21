@@ -210,8 +210,15 @@ class OneTimeCommandBuffer
 		if (m_Recording)
 			end(), m_Recording = false;
 		m_Device.submitCommandBuffer(m_CmdBuffer, queue);
-		if (wait)
-			queue.waitIdle();
+		try
+		{
+			if (wait)
+				m_Device.waitIdle();
+		}
+		catch (const std::exception &e)
+		{
+			ERROR("%s", e.what());
+		}
 	}
 
 	vk::CommandBuffer getVkCommandBuffer() const { return m_CmdBuffer; }

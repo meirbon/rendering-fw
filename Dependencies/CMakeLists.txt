@@ -2,6 +2,7 @@ add_subdirectory(half2.1.0)
 add_subdirectory(ImGuiWrapper)
 add_subdirectory(OptiX6.5)
 add_subdirectory(OptiX7)
+add_subdirectory(VMA)
 
 if (WIN32)
     file(GLOB_RECURSE DLLS *.dll)

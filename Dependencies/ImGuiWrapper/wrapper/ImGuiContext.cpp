@@ -67,11 +67,6 @@ imgui::Context::Members::~Members()
 		ImGui_ImplOpenGL3_Shutdown();
 		ImGui_ImplGlfw_Shutdown();
 		break;
-#ifdef __APPLE__
-	case (METAL):
-		ImGui_ImplMetal_Shutdown();
-		break;
-#endif
 	case (VULKAN):
 		ImGui_ImplVulkan_Shutdown();
 		break;

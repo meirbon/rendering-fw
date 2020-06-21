@@ -19,8 +19,4 @@ if (ENABLE_CUDA)
 	endif (${CUDA_FOUND})
 endif ()
 
-if (APPLE)
-	add_subdirectory(Renderers/MetalRast)
-endif (APPLE)
-
 add_dependencies(Renderers RenderSystem)

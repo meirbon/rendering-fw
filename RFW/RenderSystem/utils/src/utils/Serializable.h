@@ -8,6 +8,7 @@
 #include <array>
 #include <cassert>
 #include <vector>
+#include <algorithm>
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
@@ -22,7 +23,7 @@ template <typename T, unsigned int Dimensions> class Serializable
 	{
 		memcpy(m_Dims, count.data(), Dimensions * sizeof(unsigned int));
 		unsigned int size = count[0];
-		for (uint i = 1; i < Dimensions; i++)
+		for (unsigned int i = 1; i < Dimensions; i++)
 			size *= count[i];
 
 		m_Data.resize(count);
@@ -36,7 +37,7 @@ template <typename T, unsigned int Dimensions> class Serializable
 	Serializable(const T &data) : m_Data({data})
 	{
 		m_Data.resize(Dimensions);
-		for (uint i = 0; i < Dimensions; i++)
+		for (unsigned int i = 0; i < Dimensions; i++)
 		{
 			m_Dims[i] = 1 * sizeof(T);
 			m_Data.at(i) = data;
@@ -66,7 +67,7 @@ template <typename T, unsigned int Dimensions> class Serializable
 	void resize(const std::array<unsigned int, Dimensions> &count)
 	{
 		unsigned int size = count[0];
-		for (uint i = 1; i < Dimensions; i++)
+		for (unsigned int i = 1; i < Dimensions; i++)
 			size *= count[i];
 
 		m_Data.resize(size);
@@ -81,7 +82,7 @@ template <typename T, unsigned int Dimensions> class Serializable
 
 		std::array<unsigned int, Dimensions + 1> sizeData;
 		sizeData[0] = Dimensions;
-		for (uint i = 0; i < Dimensions; i++)
+		for (unsigned int i = 0; i < Dimensions; i++)
 			sizeData[i + 1] = m_Dims[i];
 
 		memcpy(data.data(), sizeData.data(), sizeData.size() * sizeof(unsigned int));
@@ -104,12 +105,12 @@ template <typename T, unsigned int Dimensions> class Serializable
 		memcpy(dims.data(), sizeData.data() + 1, Dimensions * sizeof(unsigned int));
 
 		unsigned int count = dims[0];
-		for (uint i = 1; i < dims.size(); i++)
+		for (unsigned int i = 1; i < dims.size(); i++)
 			count *= dims[i];
 
 		std::vector<T> d(count);
 		if (data.size() > 0)
-			memcpy(d.data(), data.data() + ((Dimensions + 1) * charsInUint), min(count * sizeof(T), data.size()));
+			memcpy(d.data(), data.data() + ((Dimensions + 1) * charsInUint), std::min(count * sizeof(T), data.size()));
 
 		return Serializable<T, Dimensions>(d, dims);
 	}

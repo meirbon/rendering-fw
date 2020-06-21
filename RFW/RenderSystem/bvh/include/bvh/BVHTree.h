@@ -4,6 +4,7 @@
 #include "AABB.h"
 #include <rtbvh.hpp>
 
+#include <vector>
 #include <optional>
 
 namespace rfw

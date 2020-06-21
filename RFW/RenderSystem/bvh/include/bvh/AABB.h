@@ -6,7 +6,7 @@ namespace rfw
 {
 namespace bvh
 {
-struct AABB
+struct alignas(8) AABB
 {
   public:
 	AABB();

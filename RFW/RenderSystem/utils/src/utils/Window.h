@@ -9,6 +9,7 @@
 #include <optional>
 #include <tuple>
 #include <bitset>
+#include <algorithm>
 
 #include <GLFW/glfw3.h>
 
@@ -178,9 +179,9 @@ class Window
 			auto versionMajor = glVersion.value().first;
 			auto versionMinor = glVersion.value().second;
 #ifdef __APPLE__
-			versionMajor = min(versionMajor, 4u);
+			versionMajor = std::min(versionMajor, 4u);
 			if (versionMajor >= 4)
-				versionMinor = min(versionMinor, 1u);
+				versionMinor = std::min(versionMinor, 1u);
 #endif
 
 			glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, versionMajor);

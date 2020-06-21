@@ -44,7 +44,6 @@ This project has only been tested on 64 bit platforms. You may be able to get ce
 
 ## Planned renderers:
 - Vulkan PBR Rasterizer
-- Metal path tracer using Apple's ray-tracing framework 
 
 ## Frequent problems
 - If you're running Linux/MacOS and a renderer cannot open/find a specific

@@ -1,3 +1,4 @@
+.clangd/
 build/
 CppProperties.json
 *.binary

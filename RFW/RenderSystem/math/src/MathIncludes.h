@@ -769,7 +769,7 @@ struct vector4
 	inline static vector4 zero() { return vector4(_mm_setzero_ps()); }
 
 	inline vector4() = default;
-	inline vector4(const float *a) : vec_4(_mm_load_ps(a)) {}
+	inline vector4(const float *a) : vec_4( _mm_loadu_ps(a)) {}
 	inline vector4(const float a) : vec_4(_mm_set1_ps(a)) {}
 	inline vector4(const float a, const float b, const float c, const float d) : vec_4(_mm_set_ps(d, c, b, a)) {}
 	inline vector4(const float *a, const simd::vector4 &mask) : vec_4(_mm_maskload_ps(a, _mm_castps_si128(mask.vec_4)))

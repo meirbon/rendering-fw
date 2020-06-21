@@ -1,14 +1,10 @@
 project(ImGuiWrapper)
 
-if (APPLE)
-	set(SOURCES wrapper/ImGuiContext.mm wrapper/imgui_impl_metal.h wrapper/imgui_impl_metal.mm)
-else(APPLE)
-	set(SOURCES wrapper/ImGuiContext.cpp
-		wrapper/imgui_impl_glfw.cpp
-		wrapper/imgui_impl_opengl3.cpp
-		wrapper/imgui_impl_vulkan.cpp
-		)
-endif(APPLE)
+set(SOURCES wrapper/ImGuiContext.cpp
+	wrapper/imgui_impl_glfw.cpp
+	wrapper/imgui_impl_opengl3.cpp
+	wrapper/imgui_impl_vulkan.cpp
+	)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 

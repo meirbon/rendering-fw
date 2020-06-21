@@ -13,24 +13,42 @@ set_directory_properties(PROPERTIES EP_PREFIX ${CMAKE_BINARY_DIR}/Rust)
 
 set(RTBVH_BINARY_PREFIX "${CMAKE_BINARY_DIR}/Rust/src/rtbvh_rs/rtbvh_ffi/target")
 
+if (APPLE)
+	set(RTBVH_IMPL "${RTBVH_BINARY_PREFIX}/release/librtbvh.dylib")
+	list(APPEND RTBVH_BYPRODUCTS ${RTBVH_IMPL})
+elseif (UNIX)
+	set(RTBVH_IMPL "${RTBVH_BINARY_PREFIX}/release/librtbvh.so")
+	list(APPEND RTBVH_BYPRODUCTS ${RTBVH_IMPL})
+elseif (WIN32)
+	set(RTBVH_IMPL "${RTBVH_BINARY_PREFIX}/release/rtbvh.dll")
+	set(RTBVH_LIB "${RTBVH_BINARY_PREFIX}/release/rtbvh.dll.lib")
+	list(APPEND RTBVH_BYPRODUCTS ${RTBVH_IMPL})
+	list(APPEND RTBVH_BYPRODUCTS ${RTBVH_LIB})
+endif ()
+
 ExternalProject_Add(
 		rtbvh_rs
 		GIT_REPOSITORY "https://github.com/MeirBon/rtbvh.git"
 		GIT_TAG "master"
 		GIT_SHALLOW ON
 		CONFIGURE_COMMAND ""
-		BUILD_COMMAND cargo build --manifest-path=${CMAKE_BINARY_DIR}/Rust/src/rtbvh_rs/rtbvh_ffi/Cargo.toml
-		COMMAND cargo build --release --manifest-path=${CMAKE_BINARY_DIR}/Rust/src/rtbvh_rs/rtbvh_ffi/Cargo.toml
+		BUILD_COMMAND cargo build --quiet --manifest-path=${CMAKE_BINARY_DIR}/Rust/src/rtbvh_rs/rtbvh_ffi/Cargo.toml
+		COMMAND cargo build --release --quiet --manifest-path=${CMAKE_BINARY_DIR}/Rust/src/rtbvh_rs/rtbvh_ffi/Cargo.toml
 		INSTALL_COMMAND ""
 		LOG_BUILD ON
-		BUILD_BYPRODUCTS ${RTBVH_BINARY_PREFIX}/release/rtbvh.dll ${RTBVH_BINARY_PREFIX}/release/rtbvh.dll.lib
+		BUILD_BYPRODUCTS ${RTBVH_BYPRODUCTS}
 )
 
 add_dependencies(${PROJECT_NAME} rtbvh_rs)
 
 add_library(rtbvh SHARED IMPORTED GLOBAL)
-set_property(TARGET rtbvh PROPERTY IMPORTED_LOCATION ${RTBVH_BINARY_PREFIX}/release/rtbvh.dll)
-set_property(TARGET rtbvh PROPERTY IMPORTED_IMPLIB ${RTBVH_BINARY_PREFIX}/release/rtbvh.dll.lib)
+
+set_property(TARGET rtbvh PROPERTY IMPORTED_LOCATION ${RTBVH_IMPL})
+if (WIN32)
+	set_property(TARGET rtbvh PROPERTY IMPORTED_IMPLIB ${RTBVH_LIB})
+else (WIN32)
+
+endif (WIN32)
 
 add_custom_command(TARGET rtbvh_rs
 		POST_BUILD

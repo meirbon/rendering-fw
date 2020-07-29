@@ -470,7 +470,7 @@ void VkContext::createGraphicsPipeline()
 	pipelineInfo.setBasePipelineHandle(nullptr);
 	pipelineInfo.setBasePipelineIndex(-1);
 
-	m_GraphicsPipeline = m_Device->createGraphicsPipeline(nullptr, pipelineInfo, nullptr);
+	m_GraphicsPipeline = m_Device->createGraphicsPipeline(nullptr, pipelineInfo, nullptr).value;
 	assert(m_GraphicsPipeline);
 }
 

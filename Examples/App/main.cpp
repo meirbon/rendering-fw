@@ -1,4 +1,4 @@
-#include <Application.h>
+#include <rfw/app.h>
 
 #define SKINNED_MESH 0
 #define PICA 1
@@ -6,63 +6,60 @@
 #define SPONZA 0
 #define DRAGON 0
 
-using namespace rfw;
-using namespace utils;
+using namespace rfw::utils;
 
-class App : public rfw::Application
+class app final : public rfw::app
 {
   public:
-	App();
+	app();
 
   protected:
-	void init(std::unique_ptr<rfw::RenderSystem> &rs) override;
-	void load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
-						std::unique_ptr<rfw::RenderSystem> &rs) override;
-	void update(std::unique_ptr<rfw::RenderSystem> &rs, float dt) override;
-	void post_render(std::unique_ptr<rfw::RenderSystem> &rs) override;
+	void init(std::unique_ptr<rfw::system> &rs) override;
+	void load_instances(array_proxy<rfw::geometry_ref> geometry, std::unique_ptr<rfw::system> &rs) override;
+	void update(std::unique_ptr<rfw::system> &rs, float dt) override;
+	void post_render(std::unique_ptr<rfw::system> &rs) override;
 	void cleanup() override;
 
   private:
 	unsigned int mouseX, mouseY;
-	rfw::GeometryReference cesiumMan{};
-	rfw::InstanceReference cesiumManInstance;
-	rfw::GeometryReference pica{};
-	rfw::InstanceReference picaInstance;
+	rfw::geometry_ref cesiumMan{};
+	rfw::instance_ref cesiumManInstance;
+	rfw::geometry_ref pica{};
+	rfw::instance_ref picaInstance;
 
-	rfw::GeometryReference lightQuad{};
-	rfw::InstanceReference lightQuadInstance;
-	rfw::LightReference pointLight{};
-	rfw::LightReference spotLight{};
+	rfw::geometry_ref lightQuad{};
+	rfw::instance_ref lightQuadInstance;
+	rfw::light_ref pointLight{};
+	rfw::light_ref spotLight{};
 };
 
-App::App() : Application(512, 512, "RenderingFW", VULKANRTX)
+app::app() : rfw::app(512, 512, "RenderingFW", VULKANRTX)
 {
 	camera = rfw::Camera::deserialize("camera.bin");
-	camera.resize(window.getFramebufferWidth(), window.getFramebufferHeight());
+	camera.resize(window.get_framebuffer_width(), window.get_framebuffer_height());
 	camera.brightness = 0.0f;
 	camera.contrast = 0.5f;
-	window.addMousePosCallback([this](double x, double y, double lastX, double lastY) {
-		mouseX = static_cast<uint>(x * double(window.get_width()));
-		mouseY = static_cast<uint>(y * double(window.get_height()));
+	window.add_mouse_pos_callback([this](double x, double y, double, double) {
+		mouseX = static_cast<uint>(x * static_cast<double>(window.get_width()));
+		mouseY = static_cast<uint>(y * static_cast<double>(window.get_height()));
 	});
 }
 
-void App::init(std::unique_ptr<rfw::RenderSystem> &rs)
+void app::init(std::unique_ptr<rfw::system> &rs)
 {
-	rs->set_skybox("Envmaps/sky_15.hdr");
-	cesiumMan = rs->add_object("Models/CesiumMan/CesiumMan.gltf", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
-	pica = rs->add_object("Models/pica/scene.gltf");
+	rs->set_skybox("envmaps/sky_15.hdr");
+	cesiumMan = rs->add_object("models/CesiumMan/CesiumMan.gltf", false, glm::scale(glm::mat4(1.0f), vec3(1.5)));
+	pica = rs->add_object("models/pica/scene.gltf");
 
-	auto lightMaterial = rs->add_material(vec3(50), 1);
+	const auto light_material = rs->add_material(vec3(50), 1);
 
-	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, lightMaterial);
+	lightQuad = rs->add_quad(vec3(0, -1, 0), vec3(0, 25, 0), 8.0f, 8.0f, light_material);
 	lightQuadInstance = rs->add_instance(lightQuad);
 	pointLight = rs->add_point_light(vec3(-15, 10, -5), vec3(10));
 	spotLight = rs->add_spot_light(vec3(10, 10, 3), cos(radians(30.0f)), vec3(10), cos(radians(45.0f)), vec3(0, -1, 0));
 }
 
-void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry,
-						 std::unique_ptr<rfw::RenderSystem> &rs)
+void app::load_instances(array_proxy<rfw::geometry_ref> geometry, std::unique_ptr<rfw::system> &rs)
 {
 	cesiumManInstance = rs->add_instance(cesiumMan, vec3(1), vec3(10, 0.2f, 3));
 	picaInstance = rs->add_instance(pica);
@@ -71,10 +68,10 @@ void App::load_instances(rfw::utils::ArrayProxy<rfw::GeometryReference> geometry
 	picaInstance.update();
 }
 
-void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
+void app::update(std::unique_ptr<rfw::system> &rs, float dt)
 {
 	bool camChanged = false;
-	status = window.pressed(KEY_B) ? Reset : Converge;
+	status = window.pressed(KEY_B) ? rfw::Reset : rfw::Converge;
 	auto translation = vec3(0.0f);
 	auto target = vec3(0.0f);
 
@@ -104,30 +101,30 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 	camera.focalDistance = max(camera.focalDistance, 0.01f);
 
 	// Key handling
-	if (window.pressed(Keycode::KEY_ESCAPE))
+	if (window.pressed(key_code::KEY_ESCAPE))
 		window.close();
-	if (window.pressed(Keycode::KEY_W))
+	if (window.pressed(key_code::KEY_W))
 		translation.z += 1.0f;
-	if (window.pressed(Keycode::KEY_S))
+	if (window.pressed(key_code::KEY_S))
 		translation.z -= 1.0f;
-	if (window.pressed(Keycode::KEY_D))
+	if (window.pressed(key_code::KEY_D))
 		translation.x += 1.0f;
-	if (window.pressed(Keycode::KEY_A))
+	if (window.pressed(key_code::KEY_A))
 		translation.x -= 1.0f;
-	if (window.pressed(Keycode::KEY_R))
+	if (window.pressed(key_code::KEY_R))
 		translation.y += 1.0f;
-	if (window.pressed(Keycode::KEY_F))
+	if (window.pressed(key_code::KEY_F))
 		translation.y -= 1.0f;
-	if (window.pressed(Keycode::KEY_UP))
+	if (window.pressed(key_code::KEY_UP))
 		target.y += 0.001f;
-	if (window.pressed(Keycode::KEY_DOWN))
+	if (window.pressed(key_code::KEY_DOWN))
 		target.y -= 0.001f;
-	if (window.pressed(Keycode::KEY_RIGHT))
+	if (window.pressed(key_code::KEY_RIGHT))
 		target.x += 0.001f;
-	if (window.pressed(Keycode::KEY_LEFT))
+	if (window.pressed(key_code::KEY_LEFT))
 		target.x -= 0.001f;
 
-	translation *= dt * 0.01f * (window.pressed(Keycode::KEY_LEFT_SHIFT) ? 5.0f : 1.0f);
+	translation *= dt * 0.01f * (window.pressed(key_code::KEY_LEFT_SHIFT) ? 5.0f : 1.0f);
 	target *= dt;
 
 	// Update camera
@@ -146,15 +143,15 @@ void App::update(std::unique_ptr<rfw::RenderSystem> &rs, float dt)
 		rs->set_probe_index(uvec2(mouseX, mouseY));
 
 	if (camChanged)
-		status = Reset;
+		status = rfw::Reset;
 }
 
-void App::post_render(std::unique_ptr<rfw::RenderSystem> &rs) {}
+void app::post_render(std::unique_ptr<rfw::system> &rs) {}
 
-void App::cleanup() { camera.serialize("camera.bin"); }
+void app::cleanup() { camera.serialize("camera.bin"); }
 
 int main(int argc, char *argv[])
 {
-	auto app = App();
-	rfw::Application::run(app);
+	auto application = app();
+	rfw::app::run(application);
 }

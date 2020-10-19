@@ -7,7 +7,7 @@ endif ()
 project(RenderingFW)
 
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/CMake")
+set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 option(ENABLE_PROFILING "Enable profiling support for Visual Studio" OFF)
 option(ENABLE_CUDA "Enable compilation of CUDA-based renderers" OFF)
 
@@ -105,18 +105,15 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(ASSET_OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory(Dependencies)
-add_subdirectory(RFW)
+add_subdirectory(external)
+add_subdirectory(rfw)
 
-add_subdirectory(Examples/App)
-add_subdirectory(Examples/ImGuiApp)
-#if (APPLE)
-#	add_subdirectory(Examples/MetalApp)
-#endif (APPLE)
+add_subdirectory(examples/app)
+add_subdirectory(examples/imgui_app)
 
 add_custom_target(CopyCommonAssets)
 
-file(GLOB ASSETS ${PROJECT_SOURCE_DIR}/CommonAssets/*)
+file(GLOB ASSETS ${PROJECT_SOURCE_DIR}/assets/*)
 foreach (asset ${ASSETS})
     get_filename_component(FOLDER_NAME ${asset} NAME)
     add_custom_command(
@@ -128,5 +125,5 @@ endforeach ()
 
 add_dependencies(RenderContext CopyCommonAssets)
 
-add_dependencies(App Renderers)
-add_dependencies(ImGuiApp Renderers)
+add_dependencies(App backends)
+add_dependencies(ImGuiApp backends)

@@ -21,6 +21,7 @@
 
 #include <tbb/tbb.h>
 
+#include <rfw/math.h>
 #include <rfw/context/structs.h>
 #include <rfw/context/context.h>
 #include <rfw/context/export.h>
@@ -54,7 +55,6 @@
 #include <rfw/utils/xor128.h>
 
 #include "material_list.h"
-#include <rfw_math.h>
 #include "geometry/quad.h"
 #include "geometry/triangles.h"
 #include <rfw/context/settings.h>

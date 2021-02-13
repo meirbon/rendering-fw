@@ -12,7 +12,7 @@ class Context : public RenderContext
 	~Context() override;
 	[[nodiscard]] std::vector<rfw::RenderTarget> get_supported_targets() const override;
 
-	void init(std::shared_ptr<rfw::utils::Window> &window) override;
+	void init(std::shared_ptr<rfw::utils::window> &window) override;
 	void init(GLuint *glTextureID, uint width, uint height) override;
 
 	void cleanup() override;
@@ -75,7 +75,7 @@ class Context : public RenderContext
 	float m_ProbedDist = -1.0f;
 	bool m_InitializedGlew = false;
 
-	utils::Xor128 m_Rng = {};
+	utils::xor128 m_Rng = {};
 
 #if PACKET_WIDTH == 4
 	const int TILE_WIDTH = 2;

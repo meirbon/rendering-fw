@@ -7,7 +7,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#define CheckVK(x) _CheckVK(__LINE__, __FILE__, (vk::Result)x)
+#define CheckVK(x) _CheckVK(__LINE__, __FILE__, static_cast<vk::Result>(x))
 
 static void _CheckVK(int line, const char *file, vk::Result x)
 {

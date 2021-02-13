@@ -180,7 +180,7 @@ void BottomLevelAS::build(bool update, VmaBuffer<uint8_t> scratchBuffer)
 		commandBuffer->resetQueryPool(queryPool, 0, 1);
 		commandBuffer->beginQuery(queryPool, 0, vk::QueryControlFlags());
 		m_Device.getLoader().vkCmdWriteAccelerationStructuresPropertiesNV(
-			commandBuffer.getVkCommandBuffer(), 1, (const VkAccelerationStructureKHR *)(&m_Structure),
+			commandBuffer.getVkCommandBuffer(), 1, (VkAccelerationStructureNV *)(&m_Structure),
 			VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_NV, queryPool, 0);
 
 		commandBuffer->endQuery(queryPool, 0);

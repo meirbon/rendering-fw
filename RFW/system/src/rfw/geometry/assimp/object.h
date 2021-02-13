@@ -1,6 +1,6 @@
 #pragma once
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>

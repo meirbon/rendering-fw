@@ -32,11 +32,13 @@ struct Ray
 
 	static Ray generateFromView(const CameraParams &camera, int x, int y, float r0, float r1, float r2, float r3);
 
-	static RTCRayHit4 GenerateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng);
-	static RTCRayHit8 GenerateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng);
-	static RTCRayHit16 GenerateRay16(const CameraParams &camera, const int x[16], const int y[16], rfw::utils::RandomGenerator *rng);
+	static RTCRayHit4 GenerateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::rng &rng);
+	static RTCRayHit8 GenerateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::rng &rng);
+	static RTCRayHit16 GenerateRay16(const CameraParams &camera, const int x[16], const int y[16],
+									 rfw::utils::rng &rng);
 
-	template <int N> static RTCRayHitNt<N> GenerateRayN(const CameraParams &camera, int x0, int y0, int x1, int y1, rfw::utils::RandomGenerator *rng)
+	template <int N>
+	static RTCRayHitNt<N> GenerateRayN(const CameraParams &camera, int x0, int y0, int x1, int y1, rfw::utils::rng &rng)
 	{
 		static_assert(N % 4 == 0, "Packet must be a multiple of 4 rays");
 		assert(x1 - x0 == y1 - y0);

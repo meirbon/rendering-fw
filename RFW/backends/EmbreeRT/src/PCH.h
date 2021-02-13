@@ -3,13 +3,15 @@
 #include <vector>
 #include <thread>
 #include <iostream>
+#include <memory>
 
-#include <utils.h>
-#include <RenderContext.h>
-#include <Structures.h>
-#include <DeviceStructures.h>
-#include <MathIncludes.h>
-#include <ContextExport.h>
+#include <rfw/utils.h>
+#include <rfw/context/context.h>
+#include <rfw/context/context.h>
+#include <rfw/context/structs.h>
+#include <rfw/context/device_structs.h>
+#include <rfw/math.h>
+#include <rfw/context/export.h>
 
 #include <immintrin.h>
 #include <glm/simd/geometric.h>

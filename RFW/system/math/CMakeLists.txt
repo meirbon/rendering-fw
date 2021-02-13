@@ -1,7 +1,7 @@
 project(rfwMath)
 
-file(GLOB_RECURSE SOURCES src/rfw_math.cpp)
-file(GLOB_RECURSE HEADERS src/rfw_math.h)
+file(GLOB_RECURSE SOURCES src/rfw/math.cpp)
+file(GLOB_RECURSE HEADERS src/rfw/math.h)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
 

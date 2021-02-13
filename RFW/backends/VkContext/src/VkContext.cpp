@@ -200,7 +200,7 @@ void VkContext::render_frame(const rfw::Camera &camera, RenderStatus status)
 	const auto graphicsQueue = m_Device.getGraphicsQueue();
 
 	// Submit render command to graphics queue
-	graphicsQueue.submit(1, &submitInfo, nullptr);
+	CheckVK(graphicsQueue.submit(1, &submitInfo, nullptr));
 
 	graphicsQueue.waitIdle();
 

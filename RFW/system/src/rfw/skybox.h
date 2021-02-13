@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 #include <rfw/utils/array_proxy.h>
 
 namespace rfw

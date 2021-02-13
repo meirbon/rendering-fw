@@ -46,7 +46,7 @@ Ray Ray::generateFromView(const Ray::CameraParams &camera, int x, int y, float r
 	return ray;
 }
 
-RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::RandomGenerator *rng)
+RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const int y[4], rfw::utils::rng &rng)
 {
 	RTCRayHit4 query{};
 
@@ -62,10 +62,10 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 
 	static const __m128 one4 = _mm_set1_ps(1.0f);
 
-	const __m128 r04 = _mm_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
-	const __m128 r14 = _mm_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
-	__m128 r24 = _mm_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
-	__m128 r34 = _mm_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
+	const __m128 r04 = _mm_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand());
+	const __m128 r14 = _mm_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand());
+	__m128 r24 = _mm_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand());
+	__m128 r34 = _mm_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand());
 
 	const __m128 blade4 = _mm_mul_ps(r04, _mm_set1_ps(9.0f));
 
@@ -107,13 +107,16 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 	const __m128 lens_size4 = _mm_set1_ps(camera.pos_lensSize.w);
 	const __m128 org_x4 =
 		_mm_add_ps(_mm_set1_ps(camera.pos_lensSize.x),
-				   _mm_mul_ps(lens_size4, _mm_add_ps(_mm_mul_ps(_mm_set1_ps(camera.right_spreadAngle.x), xr4), _mm_mul_ps(_mm_set1_ps(camera.up.x), yr4))));
+				   _mm_mul_ps(lens_size4, _mm_add_ps(_mm_mul_ps(_mm_set1_ps(camera.right_spreadAngle.x), xr4),
+													 _mm_mul_ps(_mm_set1_ps(camera.up.x), yr4))));
 	const __m128 org_y4 =
 		_mm_add_ps(_mm_set1_ps(camera.pos_lensSize.y),
-				   _mm_mul_ps(lens_size4, _mm_add_ps(_mm_mul_ps(_mm_set1_ps(camera.right_spreadAngle.y), xr4), _mm_mul_ps(_mm_set1_ps(camera.up.y), yr4))));
+				   _mm_mul_ps(lens_size4, _mm_add_ps(_mm_mul_ps(_mm_set1_ps(camera.right_spreadAngle.y), xr4),
+													 _mm_mul_ps(_mm_set1_ps(camera.up.y), yr4))));
 	const __m128 org_z4 =
 		_mm_add_ps(_mm_set1_ps(camera.pos_lensSize.z),
-				   _mm_mul_ps(lens_size4, _mm_add_ps(_mm_mul_ps(_mm_set1_ps(camera.right_spreadAngle.z), xr4), _mm_mul_ps(_mm_set1_ps(camera.up.z), yr4))));
+				   _mm_mul_ps(lens_size4, _mm_add_ps(_mm_mul_ps(_mm_set1_ps(camera.right_spreadAngle.z), xr4),
+													 _mm_mul_ps(_mm_set1_ps(camera.up.z), yr4))));
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
@@ -170,7 +173,7 @@ RTCRayHit4 Ray::GenerateRay4(const CameraParams &camera, const int x[4], const i
 	return query;
 }
 
-RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::RandomGenerator *rng)
+RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const int y[8], rfw::utils::rng &rng)
 {
 	RTCRayHit8 query{};
 
@@ -186,27 +189,31 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 
 	const __m256 one8 = _mm256_set1_ps(1.0f);
 
-	union {
+	union
+	{
 		__m256 r04;
 		float r0[8];
 	};
-	union {
+	union
+	{
 		__m256 r14;
 		float r1[8];
 	};
-	union {
+	union
+	{
 		__m256 r24;
 		float r2[8];
 	};
-	union {
+	union
+	{
 		__m256 r34;
 		float r3[8];
 	};
 
-	r04 = _mm256_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
-	r14 = _mm256_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
-	r24 = _mm256_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
-	r34 = _mm256_set_ps(rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand(), rng->Rand());
+	r04 = _mm256_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand());
+	r14 = _mm256_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand());
+	r24 = _mm256_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand());
+	r34 = _mm256_set_ps(rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand(), rng.rand());
 
 	const __m256 blade4 = _mm256_mul_ps(r04, _mm256_set1_ps(9.0f));
 
@@ -222,11 +229,13 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 
 	// x1 = cos(bladeParam);
 	// y1 = sin(bladeParam);
-	union {
+	union
+	{
 		__m256 x14;
 		rfw::simd::vector4 x1_4[2];
 	};
-	union {
+	union
+	{
 		__m256 y14;
 		rfw::simd::vector4 y1_4[2];
 	};
@@ -237,11 +246,13 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	const __m256 bladeParam24 = _mm256_mul_ps(_mm256_add_ps(blade4, one8), piOver4point5_4);
 	// x2 = cos(bladeParam);
 	// y2 = sin(bladeParam);
-	union {
+	union
+	{
 		__m256 x24;
 		rfw::simd::vector4 x2_4[2];
 	};
-	union {
+	union
+	{
 		__m256 y24;
 		rfw::simd::vector4 y2_4[2];
 	};
@@ -250,8 +261,10 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128 one4 = _mm_set1_ps(1.0f);
-	const __m128i mask1 = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r24, 0), _mm256_extractf128_ps(r34, 0)), one4));
-	const __m128i mask2 = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r24, 1), _mm256_extractf128_ps(r34, 1)), one4));
+	const __m128i mask1 =
+		_mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r24, 0), _mm256_extractf128_ps(r34, 0)), one4));
+	const __m128i mask2 =
+		_mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r24, 1), _mm256_extractf128_ps(r34, 1)), one4));
 	// r2 = 1.0f - r2;
 	// r3 = 1.0f - r3;
 	_mm_maskstore_ps(r2, mask1, _mm_sub_ps(one4, _mm256_extractf128_ps(r24, 0)));
@@ -264,35 +277,43 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	const __m256 xr4 = _mm256_add_ps(_mm256_mul_ps(x14, r24), _mm256_mul_ps(x24, r34));
 	const __m256 yr4 = _mm256_add_ps(_mm256_mul_ps(y14, r24), _mm256_mul_ps(y24, r34));
 
-	union {
+	union
+	{
 		__m256 org_x4;
 		float org_x[8];
 	};
-	union {
+	union
+	{
 		__m256 org_y4;
 		float org_y[8];
 	};
-	union {
+	union
+	{
 		__m256 org_z4;
 		float org_z[8];
 	};
 
 	// ray.origin = vec3(camera.pos_lensSize) + camera.pos_lensSize.w * (right * xr + up * yr);
 	const __m256 lens_size4 = _mm256_set1_ps(camera.pos_lensSize.w);
-	org_x4 = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.x),
-						   _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.x), xr4),
-																   _mm256_mul_ps(_mm256_set1_ps(camera.up.x), yr4))));
-	org_y4 = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.y),
-						   _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.y), yr4),
-																   _mm256_mul_ps(_mm256_set1_ps(camera.up.y), yr4))));
-	org_z4 = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.z),
-						   _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.z), yr4),
-																   _mm256_mul_ps(_mm256_set1_ps(camera.up.z), yr4))));
+	org_x4 = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.x),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.x), xr4),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.x), yr4))));
+	org_y4 = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.y),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.y), yr4),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.y), yr4))));
+	org_z4 = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.z),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.z), yr4),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.z), yr4))));
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
-	__m256 u4 = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]), float(x[6]), float(x[7]));
-	__m256 v4 = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]), float(y[6]), float(y[7]));
+	__m256 u4 = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]),
+							   float(x[6]), float(x[7]));
+	__m256 v4 = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]),
+							   float(y[6]), float(y[7]));
 
 	u4 = _mm256_add_ps(u4, r04);
 	v4 = _mm256_add_ps(v4, r14);
@@ -303,15 +324,18 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	u4 = _mm256_mul_ps(u4, scrwidth4);
 	v4 = _mm256_mul_ps(v4, scrheight4);
 
-	union {
+	union
+	{
 		__m256 pixel_x4;
 		float pixel_x[8];
 	};
-	union {
+	union
+	{
 		__m256 pixel_y4;
 		float pixel_y[8];
 	};
-	union {
+	union
+	{
 		__m256 pixel_z4;
 		float pixel_z[8];
 	};
@@ -359,7 +383,7 @@ RTCRayHit8 Ray::GenerateRay8(const CameraParams &camera, const int x[8], const i
 	return query;
 }
 
-RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], const int y[16], rfw::utils::RandomGenerator *rng)
+RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], const int y[16], rfw::utils::rng &rng)
 {
 	RTCRayHit16 query{};
 
@@ -375,29 +399,33 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 
 	const __m256 one8 = _mm256_set1_ps(1.0f);
 
-	union {
+	union
+	{
 		__m256 r0_16[2];
 		float r0[16];
 	};
-	union {
+	union
+	{
 		__m256 r1_16[2];
 		float r1[16];
 	};
-	union {
+	union
+	{
 		__m256 r2_16[2];
 		float r2[16];
 	};
-	union {
+	union
+	{
 		__m256 r3_16[2];
 		float r3[16];
 	};
 
 	for (int i = 0; i < 16; i++)
 	{
-		r0[i] = rng->Rand();
-		r1[i] = rng->Rand();
-		r2[i] = rng->Rand();
-		r3[i] = rng->Rand();
+		r0[i] = rng.rand();
+		r1[i] = rng.rand();
+		r2[i] = rng.rand();
+		r3[i] = rng.rand();
 	}
 
 	const __m256 blade0_8 = _mm256_mul_ps(r0_16[0], _mm256_set1_ps(9.0f));
@@ -417,19 +445,23 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 	const __m256 bladeParam1_0 = _mm256_mul_ps(blade0_8, piOver4point5_4);
 	const __m256 bladeParam1_1 = _mm256_mul_ps(blade1_8, piOver4point5_4);
 
-	union {
+	union
+	{
 		__m256 x1_8[2];
 		rfw::simd::vector4 x1_4[4];
 	};
-	union {
+	union
+	{
 		__m256 y1_8[2];
 		rfw::simd::vector4 y1_4[4];
 	};
-	union {
+	union
+	{
 		__m256 x2_8[2];
 		rfw::simd::vector4 x2_4[4];
 	};
-	union {
+	union
+	{
 		__m256 y2_8[2];
 		rfw::simd::vector4 y2_4[4];
 	};
@@ -453,10 +485,14 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 
 	// if ((r2 + r3) > 1.0f)
 	const __m128 one4 = _mm_set1_ps(1.0f);
-	const __m128i mask0_1 = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[0], 0), _mm256_extractf128_ps(r3_16[0], 0)), one4));
-	const __m128i mask0_2 = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[0], 1), _mm256_extractf128_ps(r3_16[0], 1)), one4));
-	const __m128i mask1_1 = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[1], 0), _mm256_extractf128_ps(r3_16[1], 0)), one4));
-	const __m128i mask1_2 = _mm_castps_si128(_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[1], 1), _mm256_extractf128_ps(r3_16[1], 1)), one4));
+	const __m128i mask0_1 = _mm_castps_si128(
+		_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[0], 0), _mm256_extractf128_ps(r3_16[0], 0)), one4));
+	const __m128i mask0_2 = _mm_castps_si128(
+		_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[0], 1), _mm256_extractf128_ps(r3_16[0], 1)), one4));
+	const __m128i mask1_1 = _mm_castps_si128(
+		_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[1], 0), _mm256_extractf128_ps(r3_16[1], 0)), one4));
+	const __m128i mask1_2 = _mm_castps_si128(
+		_mm_cmpgt_ps(_mm_add_ps(_mm256_extractf128_ps(r2_16[1], 1), _mm256_extractf128_ps(r3_16[1], 1)), one4));
 
 	// r2 = 1.0f - r2;
 	// r3 = 1.0f - r3;
@@ -480,15 +516,18 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 	xr_8[1] = _mm256_add_ps(_mm256_mul_ps(x1_8[1], r2_16[1]), _mm256_mul_ps(x2_8[1], r3_16[1]));
 	yr_8[1] = _mm256_add_ps(_mm256_mul_ps(y1_8[1], r2_16[1]), _mm256_mul_ps(y2_8[1], r3_16[1]));
 
-	union {
+	union
+	{
 		__m256 org_x4[2];
 		float org_x[16];
 	};
-	union {
+	union
+	{
 		__m256 org_y4[2];
 		float org_y[16];
 	};
-	union {
+	union
+	{
 		__m256 org_z4[2];
 		float org_z[16];
 	};
@@ -496,33 +535,43 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 	// ray.origin = vec3(camera.pos_lensSize) + camera.pos_lensSize.w * (right * xr + up * yr);
 	const __m256 lens_size4 = _mm256_set1_ps(camera.pos_lensSize.w);
 
-	org_x4[0] = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.x),
-							  _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.x), xr_8[0]),
-																	  _mm256_mul_ps(_mm256_set1_ps(camera.up.x), yr_8[0]))));
-	org_x4[1] = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.x),
-							  _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.x), xr_8[1]),
-																	  _mm256_mul_ps(_mm256_set1_ps(camera.up.x), yr_8[1]))));
-	org_y4[0] = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.y),
-							  _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.y), xr_8[0]),
-																	  _mm256_mul_ps(_mm256_set1_ps(camera.up.y), yr_8[0]))));
-	org_y4[1] = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.y),
-							  _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.y), xr_8[1]),
-																	  _mm256_mul_ps(_mm256_set1_ps(camera.up.y), yr_8[1]))));
-	org_z4[0] = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.z),
-							  _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.z), xr_8[0]),
-																	  _mm256_mul_ps(_mm256_set1_ps(camera.up.z), yr_8[0]))));
-	org_z4[1] = _mm256_add_ps(_mm256_set1_ps(camera.pos_lensSize.z),
-							  _mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.z), xr_8[1]),
-																	  _mm256_mul_ps(_mm256_set1_ps(camera.up.z), yr_8[1]))));
+	org_x4[0] = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.x),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.x), xr_8[0]),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.x), yr_8[0]))));
+	org_x4[1] = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.x),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.x), xr_8[1]),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.x), yr_8[1]))));
+	org_y4[0] = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.y),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.y), xr_8[0]),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.y), yr_8[0]))));
+	org_y4[1] = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.y),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.y), xr_8[1]),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.y), yr_8[1]))));
+	org_z4[0] = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.z),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.z), xr_8[0]),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.z), yr_8[0]))));
+	org_z4[1] = _mm256_add_ps(
+		_mm256_set1_ps(camera.pos_lensSize.z),
+		_mm256_mul_ps(lens_size4, _mm256_add_ps(_mm256_mul_ps(_mm256_set1_ps(camera.right_spreadAngle.z), xr_8[1]),
+												_mm256_mul_ps(_mm256_set1_ps(camera.up.z), yr_8[1]))));
 
 	// const float u = (float(x) + r0) * (1.0f / float(camera.scrwidth));
 	// const float v = (float(y) + r1) * (1.0f / float(camera.scrheight));
 	__m256 u8[2];
-	u8[0] = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]), float(x[6]), float(x[7]));
-	u8[1] = _mm256_setr_ps(float(x[8]), float(x[9]), float(x[10]), float(x[11]), float(x[12]), float(x[13]), float(x[14]), float(x[15]));
+	u8[0] = _mm256_setr_ps(float(x[0]), float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5]), float(x[6]),
+						   float(x[7]));
+	u8[1] = _mm256_setr_ps(float(x[8]), float(x[9]), float(x[10]), float(x[11]), float(x[12]), float(x[13]),
+						   float(x[14]), float(x[15]));
 	__m256 v8[2];
-	v8[0] = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]), float(y[6]), float(y[7]));
-	v8[1] = _mm256_setr_ps(float(y[8]), float(y[9]), float(y[10]), float(y[11]), float(y[12]), float(y[13]), float(y[14]), float(y[15]));
+	v8[0] = _mm256_setr_ps(float(y[0]), float(y[1]), float(y[2]), float(y[3]), float(y[4]), float(y[5]), float(y[6]),
+						   float(y[7]));
+	v8[1] = _mm256_setr_ps(float(y[8]), float(y[9]), float(y[10]), float(y[11]), float(y[12]), float(y[13]),
+						   float(y[14]), float(y[15]));
 
 	u8[0] = _mm256_add_ps(u8[0], r0_16[0]);
 	u8[1] = _mm256_add_ps(u8[1], r0_16[1]);
@@ -559,15 +608,18 @@ RTCRayHit16 Ray::GenerateRay16(const CameraParams &camera, const int x[16], cons
 	pixel_z4[0] = _mm256_add_ps(p1_z4, _mm256_add_ps(_mm256_mul_ps(u8[0], right_z4), _mm256_mul_ps(v8[0], up_z4)));
 	pixel_z4[1] = _mm256_add_ps(p1_z4, _mm256_add_ps(_mm256_mul_ps(u8[1], right_z4), _mm256_mul_ps(v8[1], up_z4)));
 
-	union {
+	union
+	{
 		__m256 dir_x4[2];
 		float dir_x[16];
 	};
-	union {
+	union
+	{
 		__m256 dir_y4[2];
 		float dir_y[16];
 	};
-	union {
+	union
+	{
 		__m256 dir_z4[2];
 		float dir_z[16];
 	};

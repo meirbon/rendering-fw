@@ -4,7 +4,7 @@
 #include <string>
 #include <array>
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 
 #define ROW_MAJOR_MESH_SKIN 0
 

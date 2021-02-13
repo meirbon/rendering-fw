@@ -5,7 +5,7 @@
 #include <Windows.h>
 #endif
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 
 #include <array>
 #include <memory>
@@ -34,7 +34,6 @@
 #include <rfw/context/export.h>
 
 #include <vulkan/vulkan.hpp>
-#include <rfw_math.h>
 
 #include <rfw/context/structs.h>
 #include <rfw/context/device_structs.h>

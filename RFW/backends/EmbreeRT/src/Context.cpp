@@ -1,11 +1,11 @@
 #include "Context.h"
 
-#include <utils/gl/GLDraw.h>
-#include <utils/gl/GLTexture.h>
-#include <utils/Timer.h>
-#include <utils/gl/CheckGL.h>
+#include <rfw/utils/gl/draw.h>
+#include <rfw/utils/gl/texture.h>
+#include <rfw/utils/timer.h>
+#include <rfw/utils/gl/check.h>
 
-#include <utils/Xor128.h>
+#include <rfw/utils/xor128.h>
 
 void createTangentSpace(const vec3 N, vec3 &T, vec3 &B)
 {
@@ -40,7 +40,7 @@ Context::~Context()
 
 std::vector<rfw::RenderTarget> Context::get_supported_targets() const { return {rfw::RenderTarget::OPENGL_TEXTURE}; }
 
-void Context::init(std::shared_ptr<rfw::utils::Window> &window) { utils::logger::err("Window not supported (yet)."); }
+void Context::init(std::shared_ptr<rfw::utils::window> &window) { utils::logger::err("Window not supported (yet)."); }
 
 void rtcErrorFunc(void *userPtr, enum RTCError code, const char *str)
 {
@@ -114,7 +114,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 	m_Stats.clear();
 	m_Stats.primaryCount = m_Width * m_Height;
 
-	auto timer = utils::Timer();
+	auto timer = utils::timer();
 
 	const int maxPixelID = m_Width * m_Height;
 	const __m128i maxPixelID4 = _mm_set1_epi32(maxPixelID - 1);
@@ -168,7 +168,7 @@ void Context::render_frame(const rfw::Camera &camera, rfw::RenderStatus status)
 #if PACKET_WIDTH == 4
 					auto packet = Ray::GenerateRay4(camParams, xs, ys, &m_Rng);
 #elif PACKET_WIDTH == 8
-					auto packet = Ray::GenerateRay8(camParams, xs, ys, &m_Rng);
+					auto packet = Ray::GenerateRay8(camParams, xs, ys, m_Rng);
 #endif
 
 #if PACKET_WIDTH == 4

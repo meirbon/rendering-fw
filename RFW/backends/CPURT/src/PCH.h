@@ -18,7 +18,7 @@
 #include <rfw/context/export.h>
 
 #include <rfw/utils/gl/check.h>
-#include <rfw_math.h>
+#include <rfw/math.h>
 
 #include <tbb/tbb.h>
 

@@ -5,11 +5,12 @@
 #include "SwapChain.h"
 #include "CheckVK.h"
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 
 #include <array>
 
-vkc::SwapChain::SwapChain(VulkanDevice &device, vk::SurfaceKHR surface, vk::Format desiredFormat) : m_Device(device), m_Surface(surface)
+vkc::SwapChain::SwapChain(VulkanDevice &device, vk::SurfaceKHR surface, vk::Format desiredFormat)
+	: m_Device(device), m_Surface(surface)
 {
 	vk::PhysicalDevice pDevice = device.getPhysicalDevice();
 
@@ -107,8 +108,8 @@ void vkc::SwapChain::create(uint32_t width, uint32_t height, bool vsync)
 	vk::CompositeAlphaFlagBitsKHR compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
 
 	const std::array<vk::CompositeAlphaFlagBitsKHR, 4> compositeAlphaFlags = {
-		vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::CompositeAlphaFlagBitsKHR::ePreMultiplied, vk::CompositeAlphaFlagBitsKHR::ePostMultiplied,
-		vk::CompositeAlphaFlagBitsKHR::eInherit};
+		vk::CompositeAlphaFlagBitsKHR::eOpaque, vk::CompositeAlphaFlagBitsKHR::ePreMultiplied,
+		vk::CompositeAlphaFlagBitsKHR::ePostMultiplied, vk::CompositeAlphaFlagBitsKHR::eInherit};
 
 	for (const auto &cAlphaFlag : compositeAlphaFlags)
 	{
@@ -160,7 +161,8 @@ void vkc::SwapChain::create(uint32_t width, uint32_t height, bool vsync)
 		vk::ImageViewCreateInfo imageViewCreateInfo{};
 		imageViewCreateInfo.setPNext(nullptr);
 		imageViewCreateInfo.setFormat(m_Format);
-		imageViewCreateInfo.setComponents({vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
+		imageViewCreateInfo.setComponents(
+			{vk::ComponentSwizzle::eR, vk::ComponentSwizzle::eG, vk::ComponentSwizzle::eB, vk::ComponentSwizzle::eA});
 		imageViewCreateInfo.subresourceRange.setAspectMask(vk::ImageAspectFlagBits::eColor);
 		imageViewCreateInfo.subresourceRange.setBaseMipLevel(0);
 		imageViewCreateInfo.subresourceRange.setLevelCount(1);
@@ -182,10 +184,11 @@ void vkc::SwapChain::create(uint32_t width, uint32_t height, bool vsync)
 		const auto image = m_Images.at(i);
 
 		const auto imgBarrier =
-			vk::ImageMemoryBarrier(vk::AccessFlags(), vk::AccessFlagBits::eColorAttachmentWrite, vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral, 0, 0,
-								   image, vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
-		cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands, vk::DependencyFlags(), {}, {},
-								   {imgBarrier});
+			vk::ImageMemoryBarrier(vk::AccessFlags(), vk::AccessFlagBits::eColorAttachmentWrite,
+								   vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral, 0, 0, image,
+								   vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+		cmdBuffer->pipelineBarrier(vk::PipelineStageFlagBits::eAllCommands, vk::PipelineStageFlagBits::eAllCommands,
+								   vk::DependencyFlags(), {}, {}, {imgBarrier});
 
 		cmdBuffer.end();
 
@@ -193,7 +196,8 @@ void vkc::SwapChain::create(uint32_t width, uint32_t height, bool vsync)
 	}
 }
 
-vk::Result vkc::SwapChain::acquireNextImage(vk::Semaphore presentCompleteSemaphore, uint32_t *imageIndex, vk::Fence fence)
+vk::Result vkc::SwapChain::acquireNextImage(vk::Semaphore presentCompleteSemaphore, uint32_t *imageIndex,
+											vk::Fence fence)
 {
 	assert(m_SwapChain);
 	return m_Device->acquireNextImageKHR(m_SwapChain, UINT64_MAX, presentCompleteSemaphore, fence, imageIndex);
@@ -224,8 +228,10 @@ vk::Result vkc::SwapChain::queuePresent(vk::Queue queue, uint32_t imageIndex, vk
 	return queue.presentKHR(&presentInfo);
 }
 
-vk::AttachmentDescription vkc::SwapChain::getColorAttachmentDescription(vk::SampleCountFlagBits samples, vk::AttachmentLoadOp loadOp,
-																		vk::AttachmentStoreOp storeOp, vk::AttachmentLoadOp stencilLoadOp,
+vk::AttachmentDescription vkc::SwapChain::getColorAttachmentDescription(vk::SampleCountFlagBits samples,
+																		vk::AttachmentLoadOp loadOp,
+																		vk::AttachmentStoreOp storeOp,
+																		vk::AttachmentLoadOp stencilLoadOp,
 																		vk::AttachmentStoreOp stencilStoreOp) const
 {
 	vk::AttachmentDescription colorAttachment{};

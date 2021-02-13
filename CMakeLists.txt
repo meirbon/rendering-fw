@@ -4,7 +4,15 @@ if (DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
             CACHE STRING "")
 endif ()
 
+cmake_policy(SET CMP0091 NEW)
+
 project(RenderingFW)
+
+if (WIN32)
+    if (${VCPKG_TARGET_TRIPLET} MATCHES "x64-windows-static")
+	    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif (${VCPKG_TARGET_TRIPLET} MATCHES "x64-windows-static")
+endif (WIN32)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

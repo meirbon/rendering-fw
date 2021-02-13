@@ -120,7 +120,7 @@ void TopLevelAS::rebuild(const VmaBuffer<uint8_t> &scratchBuffer) { Build(true, 
 uint64_t TopLevelAS::getHandle()
 {
 	uint64_t handle = 0;
-	m_Device->getAccelerationStructureHandleNV(m_Structure, sizeof(uint64_t), &handle, m_Device.getLoader());
+	CheckVK(m_Device->getAccelerationStructureHandleNV(m_Structure, sizeof(uint64_t), &handle, m_Device.getLoader()));
 	assert(handle);
 	return handle;
 }

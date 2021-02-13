@@ -4,7 +4,7 @@
 
 #include <rfw/utils/array_proxy.h>
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 #include <rfw/context/structs.h>
 
 #include "mesh.h"

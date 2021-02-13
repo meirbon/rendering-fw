@@ -2,7 +2,7 @@
 
 #include "VmaBuffer.h"
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 #include <rfw/context/device_structs.h>
 
 #include "VulkanDevice.h"

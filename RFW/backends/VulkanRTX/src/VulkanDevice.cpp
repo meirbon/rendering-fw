@@ -150,7 +150,7 @@ VulkanDevice::VulkanDevice(vk::Instance instance, vk::PhysicalDevice physicalDev
 		i++;
 	}
 
-	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName);
+	printf("Vulkan device %s initialized.\n", physicalDevice.getProperties().deviceName.data());
 
 	m_Members->m_DynamicDispatcher.init(instance, m_Members->m_VkDevice);
 

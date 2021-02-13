@@ -4,7 +4,7 @@
 #include <tuple>
 #include <vector>
 
-#include <rfw_math.h>
+#include <rfw/math.h>
 
 #include "geometry/triangles.h"
 

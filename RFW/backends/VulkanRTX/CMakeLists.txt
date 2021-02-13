@@ -18,10 +18,6 @@ add_library(${PROJECT_NAME} SHARED
 		src/VulkanDevice.cpp
 		)
 
-if (${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
-	target_precompile_headers(${PROJECT_NAME} PUBLIC src/Context.h)
-endif ()
-
 if (WIN32)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 endif (WIN32)
@@ -76,7 +72,7 @@ foreach (GLSL ${GLSL_SOURCE_FILES})
 	add_custom_command(
 			OUTPUT ${SPIRV}
 			PRE_BUILD
-			COMMAND ${GLSL_VALIDATOR} ${GLSL} -V110 -o ${SPIRV}
+			COMMAND ${GLSL_VALIDATOR} ${GLSL} --target-env vulkan1.2 -o ${SPIRV}
 			DEPENDS ${GLSL_FILES}
 	)
 	list(APPEND SPIRV_BINARY_FILES ${SPIRV})

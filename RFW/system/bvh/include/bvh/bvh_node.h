@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AABB.h"
+#include "aabb.h"
 
 #include <atomic>
 #include <thread>
@@ -24,8 +24,6 @@ struct BVHNode
 {
   public:
 	AABB bounds;
-	int left_first;
-	int count;
 
 	[[nodiscard]] glm::vec3 get_min() const { return glm::make_vec3(bounds.bmin); }
 	[[nodiscard]] glm::vec3 get_max() const { return glm::make_vec3(bounds.bmax); }
@@ -36,7 +34,7 @@ struct BVHNode
 
 	~BVHNode() = default;
 
-	[[nodiscard]] bool is_leaf() const noexcept { return count >= 0; }
+	[[nodiscard]] bool is_leaf() const noexcept { return bounds.left_first >= 0; }
 
 	bool intersect(const glm::vec3 &org, const glm::vec3 &dirInverse, float *t_min, float *t_max, float min_t) const
 	{
@@ -45,13 +43,13 @@ struct BVHNode
 
 	AABB refit(BVHNode *bvhTree, uint *primIDs, AABB *aabbs);
 
-	void set_count(int value) noexcept { count = value; }
+	void set_count(int value) noexcept { bounds.count = value; }
 
-	void set_left_first(unsigned int value) noexcept { left_first = value; }
+	void set_left_first(unsigned int value) noexcept { bounds.left_first = value; }
 
-	[[nodiscard]] inline int get_count() const noexcept { return count; }
+	[[nodiscard]] inline int get_count() const noexcept { return bounds.count; }
 
-	[[nodiscard]] inline int get_left_first() const noexcept { return left_first; }
+	[[nodiscard]] inline int get_left_first() const noexcept { return bounds.left_first; }
 
 	template <int BINS = 9, int MAX_DEPTH = 32, int MAX_PRIMITIVES = 3>
 	void subdivide(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, unsigned int depth,
@@ -67,16 +65,16 @@ struct BVHNode
 		if (!partition<BINS>(aabbs, bvhTree, primIndices, &left, &right, poolPtr))
 			return;
 
-		this->left_first = left; // set pointer to children
-		this->count = -1;		 // no primitives since we are no leaf node
+		this->bounds.left_first = left; // set pointer to children
+		this->bounds.count = -1;		// no primitives since we are no leaf node
 
 		auto &left_node = bvhTree[left];
 		auto &right_node = bvhTree[right];
 
-		if (left_node.count > 0)
+		if (left_node.bounds.count > 0)
 			left_node.subdivide<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, depth, poolPtr);
 
-		if (right_node.count > 0)
+		if (right_node.bounds.count > 0)
 			right_node.subdivide<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, depth, poolPtr);
 	}
 
@@ -94,8 +92,8 @@ struct BVHNode
 		if (!partition<BINS>(aabbs, bvhTree, primIndices, &left, &right, poolPtr))
 			return;
 
-		this->left_first = left; // set pointer to children
-		this->count = -1;		 // no primitives since we are no leaf node
+		this->bounds.left_first = left; // set pointer to children
+		this->bounds.count = -1;		// no primitives since we are no leaf node
 
 		auto *leftNode = &bvhTree[left];
 		auto *rightNode = &bvhTree[right];
@@ -108,10 +106,11 @@ struct BVHNode
 			if (subLeft && subRight)
 			{
 				threadCount.fetch_add(1);
-				auto leftThread = std::async([&]() {
-					leftNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount,
-																			depth, poolPtr);
-				});
+				auto leftThread = std::async(
+					[&]() {
+						leftNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices,
+																				threadCount, depth, poolPtr);
+					});
 
 				rightNode->subdivide_mt<BINS, MAX_DEPTH, MAX_PRIMITIVES>(aabbs, bvhTree, primIndices, threadCount,
 																		 depth, poolPtr);
@@ -137,10 +136,10 @@ struct BVHNode
 	bool partition(const AABB *aabbs, BVHNode *bvhTree, unsigned int *primIndices, int *left, int *right,
 				   std::atomic_int &poolPtr)
 	{
-		const int lFirst = left_first;
+		const int lFirst = bounds.left_first;
 		int lCount = 0;
-		int rFirst = left_first;
-		int rCount = count;
+		int rFirst = bounds.left_first;
+		int rCount = bounds.count;
 
 		float lowest_node_cost = 1e34f;
 		float best_split = 0;
@@ -149,7 +148,7 @@ struct BVHNode
 		auto best_left_box = AABB();
 		auto best_right_box = AABB();
 
-		float parent_node_cost = bounds.area() * static_cast<float>(count);
+		float parent_node_cost = bounds.area() * static_cast<float>(bounds.count);
 		const vec3 lengths = this->bounds.lengths();
 
 		const float bin_size = 1.0f / static_cast<float>(BINS + 2);
@@ -168,7 +167,7 @@ struct BVHNode
 				auto left_box = AABB::invalid();
 				auto right_box = AABB::invalid();
 
-				for (int idx = 0; idx < count; idx++)
+				for (int idx = 0; idx < bounds.count; idx++)
 				{
 					const auto &aabb = aabbs[primIndices[lFirst + idx]];
 					if (aabb.centroid()[axis] <= split_offset)
@@ -202,7 +201,7 @@ struct BVHNode
 		if (parent_node_cost < lowest_node_cost)
 			return false;
 
-		for (int idx = 0; idx < count; idx++)
+		for (int idx = 0; idx < bounds.count; idx++)
 		{
 			const auto &aabb = aabbs[primIndices[lFirst + idx]];
 
@@ -222,12 +221,12 @@ struct BVHNode
 		best_right_box.offset_by(1e-5f);
 
 		bvhTree[*left].bounds.set_bounds(best_left_box);
-		bvhTree[*left].left_first = lFirst;
-		bvhTree[*left].count = lCount;
+		bvhTree[*left].bounds.left_first = lFirst;
+		bvhTree[*left].bounds.count = lCount;
 
 		bvhTree[*right].bounds.set_bounds(best_right_box);
-		bvhTree[*right].left_first = rFirst;
-		bvhTree[*right].count = rCount;
+		bvhTree[*right].bounds.left_first = rFirst;
+		bvhTree[*right].bounds.count = rCount;
 
 		return true;
 	}

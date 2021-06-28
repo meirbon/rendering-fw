@@ -74,4 +74,4 @@
 
 #include "system.h"
 
-#include "bvh/BVH.h"
+#include <bvh/bvh.h>

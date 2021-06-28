@@ -1,4 +1,4 @@
-#include <bvh/BVH.h>
+#include <bvh/bvh.h>
 
 #include <rfw/utils/logger.h>
 #include <rfw/utils/timer.h>
@@ -28,7 +28,7 @@ void rfwMesh::set_geometry(const rfw::Mesh &mesh)
 	vertexCount = static_cast<int>(mesh.vertexCount);
 	triangleCount = static_cast<int>(mesh.triangleCount);
 
-	if (rebuild) // Full rebuild of BVH
+	if (true || rebuild) // Full rebuild of BVH
 	{
 		const int vCount = static_cast<int>(mesh.vertexCount);
 		const int tCount = static_cast<int>(mesh.triangleCount);
@@ -38,7 +38,7 @@ void rfwMesh::set_geometry(const rfw::Mesh &mesh)
 		else
 			bvh = std::make_unique<BVHTree>(mesh.vertices, vCount);
 
-		bvh->construct(BVHTree::SpatialSAH);
+		bvh->construct(BVHTree::BinnedSAH);
 
 		mbvh = std::make_unique<MBVHTree>(bvh.get());
 		mbvh->construct();
@@ -60,9 +60,11 @@ void TopLevelBVH::construct_bvh()
 		bvh = std::nullopt;
 	}
 
-	bvh = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(instance_aabbs.data()), instance_aabbs.size(),
-							reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
-							rtbvh::BVHType::BinnedSAH);
+	rtbvh::RTBvh result{};
+	rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAabb *>(instance_aabbs.data()), instance_aabbs.size(),
+					  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4), 1, rtbvh::BvhType::BinnedSAH,
+					  &result);
+	bvh = std::make_optional(result);
 
 	if (mbvh.has_value())
 	{
@@ -70,7 +72,9 @@ void TopLevelBVH::construct_bvh()
 		mbvh = std::nullopt;
 	}
 
-	mbvh = rtbvh::create_mbvh(bvh.value());
+	rtbvh::RTMbvh mResult{};
+	rtbvh::create_mbvh(bvh.value(), &mResult);
+	mbvh = std::make_optional(mResult);
 }
 
 void TopLevelBVH::refit()
@@ -83,13 +87,15 @@ void TopLevelBVH::refit()
 			bvh = std::nullopt;
 		}
 
-		bvh = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(instance_aabbs.data()), instance_aabbs.size(),
-								reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
-								rtbvh::BVHType::BinnedSAH);
+		rtbvh::RTBvh result{};
+		rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAabb *>(instance_aabbs.data()), instance_aabbs.size(),
+						  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4), 1,
+						  rtbvh::BvhType::BinnedSAH, &result);
+		bvh = std::make_optional(result);
 	}
 	else
 	{
-		rtbvh::refit(reinterpret_cast<const rtbvh::RTAABB *>(instance_aabbs.data()), bvh.value());
+		rtbvh::refit(reinterpret_cast<const rtbvh::RTAabb *>(instance_aabbs.data()), bvh.value());
 	}
 
 	if (mbvh.has_value())
@@ -98,7 +104,9 @@ void TopLevelBVH::refit()
 		mbvh = std::nullopt;
 	}
 
-	mbvh = rtbvh::create_mbvh(bvh.value());
+	rtbvh::RTMbvh mResult{};
+	rtbvh::create_mbvh(bvh.value(), &mResult);
+	mbvh = std::make_optional(mResult);
 }
 
 const rfw::Triangle *TopLevelBVH::intersect(const vec3 &origin, const vec3 &direction, float *t, int *primID,
@@ -110,10 +118,13 @@ const rfw::Triangle *TopLevelBVH::intersect(const vec3 &origin, const vec3 &dire
 #if USE_TOP_MBVH
 	if (MBVHNode::traverse_mbvh(origin, direction, t_min, t, instID,
 								reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices,
-								[&](const int instance) {
+								[&](const int instance)
+								{
 #else
 	if (BVHNode::traverse_bvh(origin, direction, t_min, t, instID, reinterpret_cast<const BVHNode *>(bvh.value().nodes),
-							  bvh.value().indices, [&](const int instance) {
+							  bvh.value().indices,
+							  [&](const int instance)
+							  {
 #endif
 									const simd::vector4 new_origin = inverse_matrices[instance] * org;
 									const simd::vector4 new_direction = inverse_matrices[instance] * dir;
@@ -143,10 +154,13 @@ const rfw::Triangle *TopLevelBVH::intersect(const vec3 &origin, const vec3 &dire
 #if USE_TOP_MBVH
 	if (MBVHNode::traverse_mbvh(origin, direction, t_min, t, instID,
 								reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices,
-								[&](const int instance) {
+								[&](const int instance)
+								{
 #else
 	if (BVHNode::traverse_bvh(origin, direction, t_min, t, instID, reinterpret_cast<const BVHNode *>(bvh.value().nodes),
-							  bvh.value().indices, [&](const int instance) {
+							  bvh.value().indices,
+							  [&](const int instance)
+							  {
 #endif
 									const simd::vector4 new_origin = inverse_matrices[instance] * org;
 									const simd::vector4 new_direction = inverse_matrices[instance] * dir;
@@ -173,11 +187,13 @@ bool TopLevelBVH::is_occluded(const vec3 &origin, const vec3 &direction, float t
 #if USE_TOP_MBVH
 	return MBVHNode::traverse_mbvh_shadow(
 		origin, direction, t_min, t_max, reinterpret_cast<const MBVHNode *>(mbvh.value().nodes), mbvh.value().indices,
-		[&](const int instance) {
+		[&](const int instance)
+		{
 #else
 	return BVHNode::traverse_bvh_shadow(
 		origin, direction, t_min, t_max, reinterpret_cast<const BVHNode *>(bvh.value().nodes), bvh.value().indices,
-		[&](const int instance) {
+		[&](const int instance)
+		{
 #endif
 			const vec3 new_origin = inverse_matrices[instance] * vec4(origin, 1);
 			const vec3 new_direction = inverse_matrices[instance] * vec4(direction, 0);
@@ -194,7 +210,8 @@ int TopLevelBVH::intersect4(float origin_x[4], float origin_y[4], float origin_z
 							float direction_y[4], float direction_z[4], float t[4], int primID[4], int instID[4],
 							float t_min) const
 {
-	const auto intersection = [&](const int instance, __m128 *inst_mask) {
+	const auto intersection = [&](const int instance, __m128 *inst_mask)
+	{
 		const auto &matrix = this->inverse_matrices[instance];
 
 		const simd::vector4 org_x = simd::vector4(origin_x);

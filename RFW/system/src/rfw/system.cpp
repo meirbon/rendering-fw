@@ -536,7 +536,7 @@ geometry_ref system::add_object(std::string fileName, bool normalize, const glm:
 		}
 	}
 
-	m_ObjectLightIndices.push_back(lightIndices);
+	m_ObjectLightIndices.emplace_back(lightIndices.begin(), lightIndices.end());
 	if (material != 0)
 		m_ObjectMaterialRange.emplace_back(static_cast<uint>(matFirst),
 										   static_cast<uint>(m_Materials->get_materials().size()));
@@ -583,7 +583,7 @@ rfw::geometry_ref system::add_quad(const glm::vec3 &N, const glm::vec3 &pos, flo
 		}
 	}
 
-	m_ObjectLightIndices.push_back(lightIndices);
+	m_ObjectLightIndices.emplace_back(lightIndices.begin(), lightIndices.end());
 	m_ObjectMaterialRange.emplace_back(static_cast<uint>(material), static_cast<uint>(material + 1));
 
 	// Update flags
@@ -661,7 +661,9 @@ void rfw::system::set_material(size_t index, const rfw::HostMaterial &mat)
 			const auto &[first, last] = m_ObjectMaterialRange[i];
 			if (index >= first && index < last)
 			{
-				m_ObjectLightIndices[i] = m_Models[i]->get_light_indices(m_Materials->get_material_light_flags(), true);
+				array_proxy<std::vector<int>> lightIndices =
+					m_Models[i]->get_light_indices(m_Materials->get_material_light_flags(), true);
+				m_ObjectLightIndices[i] = std::vector<std::vector<int>>(lightIndices.begin(), lightIndices.end());
 				m_Changed[LIGHTS] = true;
 				m_Changed[AREA_LIGHTS] = true;
 			}

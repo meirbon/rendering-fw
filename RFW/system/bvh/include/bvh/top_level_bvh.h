@@ -1,8 +1,6 @@
 #pragma once
 
-namespace rfw
-{
-namespace bvh
+namespace rfw::bvh
 {
 class BVHTree;
 class MBVHTree;
@@ -58,8 +56,8 @@ class TopLevelBVH
 	std::atomic_int pool_ptr = 0;
 	std::atomic_int mpool_ptr = 0;
 	std::atomic_int thread_count = 0;
-	std::optional<rtbvh::RTBVH> bvh = std::nullopt;
-	std::optional<rtbvh::RTMBVH> mbvh = std::nullopt;
+	std::optional<rtbvh::RTBvh> bvh = std::nullopt;
+	std::optional<rtbvh::RTMbvh> mbvh = std::nullopt;
 
 	std::vector<AABB> aabbs;
 	std::vector<AABB> instance_aabbs;
@@ -72,5 +70,4 @@ class TopLevelBVH
 	std::vector<simd::matrix4> normal_matrices;
 };
 
-} // namespace bvh
 } // namespace rfw

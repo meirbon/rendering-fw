@@ -16,14 +16,18 @@ class Quad : public SceneTriangles
 	void set_time(float timeInSeconds) override;
 
 	[[nodiscard]] unsigned int getMatID() const { return m_MatID; }
-	[[nodiscard]] const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize) override;
+	[[nodiscard]] utils::array_proxy<std::vector<int>> get_light_indices(const std::vector<bool> &matLightFlags,
+																		 bool reinitialize) override;
 
-	Triangle *get_triangles() override { return m_Triangles.data(); }
-	glm::vec4 *get_vertices() override { return m_Vertices.data(); }
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const override;
-	[[nodiscard]] const std::vector<simd::matrix4> &get_mesh_matrices() const override;
+	utils::array_proxy<Triangle> get_triangles() override { return m_Triangles; }
+	utils::array_proxy<glm::vec4> get_vertices() override { return m_Vertices; }
+	[[nodiscard]] utils::array_proxy<std::pair<size_t, rfw::Mesh>> get_meshes() const override;
+	[[nodiscard]] utils::array_proxy<simd::matrix4> get_mesh_matrices() const override;
 	[[nodiscard]] std::vector<bool> get_changed_meshes() override { return std::vector<bool>(m_Meshes.size(), false); }
-	[[nodiscard]] std::vector<bool> get_changed_matrices() override { return std::vector<bool>(m_Meshes.size(), false); }
+	[[nodiscard]] std::vector<bool> get_changed_matrices() override
+	{
+		return std::vector<bool>(m_Meshes.size(), false);
+	}
 
   protected:
 	void prepare_meshes(rfw::system &rs) override;
@@ -40,4 +44,4 @@ class Quad : public SceneTriangles
 	unsigned int m_MatID;
 };
 
-} // namespace rfw
+} // namespace rfw::geometry

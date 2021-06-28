@@ -1,4 +1,4 @@
-#include <bvh/BVH.h>
+#include <bvh/bvh.h>
 
 using namespace glm;
 
@@ -27,8 +27,8 @@ AABB BVHNode::refit(BVHNode *bvhTree, uint *primIDs, AABB *aabbs)
 	if (is_leaf())
 	{
 		AABB newBounds = {vec3(1e34f), vec3(-1e34f)};
-		for (int idx = 0; idx < count; idx++)
-			newBounds.grow(aabbs[primIDs[left_first + idx]]);
+		for (int idx = 0; idx < bounds.count; idx++)
+			newBounds.grow(aabbs[primIDs[bounds.left_first + idx]]);
 
 		bounds.offset_by(1e-6f);
 		bounds.set_bounds(newBounds);
@@ -48,8 +48,8 @@ AABB BVHNode::refit(BVHNode *bvhTree, uint *primIDs, AABB *aabbs)
 void BVHNode::calculate_bounds(const AABB *aabbs, const unsigned int *primitiveIndices)
 {
 	auto new_bounds = AABB();
-	for (auto idx = 0; idx < count; idx++)
-		new_bounds.grow(aabbs[primitiveIndices[left_first + idx]]);
+	for (auto idx = 0; idx < bounds.count; idx++)
+		new_bounds.grow(aabbs[primitiveIndices[bounds.left_first + idx]]);
 
 	bounds.offset_by(1e-6f);
 	bounds.set_bounds(new_bounds);

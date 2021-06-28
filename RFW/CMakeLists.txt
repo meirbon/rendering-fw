@@ -17,5 +17,3 @@ if (ENABLE_CUDA)
 		add_subdirectory(backends/CUDART)
 	endif (${CUDA_FOUND})
 endif ()
-
-add_dependencies(backends RenderSystem)

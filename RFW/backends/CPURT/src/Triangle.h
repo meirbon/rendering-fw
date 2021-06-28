@@ -11,15 +11,17 @@
 namespace rfw::triangle
 {
 
-bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2,
-			   float epsilon = EPSILON_TRIANGLE);
-bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2,
-			   float epsilon = EPSILON_TRIANGLE);
-bool intersect_opt(const glm::vec3 org, const glm::vec3 dir, float tmin, float *rayt, const glm::vec3 p0, const glm::vec3 e1, const glm::vec3 e2,
+bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec3 &p0,
+			   const glm::vec3 &p1, const glm::vec3 &p2, float epsilon = EPSILON_TRIANGLE);
+bool intersect(const glm::vec3 &org, const glm::vec3 &dir, float tmin, float *rayt, const glm::vec4 &p0,
+			   const glm::vec4 &p1, const glm::vec4 &p2, float epsilon = EPSILON_TRIANGLE);
+bool intersect_opt(glm::vec3 org, glm::vec3 dir, float tmin, float *rayt, glm::vec3 p0, glm::vec3 e1, glm::vec3 e2,
 				   float epsilon = EPSILON_TRIANGLE);
 
-glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2);
-glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2);
+glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec3 &p0, const glm::vec3 &p1,
+						const glm::vec3 &p2);
+glm::vec3 getBaryCoords(const glm::vec3 &p, const glm::vec3 &normal, const glm::vec4 &p0, const glm::vec4 &p1,
+						const glm::vec4 &p2);
 
 rfw::bvh::AABB getBounds(const glm::vec3 &p0, const glm::vec3 &p1, const glm::vec3 &p2);
 rfw::bvh::AABB getBounds(const glm::vec4 &p0, const glm::vec4 &p1, const glm::vec4 &p2);

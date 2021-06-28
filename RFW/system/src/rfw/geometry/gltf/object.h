@@ -22,21 +22,21 @@ class Object : public SceneTriangles
 {
   public:
 	explicit Object(std::string_view filename, material_list *matList, uint ID,
-						const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
+					const glm::mat4 &matrix = glm::identity<glm::mat4>(), int material = -1);
 	~Object() = default;
 
 	void set_time(float timeInSeconds) override;
 
-	Triangle *get_triangles() override;
-	glm::vec4 *get_vertices() override;
+	utils::array_proxy<Triangle> get_triangles() override;
+	utils::array_proxy<glm::vec4> get_vertices() override;
 
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const override;
-	[[nodiscard]] const std::vector<simd::matrix4> &get_mesh_matrices() const override;
+	[[nodiscard]] utils::array_proxy<std::pair<size_t, rfw::Mesh>> get_meshes() const override;
+	[[nodiscard]] utils::array_proxy<simd::matrix4> get_mesh_matrices() const override;
 	[[nodiscard]] std::vector<bool> get_changed_meshes() override;
 	[[nodiscard]] std::vector<bool> get_changed_matrices() override;
 
 	bool is_animated() const override;
-	const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags,
+	utils::array_proxy<std::vector<int>> get_light_indices(const std::vector<bool> &matLightFlags,
 														   bool reinitialize) override;
 	const std::string file;
 

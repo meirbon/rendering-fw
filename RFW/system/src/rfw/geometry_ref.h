@@ -26,9 +26,9 @@ class geometry_ref
 
 	[[nodiscard]] bool is_animated() const;
 	void set_animation_to(float time) const;
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const;
-	[[nodiscard]] const std::vector<simd::matrix4> &get_mesh_matrices() const;
-	[[nodiscard]] const std::vector<std::vector<int>> &get_light_indices() const;
+	[[nodiscard]] utils::array_proxy<std::pair<size_t, rfw::Mesh>> get_meshes() const;
+	[[nodiscard]] utils::array_proxy<simd::matrix4> get_mesh_matrices() const;
+	[[nodiscard]] utils::array_proxy<std::vector<int>> get_light_indices() const;
 
   protected:
 	[[nodiscard]] geometry::SceneTriangles *get_object() const;

@@ -541,13 +541,13 @@ Object::Object(std::string_view filename, material_list *matList, uint ID, const
 
 void Object::set_time(float timeInSeconds) { scene.set_time(timeInSeconds); }
 
-Triangle *Object::get_triangles() { return scene.triangles.data(); }
+utils::array_proxy<Triangle> Object::get_triangles() { return scene.triangles; }
 
-glm::vec4 *Object::get_vertices() { return scene.vertices.data(); }
+utils::array_proxy<glm::vec4> Object::get_vertices() { return scene.vertices; }
 
-const std::vector<std::pair<size_t, Mesh>> &Object::get_meshes() const { return m_Meshes; }
+utils::array_proxy<std::pair<size_t, Mesh>> Object::get_meshes() const { return m_Meshes; }
 
-const std::vector<simd::matrix4> &Object::get_mesh_matrices() const { return scene.meshTranforms; }
+utils::array_proxy<simd::matrix4> Object::get_mesh_matrices() const { return scene.meshTranforms; }
 
 std::vector<bool> Object::get_changed_meshes()
 {
@@ -573,7 +573,7 @@ std::vector<bool> Object::get_changed_matrices()
 
 bool Object::is_animated() const { return !scene.animations.empty(); }
 
-const std::vector<std::vector<int>> &Object::get_light_indices(const std::vector<bool> &matLightFlags,
+utils::array_proxy<std::vector<int>> Object::get_light_indices(const std::vector<bool> &matLightFlags,
 															   bool reinitialize)
 {
 	if (reinitialize)

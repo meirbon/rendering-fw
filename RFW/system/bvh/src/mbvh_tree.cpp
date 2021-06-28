@@ -1,4 +1,4 @@
-#include <bvh/BVH.h>
+#include <bvh/bvh.h>
 
 #include <rfw/utils/timer.h>
 #include <rfw/utils/logger.h>
@@ -14,7 +14,7 @@ namespace rfw::bvh
 
 #define EDGE_INTERSECTION 0
 
-MBVHTree::MBVHTree() { static_assert(sizeof(rtbvh::RTMBVHNode) == sizeof(MBVHNode)); }
+MBVHTree::MBVHTree() { static_assert(sizeof(rtbvh::RTMbvhNode) == sizeof(MBVHNode)); }
 
 MBVHTree::MBVHTree(BVHTree *orgTree) { this->bvh = orgTree; }
 MBVHTree::~MBVHTree() { reset(); }
@@ -31,21 +31,30 @@ void MBVHTree::reset()
 void MBVHTree::construct()
 {
 	reset();
-	instance = rtbvh::create_mbvh(bvh->instance.value());
+
+	rtbvh::RTMbvh mbvh{};
+	rtbvh::create_mbvh(*bvh->instance, &mbvh);
+	instance = std::make_optional(mbvh);
 }
 
 void MBVHTree::refit(const glm::vec4 *vertices)
 {
 	bvh->refit(vertices);
 	reset();
-	instance = rtbvh::create_mbvh(bvh->instance.value());
+
+	rtbvh::RTMbvh mbvh{};
+	rtbvh::create_mbvh(*bvh->instance, &mbvh);
+	instance = std::make_optional(mbvh);
 }
 
 void MBVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
 	bvh->refit(vertices, indices);
 	reset();
-	instance = rtbvh::create_mbvh(bvh->instance.value());
+
+	rtbvh::RTMbvh mbvh{};
+	rtbvh::create_mbvh(*bvh->instance, &mbvh);
+	instance = std::make_optional(mbvh);
 }
 
 bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx,
@@ -53,7 +62,8 @@ bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_m
 {
 	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx,
 								   reinterpret_cast<const MBVHNode *>(instance.value().nodes), instance.value().indices,
-								   [&](uint primID) {
+								   [&](uint primID)
+								   {
 									   const vec3 &p0 = bvh->p0s[primID];
 									   const vec3 &e1 = bvh->edge1s[primID];
 									   const vec3 &e2 = bvh->edge2s[primID];
@@ -100,7 +110,8 @@ bool MBVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_m
 {
 	return MBVHNode::traverse_mbvh(origin, dir, t_min, ray_t, primIdx,
 								   reinterpret_cast<const MBVHNode *>(instance.value().nodes), instance.value().indices,
-								   [&](uint primID) {
+								   [&](uint primID)
+								   {
 									   const vec3 &p0 = bvh->p0s[primID];
 									   const vec3 &e1 = bvh->edge1s[primID];
 									   const vec3 &e2 = bvh->edge2s[primID];
@@ -138,7 +149,8 @@ int MBVHTree::traverse4(const float origin_x[4], const float origin_y[4], const 
 						__m128 *hit_mask)
 {
 
-	const auto intersection = [&](const int primId, __m128 *store_mask) {
+	const auto intersection = [&](const int primId, __m128 *store_mask)
+	{
 		const vec3 &p0 = bvh->p0s[primId];
 		const vec3 &edge1 = bvh->edge1s[primId];
 		const vec3 &edge2 = bvh->edge2s[primId];
@@ -234,37 +246,38 @@ int MBVHTree::traverse4(const float origin_x[4], const float origin_y[4], const 
 
 bool MBVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max)
 {
-	return MBVHNode::traverse_mbvh_shadow(origin, dir, t_min, t_max,
-										  reinterpret_cast<const MBVHNode *>(instance.value().nodes),
-										  instance.value().indices, [&](uint primID) {
-											  const vec3 &p0 = bvh->p0s[primID];
-											  const vec3 &e1 = bvh->edge1s[primID];
-											  const vec3 &e2 = bvh->edge2s[primID];
+	return MBVHNode::traverse_mbvh_shadow(
+		origin, dir, t_min, t_max, reinterpret_cast<const MBVHNode *>(instance.value().nodes), instance.value().indices,
+		[&](uint primID)
+		{
+			const vec3 &p0 = bvh->p0s[primID];
+			const vec3 &e1 = bvh->edge1s[primID];
+			const vec3 &e2 = bvh->edge2s[primID];
 
-											  const vec3 h = cross(dir, e2);
+			const vec3 h = cross(dir, e2);
 
-											  const float a = dot(e1, h);
-											  if (a > -1e-6f && a < 1e-6f)
-												  return false;
+			const float a = dot(e1, h);
+			if (a > -1e-6f && a < 1e-6f)
+				return false;
 
-											  const float f = 1.f / a;
-											  const vec3 s = origin - p0;
-											  const float u = f * dot(s, h);
-											  if (u < 0.0f || u > 1.0f)
-												  return false;
+			const float f = 1.f / a;
+			const vec3 s = origin - p0;
+			const float u = f * dot(s, h);
+			if (u < 0.0f || u > 1.0f)
+				return false;
 
-											  const vec3 q = cross(s, e1);
-											  const float v = f * dot(dir, q);
-											  if (v < 0.0f || u + v > 1.0f)
-												  return false;
+			const vec3 q = cross(s, e1);
+			const float v = f * dot(dir, q);
+			if (v < 0.0f || u + v > 1.0f)
+				return false;
 
-											  const float t = f * dot(e2, q);
+			const float t = f * dot(e2, q);
 
-											  if (t > t_min && t_max > t) // ray intersection
-												  return true;
+			if (t > t_min && t_max > t) // ray intersection
+				return true;
 
-											  return false;
-										  });
+			return false;
+		});
 }
 
 AABB MBVHTree::get_aabb() const { return bvh->get_aabb(); }

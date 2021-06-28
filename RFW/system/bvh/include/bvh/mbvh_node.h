@@ -1,6 +1,6 @@
 #pragma once
 
-#include "AABB.h"
+#include "aabb.h"
 
 #include <atomic>
 #include <rfw/utils/array_proxy.h>

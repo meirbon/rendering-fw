@@ -43,7 +43,7 @@ Quad::Quad(const glm::vec3 &N, const glm::vec3 &pos, float width, float height, 
 
 void Quad::set_time(float timeInSeconds) {}
 
-const std::vector<std::vector<int>> &Quad::get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize)
+utils::array_proxy<std::vector<int>> Quad::get_light_indices(const std::vector<bool> &matLightFlags, bool reinitialize)
 {
 	if (reinitialize)
 	{
@@ -57,9 +57,9 @@ const std::vector<std::vector<int>> &Quad::get_light_indices(const std::vector<b
 	return m_LightIndices;
 }
 
-const std::vector<std::pair<size_t, rfw::Mesh>> &Quad::get_meshes() const { return m_Meshes; }
+utils::array_proxy<std::pair<size_t, rfw::Mesh>> Quad::get_meshes() const { return m_Meshes; }
 
-const std::vector<rfw::simd::matrix4> &Quad::get_mesh_matrices() const { return m_MeshTransforms; }
+utils::array_proxy<rfw::simd::matrix4> Quad::get_mesh_matrices() const { return m_MeshTransforms; }
 
 void Quad::prepare_meshes(rfw::system &rs)
 {

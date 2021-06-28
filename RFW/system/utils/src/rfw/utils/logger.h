@@ -3,7 +3,7 @@
 #include <cstdarg>
 #include <cstring>
 #include <iostream>
-#include "String.h"
+#include "string.h"
 #include <vector>
 
 namespace rfw::utils::logger

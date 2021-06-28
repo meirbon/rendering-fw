@@ -7,9 +7,7 @@
 #include <vector>
 #include <optional>
 
-namespace rfw
-{
-namespace bvh
+namespace rfw::bvh
 {
 class BVHTree
 {
@@ -52,7 +50,7 @@ class BVHTree
 	const int vertex_count = -1;
 	const int face_count = -1;
 
-	std::optional<rtbvh::RTBVH> instance = std::nullopt;
+	std::optional<rtbvh::RTBvh> instance = std::nullopt;
 	std::vector<AABB> aabbs;
 	std::vector<glm::vec4> splat_vertices;
 
@@ -60,5 +58,4 @@ class BVHTree
 	std::vector<glm::vec3> edge1s;
 	std::vector<glm::vec3> edge2s;
 };
-} // namespace bvh
 } // namespace rfw

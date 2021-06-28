@@ -4,9 +4,7 @@
 #include "bvh_tree.h"
 #include <rtbvh.hpp>
 
-namespace rfw
-{
-namespace bvh
+namespace rfw::bvh
 {
 
 struct AABB;
@@ -37,8 +35,7 @@ class MBVHTree
 	operator bool() const { return instance.has_value(); }
 
 	BVHTree *bvh = nullptr;
-	std::optional<rtbvh::RTMBVH> instance = std::nullopt;
+	std::optional<rtbvh::RTMbvh> instance = std::nullopt;
 };
 
-} // namespace bvh
-} // namespace rfw
+} // namespace rfw::bvh

@@ -1,4 +1,4 @@
-#include "Camera.h"
+#include "camera.h"
 
 #include <rfw/utils/file.h>
 

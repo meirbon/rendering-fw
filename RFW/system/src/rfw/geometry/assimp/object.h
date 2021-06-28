@@ -209,16 +209,16 @@ class Object : public SceneTriangles
 	size_t traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage,
 						std::map<std::string, uint> *nodeNameMapping);
 
-	Triangle *get_triangles() override { return m_Triangles.data(); }
-	glm::vec4 *get_vertices() override { return m_CurrentVertices.data(); }
+	utils::array_proxy<Triangle> get_triangles() override { return m_Triangles; }
+	utils::array_proxy<glm::vec4> get_vertices() override { return m_CurrentVertices; }
 
-	[[nodiscard]] const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const override;
-	[[nodiscard]] const std::vector<rfw::simd::matrix4> &get_mesh_matrices() const override;
+	[[nodiscard]] utils::array_proxy<std::pair<size_t, rfw::Mesh>> get_meshes() const override;
+	[[nodiscard]] utils::array_proxy<rfw::simd::matrix4> get_mesh_matrices() const override;
 	[[nodiscard]] std::vector<bool> get_changed_meshes() override;
 	[[nodiscard]] std::vector<bool> get_changed_matrices() override;
 
 	[[nodiscard]] bool is_animated() const override { return !m_Animations.empty(); }
-	[[nodiscard]] const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags,
+	[[nodiscard]] utils::array_proxy<std::vector<int>> get_light_indices(const std::vector<bool> &matLightFlags,
 																		 bool reinitialize) override;
 
   protected:
@@ -256,4 +256,4 @@ class Object : public SceneTriangles
 	bool m_IsAnimated = false;
 	bool m_HasUpdated = false;
 };
-} // namespace rfw::geometry::asimp
+} // namespace rfw::geometry::assimp

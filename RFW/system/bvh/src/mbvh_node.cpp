@@ -1,4 +1,4 @@
-#include <bvh/BVH.h>
+#include <bvh/bvh.h>
 
 #include <rfw/utils/logger.h>
 

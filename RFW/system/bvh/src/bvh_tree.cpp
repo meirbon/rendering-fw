@@ -1,4 +1,4 @@
-#include <bvh/BVH.h>
+#include <bvh/bvh.h>
 
 #include <rfw/utils/timer.h>
 #include <rfw/utils/logger.h>
@@ -18,8 +18,8 @@ namespace rfw::bvh
 
 BVHTree::BVHTree()
 {
-	static_assert(sizeof(rtbvh::RTAABB) == sizeof(AABB));
-	static_assert(sizeof(rtbvh::RTBVHNode) == sizeof(BVHNode));
+	static_assert(sizeof(rtbvh::RTAabb) == sizeof(AABB));
+	static_assert(sizeof(rtbvh::RTBvhNode) == sizeof(BVHNode));
 };
 
 BVHTree::BVHTree(const glm::vec4 *vertices, int vertexCount) : vertex_count(vertexCount), face_count(vertexCount / 3)
@@ -49,36 +49,40 @@ void BVHTree::construct(Type type)
 {
 	reset();
 	std::vector<glm::vec4> centers(face_count);
-	const glm::vec4 *verts = vertices;
+	tbb::parallel_for(0, face_count,
+					  [&](int i)
+					  {
+						  if (indices)
+						  {
+							  const auto i0 = indices[i].x;
+							  const auto i1 = indices[i].y;
+							  const auto i2 = indices[i].z;
+							  centers[i] = (vertices[i0] + vertices[i1] + vertices[i2]) * (1.0f / 3.0f);
+						  }
+						  else
+						  {
+							  const auto i0 = i * 3 + 0;
+							  const auto i1 = i * 3 + 1;
+							  const auto i2 = i * 3 + 2;
+							  centers[i] = (vertices[i0] + vertices[i1] + vertices[i2]) * (1.0f / 3.0f);
+						  }
+					  });
 
-	tbb::parallel_for(0, face_count, [&](int i) {
-		if (indices)
-		{
-			const auto i0 = indices[i].x;
-			const auto i1 = indices[i].y;
-			const auto i2 = indices[i].z;
-			centers[i] = (vertices[i0] + vertices[i1] + vertices[i2]) * (1.0f / 3.0f);
-		}
-		else
-		{
-			const auto i0 = i * 3 + 0;
-			const auto i1 = i * 3 + 1;
-			const auto i2 = i * 3 + 2;
-			centers[i] = (vertices[i0] + vertices[i1] + vertices[i2]) * (1.0f / 3.0f);
-		}
-	});
-
+	rtbvh::RTBvh bvh{};
+	rtbvh::ResultCode error = rtbvh::ResultCode::Ok;
 	switch (type)
 	{
 	case Type::BinnedSAH:
-		instance = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), face_count,
-									 reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
-									 rtbvh::BVHType::BinnedSAH);
+		error = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAabb *>(aabbs.data()), face_count,
+								  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4), 1,
+								  rtbvh::BvhType::BinnedSAH, &bvh);
+		instance = std::make_optional(bvh);
 		break;
 	case Type::LocallyOrderedClustering:
-		instance = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), face_count,
-									 reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
-									 rtbvh::BVHType::LocallyOrderedClustered);
+		error = rtbvh::create_bvh(reinterpret_cast<const rtbvh::RTAabb *>(aabbs.data()), face_count,
+								  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4), 1,
+								  rtbvh::BvhType::LocallyOrderedClustered, &bvh);
+		instance = std::make_optional(bvh);
 		break;
 	case Type::SpatialSAH:
 	{
@@ -89,28 +93,31 @@ void BVHTree::construct(Type type)
 			verts = splat_vertices.data();
 		}
 
-		instance =
-			rtbvh::create_spatial_bvh(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), face_count,
-									  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
-									  reinterpret_cast<const float *>(verts), sizeof(glm::vec4), 3 * sizeof(glm::vec4));
+		error = rtbvh::create_spatial_Bvh(reinterpret_cast<const rtbvh::RTAabb *>(aabbs.data()), face_count,
+										  reinterpret_cast<const float *>(centers.data()), sizeof(glm::vec4),
+										  reinterpret_cast<const float *>(verts), sizeof(glm::vec4),
+										  3 * sizeof(glm::vec4), 1, &bvh);
+		instance = std::make_optional(bvh);
 		break;
 	}
 
 	default:
 		break;
 	}
+
+	assert(error == rtbvh::ResultCode::Ok);
 }
 
 void BVHTree::refit(const glm::vec4 *vertices)
 {
 	set_vertices(vertices);
-	rtbvh::refit(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), instance.value());
+	rtbvh::refit(reinterpret_cast<const rtbvh::RTAabb *>(aabbs.data()), instance.value());
 }
 
 void BVHTree::refit(const glm::vec4 *vertices, const glm::uvec3 *indices)
 {
 	set_vertices(vertices, indices);
-	rtbvh::refit(reinterpret_cast<const rtbvh::RTAABB *>(aabbs.data()), instance.value());
+	rtbvh::refit(reinterpret_cast<const rtbvh::RTAabb *>(aabbs.data()), instance.value());
 }
 
 bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx,
@@ -118,7 +125,8 @@ bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_mi
 {
 	return BVHNode::traverse_bvh(origin, dir, t_min, ray_t, primIdx,
 								 reinterpret_cast<const BVHNode *>(instance.value().nodes), instance.value().indices,
-								 [&](uint primID) {
+								 [&](uint primID)
+								 {
 									 const vec3 &p0 = p0s[primID];
 									 const vec3 &e1 = edge1s[primID];
 									 const vec3 &e2 = edge2s[primID];
@@ -163,7 +171,8 @@ bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_mi
 
 bool BVHTree::traverse(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float *ray_t, int *primIdx)
 {
-	const auto intersection = [&](uint primID) {
+	const auto intersection = [&](uint primID)
+	{
 		const vec3 &p0 = p0s[primID];
 		const vec3 &e1 = edge1s[primID];
 		const vec3 &e2 = edge2s[primID];
@@ -203,7 +212,8 @@ int BVHTree::traverse4(const float origin_x[4], const float origin_y[4], const f
 					   const float dir_y[4], const float dir_z[4], float t[4], int primID[4], float t_min,
 					   __m128 *hit_mask)
 {
-	const auto intersection = [&](const int primId, __m128 *store_mask) {
+	const auto intersection = [&](const int primId, __m128 *store_mask)
+	{
 		const vec3 &p0 = p0s[primId];
 		const vec3 &edge1 = edge1s[primId];
 		const vec3 &edge2 = edge2s[primId];
@@ -212,7 +222,8 @@ int BVHTree::traverse4(const float origin_x[4], const float origin_y[4], const f
 #if PER_RAY
 		bool result[4] = {false, false, false, false};
 
-		const auto t_intersect = [&](uint primID, vec3 org, vec3 dir, float *ray_t) {
+		const auto t_intersect = [&](uint primID, vec3 org, vec3 dir, float *ray_t)
+		{
 			const vec3 h = cross(dir, edge2);
 
 			const float a = dot(edge1, h);
@@ -352,37 +363,38 @@ int BVHTree::traverse4(const float origin_x[4], const float origin_y[4], const f
 
 bool BVHTree::traverse_shadow(const glm::vec3 &origin, const glm::vec3 &dir, float t_min, float t_max)
 {
-	return BVHNode::traverse_bvh_shadow(origin, dir, t_min, t_max,
-										reinterpret_cast<const BVHNode *>(instance.value().nodes),
-										instance.value().indices, [&](uint primID) {
-											const vec3 &p0 = p0s[primID];
-											const vec3 &e1 = edge1s[primID];
-											const vec3 &e2 = edge2s[primID];
+	return BVHNode::traverse_bvh_shadow(
+		origin, dir, t_min, t_max, reinterpret_cast<const BVHNode *>(instance.value().nodes), instance.value().indices,
+		[&](uint primID)
+		{
+			const vec3 &p0 = p0s[primID];
+			const vec3 &e1 = edge1s[primID];
+			const vec3 &e2 = edge2s[primID];
 
-											const vec3 h = cross(dir, e2);
+			const vec3 h = cross(dir, e2);
 
-											const float a = dot(e1, h);
-											if (a > -1e-6f && a < 1e-6f)
-												return false;
+			const float a = dot(e1, h);
+			if (a > -1e-6f && a < 1e-6f)
+				return false;
 
-											const float f = 1.f / a;
-											const vec3 s = origin - p0;
-											const float u = f * dot(s, h);
-											if (u < 0.0f || u > 1.0f)
-												return false;
+			const float f = 1.f / a;
+			const vec3 s = origin - p0;
+			const float u = f * dot(s, h);
+			if (u < 0.0f || u > 1.0f)
+				return false;
 
-											const vec3 q = cross(s, e1);
-											const float v = f * dot(dir, q);
-											if (v < 0.0f || u + v > 1.0f)
-												return false;
+			const vec3 q = cross(s, e1);
+			const float v = f * dot(dir, q);
+			if (v < 0.0f || u + v > 1.0f)
+				return false;
 
-											const float t = f * dot(e2, q);
+			const float t = f * dot(e2, q);
 
-											if (t > t_min && t_max > t) // ray intersection
-												return true;
+			if (t > t_min && t_max > t) // ray intersection
+				return true;
 
-											return false;
-										});
+			return false;
+		});
 }
 
 void BVHTree::set_vertices(const glm::vec4 *verts)
@@ -428,27 +440,29 @@ void BVHTree::set_vertices(const glm::vec4 *verts, const glm::uvec3 *ids)
 	edge2s.resize(face_count);
 	splat_vertices.resize(face_count * 3);
 
-	tbb::parallel_for(0, face_count, [&](int i) {
-		const uvec3 &idx = indices[i];
+	tbb::parallel_for(0, face_count,
+					  [&](int i)
+					  {
+						  const uvec3 &idx = indices[i];
 
-		const vec3 p0 = vec3(vertices[idx.x]);
-		const vec3 p1 = vec3(vertices[idx.y]);
-		const vec3 p2 = vec3(vertices[idx.z]);
+						  const vec3 p0 = vec3(vertices[idx.x]);
+						  const vec3 p1 = vec3(vertices[idx.y]);
+						  const vec3 p2 = vec3(vertices[idx.z]);
 
-		splat_vertices[i * 3 + 0] = vec4(p0, 1.0f);
-		splat_vertices[i * 3 + 1] = vec4(p1, 1.0f);
-		splat_vertices[i * 3 + 2] = vec4(p2, 1.0f);
+						  splat_vertices[i * 3 + 0] = vec4(p0, 1.0f);
+						  splat_vertices[i * 3 + 1] = vec4(p1, 1.0f);
+						  splat_vertices[i * 3 + 2] = vec4(p2, 1.0f);
 
-		aabbs[i] = AABB::invalid();
-		aabbs[i].grow(p0);
-		aabbs[i].grow(p1);
-		aabbs[i].grow(p2);
-		aabbs[i].offset_by(1e-5f);
+						  aabbs[i] = AABB::invalid();
+						  aabbs[i].grow(p0);
+						  aabbs[i].grow(p1);
+						  aabbs[i].grow(p2);
+						  aabbs[i].offset_by(1e-5f);
 
-		p0s[i] = p0;
-		edge1s[i] = p1 - p0;
-		edge2s[i] = p2 - p0;
-	});
+						  p0s[i] = p0;
+						  edge1s[i] = p1 - p0;
+						  edge2s[i] = p2 - p0;
+					  });
 }
 
 AABB BVHTree::get_aabb() const { return reinterpret_cast<const BVHNode *>(instance.value().nodes)[0].bounds; }

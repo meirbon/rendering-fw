@@ -2,9 +2,7 @@
 
 #include <rfw/math.h>
 
-namespace rfw
-{
-namespace bvh
+namespace rfw::bvh
 {
 struct alignas(8) AABB
 {
@@ -51,7 +49,8 @@ struct alignas(8) AABB
 	[[nodiscard]] float center(unsigned int axis) const;
 
 	float bmin[3];
+	int32_t count;
 	float bmax[3];
+	int32_t left_first;
 };
-} // namespace bvh
 } // namespace rfw

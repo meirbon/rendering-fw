@@ -910,33 +910,35 @@ void assimp::Object::updateTriangles()
 	m_Triangles.resize(m_Indices.size());
 
 #if USE_PARALLEL_FOR
-	tbb::parallel_for(0, static_cast<int>(m_Meshes.size()), [&](int i) {
-		const auto &mesh = m_Meshes[i];
+	tbb::parallel_for(0, static_cast<int>(m_Meshes.size()),
+					  [&](int i)
+					  {
+						  const auto &mesh = m_Meshes[i];
 
-		for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
-		{
-			const auto triIdx = i + mesh.faceOffset;
+						  for (int i = 0, s = static_cast<int>(mesh.faceCount); i < s; i++)
+						  {
+							  const auto triIdx = i + mesh.faceOffset;
 
-			Triangle &tri = m_Triangles.at(triIdx);
-			const glm::uvec3 &indices = m_Indices.at(triIdx) + mesh.vertexOffset;
+							  Triangle &tri = m_Triangles.at(triIdx);
+							  const glm::uvec3 &indices = m_Indices.at(triIdx) + mesh.vertexOffset;
 
-			tri.vN0 = m_CurrentNormals[indices.x];
-			tri.vN1 = m_CurrentNormals[indices.y];
-			tri.vN2 = m_CurrentNormals[indices.z];
+							  tri.vN0 = m_CurrentNormals[indices.x];
+							  tri.vN1 = m_CurrentNormals[indices.y];
+							  tri.vN2 = m_CurrentNormals[indices.z];
 
-			tri.vertex0 = m_CurrentVertices[indices.x];
-			tri.vertex1 = m_CurrentVertices[indices.y];
-			tri.vertex2 = m_CurrentVertices[indices.z];
+							  tri.vertex0 = m_CurrentVertices[indices.x];
+							  tri.vertex1 = m_CurrentVertices[indices.y];
+							  tri.vertex2 = m_CurrentVertices[indices.z];
 
-			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
-				N *= -1.0f; // flip if not consistent with vertex normals
+							  vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+							  if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+								  N *= -1.0f; // flip if not consistent with vertex normals
 
-			tri.Nx = N.x;
-			tri.Ny = N.y;
-			tri.Nz = N.z;
-		}
-	});
+							  tri.Nx = N.x;
+							  tri.Ny = N.y;
+							  tri.Nz = N.z;
+						  }
+					  });
 #else
 	for (const auto &mesh : m_Meshes)
 	{
@@ -971,41 +973,43 @@ void assimp::Object::updateTriangles(const std::vector<glm::vec2> &uvs)
 {
 	m_Triangles.resize(m_Indices.size());
 
-	tbb::parallel_for(0, static_cast<int>(m_Meshes.size()), [&](int i) {
-		const auto &mesh = m_Meshes[i];
-		for (size_t i = 0, s = mesh.faceCount; i < s; i++)
-		{
-			const glm::uvec3 &indices = m_Indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
-			Triangle &tri = m_Triangles[i + mesh.faceOffset];
+	tbb::parallel_for(0, static_cast<int>(m_Meshes.size()),
+					  [&](int i)
+					  {
+						  const auto &mesh = m_Meshes[i];
+						  for (size_t i = 0, s = mesh.faceCount; i < s; i++)
+						  {
+							  const glm::uvec3 &indices = m_Indices.at(i + mesh.faceOffset) + mesh.vertexOffset;
+							  Triangle &tri = m_Triangles[i + mesh.faceOffset];
 
-			tri.vN0 = m_CurrentNormals[indices.x];
-			tri.vN1 = m_CurrentNormals[indices.y];
-			tri.vN2 = m_CurrentNormals[indices.z];
+							  tri.vN0 = m_CurrentNormals[indices.x];
+							  tri.vN1 = m_CurrentNormals[indices.y];
+							  tri.vN2 = m_CurrentNormals[indices.z];
 
-			tri.vertex0 = m_CurrentVertices[indices.x];
-			tri.vertex1 = m_CurrentVertices[indices.y];
-			tri.vertex2 = m_CurrentVertices[indices.z];
+							  tri.vertex0 = m_CurrentVertices[indices.x];
+							  tri.vertex1 = m_CurrentVertices[indices.y];
+							  tri.vertex2 = m_CurrentVertices[indices.z];
 
-			vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
-			if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
-				N *= -1.0f; // flip if not consistent with vertex normals
+							  vec3 N = normalize(cross(tri.vertex1 - tri.vertex0, tri.vertex2 - tri.vertex0));
+							  if (dot(N, tri.vN0) < 0.0f && dot(N, tri.vN1) < 0.0f && dot(N, tri.vN2) < 0.0f)
+								  N *= -1.0f; // flip if not consistent with vertex normals
 
-			tri.u0 = uvs[indices.x].x;
-			tri.v0 = uvs[indices.x].y;
+							  tri.u0 = uvs[indices.x].x;
+							  tri.v0 = uvs[indices.x].y;
 
-			tri.u1 = uvs[indices.y].x;
-			tri.v1 = uvs[indices.y].y;
+							  tri.u1 = uvs[indices.y].x;
+							  tri.v1 = uvs[indices.y].y;
 
-			tri.u2 = uvs[indices.z].x;
-			tri.v2 = uvs[indices.z].y;
+							  tri.u2 = uvs[indices.z].x;
+							  tri.v2 = uvs[indices.z].y;
 
-			tri.Nx = N.x;
-			tri.Ny = N.y;
-			tri.Nz = N.z;
+							  tri.Nx = N.x;
+							  tri.Ny = N.y;
+							  tri.Nz = N.z;
 
-			tri.material = m_MaterialIndices[i + mesh.faceOffset];
-		}
-	});
+							  tri.material = m_MaterialIndices[i + mesh.faceOffset];
+						  }
+					  });
 }
 
 size_t assimp::Object::traverseNode(const aiNode *node, int parentIdx, std::vector<AssimpNode> *storage,
@@ -1048,7 +1052,7 @@ size_t assimp::Object::traverseNode(const aiNode *node, int parentIdx, std::vect
 	return currentNodeIndex;
 }
 
-const std::vector<std::vector<int>> &assimp::Object::get_light_indices(const std::vector<bool> &matLightFlags,
+utils::array_proxy<std::vector<int>> assimp::Object::get_light_indices(const std::vector<bool> &matLightFlags,
 																	   bool reinitialize)
 {
 	// TODO: rewrite to initialize per mesh
@@ -1075,9 +1079,9 @@ const std::vector<std::vector<int>> &assimp::Object::get_light_indices(const std
 	return m_LightIndices;
 }
 
-const std::vector<std::pair<size_t, rfw::Mesh>> &assimp::Object::get_meshes() const { return m_RfwMeshes; }
+utils::array_proxy<std::pair<size_t, rfw::Mesh>> assimp::Object::get_meshes() const { return m_RfwMeshes; }
 
-const std::vector<rfw::simd::matrix4> &assimp::Object::get_mesh_matrices() const { return m_MeshTransforms; }
+utils::array_proxy<rfw::simd::matrix4> assimp::Object::get_mesh_matrices() const { return m_MeshTransforms; }
 
 std::vector<bool> assimp::Object::get_changed_meshes()
 {
@@ -1137,7 +1141,7 @@ glm::mat4 assimp::Object::AnimationChannel::getInterpolatedTRS(float time) const
 		}
 	}
 
-	keyIndex = keyIndex % (positionKeys.size() - 1);
+	keyIndex = keyIndex % static_cast<int>(positionKeys.size() - 1);
 
 	assert(keyIndex < positionKeys.size());
 	deltaTime = positionKeys.at(keyIndex + 1).time - positionKeys.at(keyIndex).time;

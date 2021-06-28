@@ -1,6 +1,7 @@
 #pragma once
 
 #include <rfw/context/structs.h>
+#include <rfw/utils/array_proxy.h>
 
 namespace rfw
 {
@@ -22,23 +23,23 @@ namespace geometry
 class SceneTriangles
 {
   public:
-	friend class system;
+	friend class rfw::system;
 
 	SceneTriangles() = default;
 	virtual ~SceneTriangles() = default;
 
 	virtual void set_time(float timeInSeconds = 0.0f){};
 
-	virtual const std::vector<std::pair<size_t, rfw::Mesh>> &get_meshes() const = 0;
-	virtual const std::vector<simd::matrix4> &get_mesh_matrices() const = 0;
-	virtual const std::vector<std::vector<int>> &get_light_indices(const std::vector<bool> &matLightFlags,
+	virtual utils::array_proxy<std::pair<size_t, rfw::Mesh>> get_meshes() const = 0;
+	virtual utils::array_proxy<simd::matrix4> get_mesh_matrices() const = 0;
+	virtual utils::array_proxy<std::vector<int>> get_light_indices(const std::vector<bool> &matLightFlags,
 																   bool reinitialize = false) = 0;
 
 	virtual std::vector<bool> get_changed_meshes() = 0;
 	virtual std::vector<bool> get_changed_matrices() = 0;
 
-	virtual Triangle *get_triangles() = 0;
-	virtual glm::vec4 *get_vertices() = 0;
+	virtual utils::array_proxy<Triangle> get_triangles() = 0;
+	virtual utils::array_proxy<glm::vec4> get_vertices() = 0;
 	virtual bool is_animated() const { return false; }
 
   protected:

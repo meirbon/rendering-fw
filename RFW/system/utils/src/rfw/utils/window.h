@@ -16,8 +16,7 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 
-#include "Logger.h"
-#include "../../../../../../../../../../vcpkg/installed/x64-windows/include/GLFW/glfw3.h"
+#include "logger.h"
 
 namespace rfw::utils
 {

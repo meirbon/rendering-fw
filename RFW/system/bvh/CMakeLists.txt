@@ -4,9 +4,6 @@ file(GLOB_RECURSE SOURCES src/*.cpp)
 file(GLOB_RECURSE HEADERS src/*.h)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES} ${HEADERS})
-if (${CMAKE_VERSION} VERSION_GREATER "3.16.0" OR ${CMAKE_VERSION} VERSION_EQUAL "3.16.0")
-	target_precompile_headers(${PROJECT_NAME} PUBLIC "${PROJECT_SOURCE_DIR}/include/bvh/BVH.h")
-endif ()
 
 include(ExternalProject)
 set_directory_properties(PROPERTIES EP_PREFIX ${CMAKE_BINARY_DIR}/Rust)
@@ -29,7 +26,7 @@ endif ()
 ExternalProject_Add(
 		rtbvh_rs
 		GIT_REPOSITORY "https://github.com/MeirBon/rtbvh.git"
-		GIT_TAG "master"
+		GIT_TAG "0.5.2"
 		GIT_SHALLOW ON
 		CONFIGURE_COMMAND ""
 		BUILD_COMMAND cargo build --quiet --manifest-path=${CMAKE_BINARY_DIR}/Rust/src/rtbvh_rs/rtbvh_ffi/Cargo.toml
@@ -37,17 +34,16 @@ ExternalProject_Add(
 		INSTALL_COMMAND ""
 		LOG_BUILD ON
 		BUILD_BYPRODUCTS ${RTBVH_BYPRODUCTS}
+		UPDATE_DISCONNECTED ON
 )
 
-add_dependencies(${PROJECT_NAME} rtbvh_rs)
-
 add_library(rtbvh SHARED IMPORTED GLOBAL)
+
+add_dependencies(rtbvh rtbvh_rs)
 
 set_property(TARGET rtbvh PROPERTY IMPORTED_LOCATION ${RTBVH_IMPL})
 if (WIN32)
 	set_property(TARGET rtbvh PROPERTY IMPORTED_IMPLIB ${RTBVH_LIB})
-else (WIN32)
-
 endif (WIN32)
 
 add_custom_command(TARGET rtbvh_rs
@@ -60,7 +56,6 @@ add_custom_command(TARGET rtbvh_rs
 		)
 
 find_package(glm CONFIG REQUIRED)
-
 
 target_link_libraries(${PROJECT_NAME} PUBLIC rtbvh)
 target_include_directories(${PROJECT_NAME} PUBLIC rtbvh)

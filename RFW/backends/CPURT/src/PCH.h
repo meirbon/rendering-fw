@@ -26,7 +26,7 @@
 
 #include "Ray.h"
 
-#include <bvh/AABB.h>
+#include <bvh/aabb.h>
 
 #include "Triangle.h"
 

@@ -1,6 +1,6 @@
 #include "rfw.h"
 
-#include "Internal.h"
+#include "internal.h"
 
 #define SKYCDF(x, y)                                                                                                   \
 	cdf[RadicalInverse8bit(y) + x * (IBLHEIGHT + 1)] // columns stored sequentially for better cache coherence
